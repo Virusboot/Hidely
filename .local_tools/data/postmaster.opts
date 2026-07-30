@@ -1,0 +1,1 @@
+/Users/harshbhardwaj/Desktop/Harsh/Apps/Hidely_new/.local_tools/postgres/16/bin/postgres "-D" "/Users/harshbhardwaj/Desktop/Harsh/Apps/Hidely_new/.local_tools/data" "-p" "5432" "-h" "localhost"

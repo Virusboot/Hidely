@@ -1,0 +1,807 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:hidely_new/screens/create_media_screen.dart';
+import 'edit_profile_screen.dart';
+import 'leaderboard_screen.dart';
+import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/services/api_service.dart';
+import 'package:hidely_new/screens/single_post_view_screen.dart';
+import 'settings_and_privacy_screen.dart';
+import 'package:hidely_new/widgets/user_avatar.dart';
+import 'package:url_launcher/url_launcher.dart';
+class UserProfileScreen extends StatefulWidget {
+  final bool isFromLeaderboard;
+  const UserProfileScreen({super.key, this.isFromLeaderboard = false});
+
+  static dynamic activeState;
+
+  @override
+  State<UserProfileScreen> createState() => _UserProfileScreenState();
+}
+
+class _UserProfileScreenState extends State<UserProfileScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  
+  bool _isLoading = true;
+  String _username = '';
+  String _name = '';
+  String _bio = '';
+  String _pronouns = '';
+  String _profilePic = '';
+
+  String get _cleanBio {
+    String clean = _bio;
+    final RegExp instaReg = RegExp(r'Instagram:\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false);
+    final RegExp ytReg = RegExp(r'YouTube:\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false);
+
+    clean = clean.replaceAll(instaReg, '').replaceAll(ytReg, '').trim();
+    return clean;
+  }
+
+  String get _instagramUrl {
+    final RegExp instaReg = RegExp(r'Instagram:\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false);
+    final match = instaReg.firstMatch(_bio);
+    if (match != null) {
+      String val = match.group(1) ?? '';
+      if (!val.startsWith('http')) {
+        if (val.startsWith('@')) {
+          val = val.substring(1);
+        }
+        val = 'https://instagram.com/$val';
+      }
+      return val;
+    }
+    return '';
+  }
+
+  String get _youtubeUrl {
+    final RegExp ytReg = RegExp(r'YouTube:\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false);
+    final match = ytReg.firstMatch(_bio);
+    if (match != null) {
+      String val = match.group(1) ?? '';
+      if (!val.startsWith('http')) {
+        if (val.startsWith('@')) {
+          val = val.substring(1);
+        }
+        val = 'https://youtube.com/@$val';
+      }
+      return val;
+    }
+    return '';
+  }
+  int _postsCount = 0;
+  int _followersCount = 0;
+  int _followingsCount = 0;
+  List<dynamic> _userPosts = [];
+  List<dynamic> _savedPosts = [];
+  String _rankBadge = "NOVICE";
+
+  @override
+  void initState() {
+    super.initState();
+    UserProfileScreen.activeState = this;
+    _tabController = TabController(length: 3, vsync: this);
+    _loadProfileData();
+  }
+
+  @override
+  void dispose() {
+    if (UserProfileScreen.activeState == this) {
+      UserProfileScreen.activeState = null;
+    }
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void reload() {
+    _loadProfileData();
+  }
+
+  Future<void> _loadProfileData() async {
+    final token = AuthService().token ?? '';
+    if (token.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Load profile
+      final profileResult = await ApiService().getUserProfile(token: token);
+      if (profileResult.success) {
+        final userData = profileResult.data?['user'];
+        if (userData != null) {
+          _username = userData['username'] ?? '';
+          _name = userData['name'] ?? '';
+          _bio = userData['bio'] ?? '';
+          _pronouns = userData['pronouns'] ?? '';
+          _profilePic = userData['profile_picture'] ?? '';
+          _postsCount = userData['posts_count'] ?? 0;
+          _followersCount = userData['followers_count'] ?? 0;
+          _followingsCount = userData['followings_count'] ?? 0;
+        }
+      }
+
+      // Load posts
+      final postsResult = await ApiService().getUserPosts(
+        userId: AuthService().userId,
+        token: token,
+      );
+      if (postsResult.success) {
+        final postsList = postsResult.data?['posts'];
+        if (postsList != null) {
+          _userPosts = postsList;
+          if (_userPosts.length > _postsCount) {
+            _postsCount = _userPosts.length;
+          }
+        }
+      }
+
+      // Load saved posts
+      final savedResult = await ApiService().getSavedPosts(token: token);
+      if (savedResult.success) {
+        // Check multiple keys to be extremely resilient to backend schema changes
+        final savedList = savedResult.data?['saved'] ?? 
+                          savedResult.data?['bookmarks'] ?? 
+                          savedResult.data?['posts'] ?? 
+                          (savedResult.data is List ? savedResult.data : null);
+        if (savedList != null) {
+          _savedPosts = savedList as List;
+        }
+      }
+
+      // Fetch leaderboard to get rank
+      final lbResult = await ApiService().getLeaderboard();
+      if (lbResult.success) {
+        final lb = lbResult.data?['leaderboard'] as List? ?? [];
+        int rankIndex = lb.indexWhere((u) {
+          if (u is Map) {
+            return u['id']?.toString() == AuthService().userId;
+          }
+          return false;
+        });
+        // Only assign earned badge if user has at least 1 post
+        if (_postsCount > 0) {
+          if (rankIndex == 0) {
+            _rankBadge = "DIAMONDS";
+          } else if (rankIndex == 1) {
+            _rankBadge = "GOLD";
+          } else if (rankIndex == 2) {
+            _rankBadge = "SILVER";
+          } else if (rankIndex > 2) {
+            _rankBadge = "EXPLORER";
+          } else {
+            _rankBadge = "NOVICE";
+          }
+        } else {
+          _rankBadge = "NOVICE";
+        }
+      }
+    } catch (e) {
+      debugPrint('[UserProfileScreen] Error loading profile data: $e');
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+
+
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xffF6F9FC),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xffE0F2FE),
+              Color(0xffFDF7FF),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // --- 1. TOP BRAND HEADER BAR ---
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0, vertical: 12.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    widget.isFromLeaderboard
+                        ? GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                             child: Center(child: Image.asset('assets/images/back_icon.png', color: const Color(0xff1C0D5A), width: 22.0, height: 22.0)),
+                          )
+                        : GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const CreateMediaScreen(),
+                                ),
+                              );
+                            },
+                            child: const Icon(Icons.add,
+                                color: Color(0xff1C0D5A), size: 26),
+                          ),
+                    Text(
+                      _name.isNotEmpty ? _name : (_username.isNotEmpty ? _username : (AuthService().userName.isNotEmpty ? AuthService().userName : 'User')),
+                      style: const TextStyle(
+                          color: Color(0xff1C0D5A),
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.3),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const SettingsAndPrivacyScreen(),
+                          ),
+                        ).then((_) => _loadProfileData());
+                      },
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: const BoxDecoration(
+                            color: Colors.white, shape: BoxShape.circle),
+                        child: Center(
+                          child: Image.asset(
+                            'assets/icons/Menu.png',
+                            width: 22,
+                            height: 22,
+                            color: const Color(0xff1C0D5A),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // --- 2. PROFILE PICTURE & STATS (GOLD RANK) ---
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20.0, vertical: 10.0),
+                child: Row(
+                  children: [
+                    Stack(
+                      alignment: Alignment.bottomCenter,
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(3.0),
+                          decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(colors: [
+                                Color(0xff4F46E5),
+                                Color(0xff9333EA)
+                              ])),
+                          child: UserAvatar(
+                            avatarUrl: _profilePic,
+                            displayName: _name.isNotEmpty ? _name : _username,
+                            radius: 42,
+                            fontSize: 32,
+                          ),
+                        ),
+                        Positioned(
+                          bottom: -8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xff2B1564),
+                              borderRadius: BorderRadius.circular(10),
+                              border:
+                                  Border.all(color: Colors.white, width: 1.5),
+                            ),
+                            child: Text(
+                              _rankBadge,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.4),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Expanded(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildMetaStatColumn("$_postsCount", "hidelys"),
+                          _buildMetaStatColumn("$_followersCount", "followers"),
+                          _buildMetaStatColumn(
+                              _followingsCount >= 1000 
+                                  ? '${(_followingsCount/1000).toStringAsFixed(1)}k' 
+                                  : '$_followingsCount', 
+                              "following"),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // --- 3. BIO PANEL ---
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          _name.isNotEmpty ? _name : AuthService().userName,
+                          style: const TextStyle(
+                              color: Color(0xff1C0D5A),
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        if (_pronouns.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            '($_pronouns)',
+                            style: const TextStyle(
+                                color: Colors.black38,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ]
+                      ],
+                    ),
+                    if (_cleanBio.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        _cleanBio,
+                        style: TextStyle(
+                            color: const Color(0xff1C0D5A).withOpacity(0.75),
+                            fontSize: 14,
+                            height: 1.35,
+                            fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                    if (_instagramUrl.isNotEmpty || _youtubeUrl.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          if (_instagramUrl.isNotEmpty) ...[
+                            GestureDetector(
+                              onTap: () async {
+                                final uri = Uri.parse(_instagramUrl);
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xffF1F5F9),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Image.network(
+                                      'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/600px-Instagram_icon.png',
+                                      width: 14,
+                                      height: 14,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      'Instagram',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                          if (_instagramUrl.isNotEmpty && _youtubeUrl.isNotEmpty) const SizedBox(width: 8),
+                          if (_youtubeUrl.isNotEmpty) ...[
+                            GestureDetector(
+                              onTap: () async {
+                                final uri = Uri.parse(_youtubeUrl);
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xffF1F5F9),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Image.network(
+                                      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/YouTube_full-color_icon_%282017%29.svg/512px-YouTube_full-color_icon_%282017%29.svg.png',
+                                      width: 16,
+                                      height: 11,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      'YouTube',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // --- 4. ACTION BUTTONS ---
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Row(
+                  children: [
+                    // Edit Profile Button
+                    Expanded(
+                      child: Container(
+                        height: 46,
+                        decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.black12)),
+                        child: TextButton(
+                          onPressed: () async {
+                            // Edit screen se return hone ka wait karo
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      const EditProfileScreen()),
+                            );
+
+                            // Agar edit hua, toh profile data refresh karo (profile pic + bio sab)
+                            if (result == true) {
+                              _loadProfileData();
+                            }
+                          },
+                          child: const Text("Edit Profile",
+                              style: TextStyle(
+                                  color: Color(0xff1C0D5A),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // View Leaderboard Button
+                    Expanded(
+                      child: Container(
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: const Color(0xff2B1564), // Primary app filled button color
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+                          ],
+                        ),
+                        child: TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const LeaderboardScreen(),
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            "View Leaderboard",
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // --- 5. TABS ROW ---
+              Container(
+                color: Colors.white.withOpacity(0.4),
+                child: TabBar(
+                  controller: _tabController,
+                  indicatorColor: const Color(0xff2B1564),
+                  labelColor: const Color(0xff2B1564),
+                  unselectedLabelColor: Colors.black38,
+                  tabs: const [
+                    Tab(icon: Icon(Icons.grid_view_rounded, size: 22)),
+                    Tab(icon: Icon(Icons.movie_creation_outlined, size: 22)),
+                    Tab(icon: Icon(Icons.bookmark_border_rounded, size: 22)),
+                  ],
+                ),
+              ),
+
+              // --- 6. MASONRY DISPLAY CANVAS ---
+              Expanded(
+                child: _isLoading && _userPosts.isEmpty
+                    ? const SizedBox.shrink()
+                    : TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildPersonalGridStream(),
+                          const Center(
+                              child: Icon(Icons.movie_creation_outlined,
+                                  size: 40, color: Colors.grey)),
+                          _buildSavedGridStream(),
+                        ],
+                      ),
+              ),
+              SizedBox(
+                  height: 110 +
+                      MediaQuery.of(context)
+                          .padding
+                          .bottom), // Clearance for the floating bottom nav bar
+            ],
+          ),
+        ),
+      ),
+    ),);
+  }
+
+
+  Widget _buildMetaStatColumn(String count, String label) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(count,
+            style: const TextStyle(
+                color: Color(0xff1C0D5A),
+                fontSize: 20,
+                fontWeight: FontWeight.bold)),
+        const SizedBox(height: 2),
+        Text(label,
+            style: const TextStyle(
+                color: Colors.black38,
+                fontSize: 12,
+                fontWeight: FontWeight.w500)),
+      ],
+    );
+  }
+
+  Widget _buildPersonalGridStream() {
+    if (_userPosts.isEmpty) {
+      return const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.photo_library_outlined, size: 48, color: Colors.black38),
+          SizedBox(height: 12),
+          Text(
+            "No Posts Yet",
+            style: TextStyle(
+                color: Color(0xff1C0D5A),
+                fontSize: 15,
+                fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 4),
+          Text(
+            "Upload your first travel memory!",
+            style: TextStyle(
+                color: Colors.black38,
+                fontSize: 13,
+                fontWeight: FontWeight.w500),
+          ),
+        ],
+      );
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(2),
+      physics: const BouncingScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 2,
+        crossAxisSpacing: 2,
+        childAspectRatio: 1.0,
+      ),
+      itemCount: _userPosts.length,
+      itemBuilder: (context, index) {
+        final post = _userPosts[index];
+        final String imagePath = post["image_url"]?.toString() ?? post["image"]?.toString() ?? "";
+        final String lowerPath = imagePath.toLowerCase();
+        final bool isVideo = lowerPath.endsWith('.mp4') || lowerPath.endsWith('.mov') || lowerPath.endsWith('.mkv') || lowerPath.endsWith('.avi');
+        final bool isNetwork = imagePath.startsWith("http") || imagePath.startsWith("uploads");
+        final bool hasImage = imagePath.isNotEmpty;
+
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SinglePostViewScreen(post: post),
+              ),
+            ).then((_) {
+              _loadProfileData();
+            });
+          },
+          child: Container(
+            color: const Color(0xffCBD5E1),
+            child: !hasImage
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.image_not_supported_outlined, color: Colors.white70, size: 20),
+                        SizedBox(height: 4),
+                        Text(
+                          "No Image",
+                          style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  )
+                : isVideo
+                    ? const Center(
+                        child: Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 40),
+                      )
+                    : isNetwork
+                    ? Image.network(
+                        imagePath.startsWith("http") ? imagePath : '${ApiService().baseUrl}/$imagePath',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => const Center(
+                          child: Icon(Icons.broken_image_outlined, color: Colors.white54),
+                        ),
+                      )
+                    : Image.asset(
+                        imagePath,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => const Center(
+                          child: Icon(Icons.broken_image_outlined, color: Colors.white54),
+                        ),
+                      ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSavedGridStream() {
+    if (_savedPosts.isEmpty) {
+      return const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.bookmark_border_rounded, size: 48, color: Colors.black38),
+          SizedBox(height: 12),
+          Text(
+            "No Saved Posts Yet",
+            style: TextStyle(
+                color: Color(0xff1C0D5A),
+                fontSize: 15,
+                fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 4),
+          Text(
+            "Posts you bookmark will appear here.",
+            style: TextStyle(
+                color: Colors.black38,
+                fontSize: 13,
+                fontWeight: FontWeight.w500),
+          ),
+        ],
+      );
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(2),
+      physics: const BouncingScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 2,
+        crossAxisSpacing: 2,
+        childAspectRatio: 1.0,
+      ),
+      itemCount: _savedPosts.length,
+      itemBuilder: (context, index) {
+        final rawPost = _savedPosts[index];
+        // Resolve nested 'post' relation if present (typical in bookmark schema)
+        final Map<String, dynamic> post = rawPost is Map && rawPost["post"] != null && rawPost["post"] is Map
+            ? Map<String, dynamic>.from(rawPost["post"] as Map)
+            : Map<String, dynamic>.from(rawPost as Map);
+
+        final String imagePath = post["image_url"]?.toString() ?? post["image"]?.toString() ?? "";
+        final bool isNetwork = imagePath.startsWith("http") || imagePath.startsWith("uploads");
+        final bool hasImage = imagePath.isNotEmpty;
+
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SinglePostViewScreen(post: post),
+              ),
+            ).then((_) {
+              _loadProfileData();
+            });
+          },
+          child: Hero(
+            tag: 'saved_post_${post["id"]}',
+            child: Container(
+              color: const Color(0xffCBD5E1),
+              child: !hasImage
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.image_not_supported_outlined, color: Colors.white70, size: 20),
+                          SizedBox(height: 4),
+                          Text(
+                            "No Image",
+                            style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    )
+                  : isNetwork
+                      ? Image.network(
+                          imagePath.startsWith("http") ? imagePath : '${ApiService().baseUrl}/$imagePath',
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => const Center(
+                            child: Icon(Icons.broken_image_outlined, color: Colors.white54),
+                          ),
+                        )
+                      : Image.asset(
+                          imagePath,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => const Center(
+                            child: Icon(Icons.broken_image_outlined, color: Colors.white54),
+                          ),
+                        ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

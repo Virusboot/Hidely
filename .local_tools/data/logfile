@@ -1,0 +1,1894 @@
+2026-07-14 10:38:40.924 IST [7895] LOG:  starting PostgreSQL 16.14 (Postgres.app) on aarch64-apple-darwin21.6.0, compiled by Apple clang version 14.0.0 (clang-1400.0.29.102), 64-bit
+2026-07-14 10:38:40.926 IST [7895] LOG:  listening on IPv6 address "::1", port 5432
+2026-07-14 10:38:40.926 IST [7895] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2026-07-14 10:38:40.928 IST [7895] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-07-14 10:38:40.932 IST [7898] LOG:  database system was shut down at 2026-07-14 10:38:40 IST
+2026-07-14 10:38:40.936 IST [7895] LOG:  database system is ready to accept connections
+2026-07-14 10:43:40.932 IST [7896] LOG:  checkpoint starting: time
+2026-07-14 10:45:18.789 IST [7896] LOG:  checkpoint complete: wrote 974 buffers (5.9%); 0 WAL file(s) added, 0 removed, 0 recycled; write=97.838 s, sync=0.014 s, total=97.858 s; sync files=340, longest=0.001 s, average=0.001 s; distance=4569 kB, estimate=4569 kB; lsn=0/197C7D0, redo lsn=0/197C798
+2026-07-14 11:53:40.967 IST [7896] LOG:  checkpoint starting: time
+2026-07-14 11:53:42.100 IST [7896] LOG:  checkpoint complete: wrote 12 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=1.113 s, sync=0.006 s, total=1.134 s; sync files=11, longest=0.002 s, average=0.001 s; distance=1 kB, estimate=4112 kB; lsn=0/197CEA0, redo lsn=0/197CE68
+2026-07-14 11:58:40.110 IST [7896] LOG:  checkpoint starting: time
+2026-07-14 11:58:40.937 IST [7896] LOG:  checkpoint complete: wrote 9 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.816 s, sync=0.003 s, total=0.828 s; sync files=9, longest=0.002 s, average=0.001 s; distance=2 kB, estimate=3701 kB; lsn=0/197D6B0, redo lsn=0/197D678
+2026-07-14 11:58:50.835 IST [12329] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 11:58:50.835 IST [12329] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 11:58:50.835 IST [12329] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 12:03:40.897 IST [7896] LOG:  checkpoint starting: time
+2026-07-14 12:03:41.419 IST [7896] LOG:  checkpoint complete: wrote 6 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.514 s, sync=0.002 s, total=0.523 s; sync files=5, longest=0.001 s, average=0.001 s; distance=1 kB, estimate=3331 kB; lsn=0/197DC00, redo lsn=0/197DBC8
+2026-07-14 12:37:15.558 IST [14283] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 12:37:15.558 IST [14283] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 12:37:15.558 IST [14283] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 12:37:42.644 IST [14313] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 12:37:42.644 IST [14313] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 12:37:42.644 IST [14313] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 12:38:45.412 IST [14401] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 12:38:45.412 IST [14401] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 12:38:45.412 IST [14401] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 12:53:13.003 IST [15693] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 12:53:13.003 IST [15693] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 12:53:13.003 IST [15693] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 12:53:40.367 IST [7896] LOG:  checkpoint starting: time
+2026-07-14 12:53:42.248 IST [7896] LOG:  checkpoint complete: wrote 19 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=1.867 s, sync=0.004 s, total=1.882 s; sync files=16, longest=0.001 s, average=0.001 s; distance=52 kB, estimate=3003 kB; lsn=0/198ACE8, redo lsn=0/198ACB0
+2026-07-14 12:54:10.040 IST [15731] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 12:54:10.040 IST [15731] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 12:54:10.040 IST [15731] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 13:00:42.358 IST [16057] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 13:00:42.358 IST [16057] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 13:00:42.358 IST [16057] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 13:00:50.419 IST [16065] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 13:00:50.419 IST [16065] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 13:00:50.419 IST [16065] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 14:11:26.798 IST [17761] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 14:11:26.798 IST [17761] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 14:11:26.798 IST [17761] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 14:15:15.954 IST [17971] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 14:15:15.954 IST [17971] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 14:15:15.954 IST [17971] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 14:16:14.454 IST [18015] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 14:16:14.454 IST [18015] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 14:16:14.454 IST [18015] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 14:17:20.481 IST [18065] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 14:17:20.481 IST [18065] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 14:17:20.481 IST [18065] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 14:17:52.220 IST [18082] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 14:17:52.220 IST [18082] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 14:17:52.220 IST [18082] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 16:09:31.038 IST [24097] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 16:09:31.038 IST [24097] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 16:09:31.038 IST [24097] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 16:09:57.154 IST [24119] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 16:09:57.154 IST [24119] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 16:09:57.154 IST [24119] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 16:10:20.227 IST [24138] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 16:10:20.227 IST [24138] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 16:10:20.227 IST [24138] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 16:29:02.847 IST [25256] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 16:29:02.847 IST [25256] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 16:29:02.847 IST [25256] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 16:30:22.374 IST [25317] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 16:30:22.374 IST [25317] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 16:30:22.374 IST [25317] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 16:30:40.833 IST [25331] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 16:30:40.833 IST [25331] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 16:30:40.833 IST [25331] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 16:40:33.327 IST [25964] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 16:40:33.327 IST [25964] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 16:40:33.327 IST [25964] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 16:40:46.255 IST [25974] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 16:40:46.255 IST [25974] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 16:40:46.255 IST [25974] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 17:51:17.730 IST [29348] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 17:51:17.730 IST [29348] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 17:51:17.730 IST [29348] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 18:01:14.751 IST [30107] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 18:01:14.751 IST [30107] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 18:01:14.751 IST [30107] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 18:09:32.824 IST [30781] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 18:09:32.824 IST [30781] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 18:09:32.824 IST [30781] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-14 18:10:43.786 IST [30922] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-14 18:10:43.786 IST [30922] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-14 18:10:43.786 IST [30922] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-15 10:01:27.724 IST [775] LOG:  starting PostgreSQL 16.14 (Postgres.app) on aarch64-apple-darwin21.6.0, compiled by Apple clang version 14.0.0 (clang-1400.0.29.102), 64-bit
+2026-07-15 10:01:27.730 IST [775] LOG:  listening on IPv6 address "::1", port 5432
+2026-07-15 10:01:27.730 IST [775] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2026-07-15 10:01:27.733 IST [775] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-07-15 10:01:27.746 IST [778] LOG:  database system was interrupted; last known up at 2026-07-14 12:53:42 IST
+2026-07-15 10:01:28.008 IST [778] LOG:  database system was not properly shut down; automatic recovery in progress
+2026-07-15 10:01:28.013 IST [778] LOG:  redo starts at 0/198ACB0
+2026-07-15 10:01:28.013 IST [778] LOG:  invalid record length at 0/198AD98: expected at least 24, got 0
+2026-07-15 10:01:28.013 IST [778] LOG:  redo done at 0/198AD60 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+2026-07-15 10:01:28.019 IST [776] LOG:  checkpoint starting: end-of-recovery immediate wait
+2026-07-15 10:01:28.024 IST [776] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.006 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/198AD98, redo lsn=0/198AD98
+2026-07-15 10:01:28.032 IST [775] LOG:  database system is ready to accept connections
+2026-07-15 10:43:47.900 IST [2825] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-15 10:43:47.900 IST [2825] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-15 10:43:47.900 IST [2825] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-15 11:15:12.485 IST [4328] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-15 11:15:12.485 IST [4328] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-15 11:15:12.485 IST [4328] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-15 11:16:45.020 IST [4479] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-15 11:16:45.020 IST [4479] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-15 11:16:45.020 IST [4479] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-15 11:21:52.672 IST [4908] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-15 11:21:52.672 IST [4908] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-15 11:21:52.672 IST [4908] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-15 11:32:40.757 IST [5434] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-15 11:32:40.757 IST [5434] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-15 11:32:40.757 IST [5434] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-15 11:33:15.914 IST [5457] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-15 11:33:15.914 IST [5457] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-15 11:33:15.914 IST [5457] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-15 11:52:40.147 IST [6592] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-15 11:52:40.147 IST [6592] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-15 11:52:40.147 IST [6592] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-15 14:22:56.202 IST [14168] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-15 14:22:56.202 IST [14168] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-15 14:22:56.202 IST [14168] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-15 14:23:50.945 IST [14209] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-15 14:23:50.945 IST [14209] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-15 14:23:50.945 IST [14209] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-15 14:24:31.249 IST [14242] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-15 14:24:31.249 IST [14242] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-15 14:24:31.249 IST [14242] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-15 14:36:12.128 IST [776] LOG:  checkpoint starting: time
+2026-07-15 14:36:12.988 IST [776] LOG:  checkpoint complete: wrote 9 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.847 s, sync=0.001 s, total=0.865 s; sync files=9, longest=0.001 s, average=0.001 s; distance=4 kB, estimate=4 kB; lsn=0/198BF68, redo lsn=0/198BF30
+2026-07-16 10:09:54.175 IST [25425] LOG:  could not receive data from client: Connection reset by peer
+2026-07-16 15:50:35.340 IST [93789] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-16 15:50:35.340 IST [93789] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-16 15:50:35.340 IST [93789] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-16 16:07:57.262 IST [95717] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-16 16:07:57.262 IST [95717] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-16 16:07:57.262 IST [95717] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-16 16:12:20.353 IST [96186] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-16 16:12:20.353 IST [96186] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-16 16:12:20.353 IST [96186] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-16 16:14:46.624 IST [96486] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-16 16:14:46.624 IST [96486] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-16 16:14:46.624 IST [96486] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-16 16:14:46.692 IST [96492] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-16 16:14:46.692 IST [96492] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-16 16:14:46.692 IST [96492] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-16 16:28:31.804 IST [44339] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-16 16:28:31.804 IST [44339] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-16 16:28:31.804 IST [44339] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-16 16:36:40.913 IST [47434] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-16 16:36:40.913 IST [47434] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-16 16:36:40.913 IST [47434] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-16 16:43:06.674 IST [49786] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-16 16:43:06.674 IST [49786] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-16 16:43:06.674 IST [49786] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-16 16:49:09.131 IST [51995] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-16 16:49:09.131 IST [51995] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-16 16:49:09.131 IST [51995] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-16 16:59:47.986 IST [60059] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-16 16:59:47.986 IST [60059] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-16 16:59:47.986 IST [60059] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-16 17:00:08.206 IST [60359] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-16 17:00:08.206 IST [60359] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-16 17:00:08.206 IST [60359] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-16 17:55:52.506 IST [76183] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-16 17:55:52.506 IST [76183] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-16 17:55:52.506 IST [76183] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-17 11:07:23.837 IST [16105] LOG:  starting PostgreSQL 16.14 (Postgres.app) on aarch64-apple-darwin21.6.0, compiled by Apple clang version 14.0.0 (clang-1400.0.29.102), 64-bit
+2026-07-17 11:07:23.841 IST [16105] LOG:  listening on IPv6 address "::1", port 5432
+2026-07-17 11:07:23.841 IST [16105] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2026-07-17 11:07:23.844 IST [16105] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-07-17 11:07:23.857 IST [16108] LOG:  database system was interrupted; last known up at 2026-07-15 14:36:12 IST
+2026-07-17 11:07:24.015 IST [16108] LOG:  database system was not properly shut down; automatic recovery in progress
+2026-07-17 11:07:24.019 IST [16108] LOG:  redo starts at 0/198BF30
+2026-07-17 11:07:24.019 IST [16108] LOG:  invalid record length at 0/198C030: expected at least 24, got 0
+2026-07-17 11:07:24.019 IST [16108] LOG:  redo done at 0/198BFE0 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+2026-07-17 11:07:24.024 IST [16106] LOG:  checkpoint starting: end-of-recovery immediate wait
+2026-07-17 11:07:24.029 IST [16106] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.006 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/198C030, redo lsn=0/198C030
+2026-07-17 11:07:24.031 IST [16105] LOG:  database system is ready to accept connections
+2026-07-17 16:53:00.438 IST [16106] LOG:  checkpoint starting: time
+2026-07-17 16:53:00.857 IST [16106] LOG:  checkpoint complete: wrote 5 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.412 s, sync=0.002 s, total=0.421 s; sync files=5, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/198C420, redo lsn=0/198C3E8
+2026-07-17 16:58:00.860 IST [16106] LOG:  checkpoint starting: time
+2026-07-17 16:58:01.175 IST [16106] LOG:  checkpoint complete: wrote 4 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.304 s, sync=0.001 s, total=0.315 s; sync files=4, longest=0.001 s, average=0.001 s; distance=1 kB, estimate=1 kB; lsn=0/198C980, redo lsn=0/198C948
+2026-07-17 17:36:20.111 IST [47930] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-17 17:36:20.111 IST [47930] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-17 17:36:20.111 IST [47930] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-17 17:36:31.577 IST [47945] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-17 17:36:31.577 IST [47945] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-17 17:36:31.577 IST [47945] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-17 17:38:00.193 IST [16106] LOG:  checkpoint starting: time
+2026-07-17 17:38:01.015 IST [16106] LOG:  checkpoint complete: wrote 9 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.817 s, sync=0.002 s, total=0.823 s; sync files=9, longest=0.001 s, average=0.001 s; distance=5 kB, estimate=5 kB; lsn=0/198DED8, redo lsn=0/198DEA0
+2026-07-17 17:41:02.210 IST [48276] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-17 17:41:02.210 IST [48276] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-17 17:41:02.210 IST [48276] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-17 17:41:13.148 IST [48311] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-17 17:41:13.148 IST [48311] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-17 17:41:13.148 IST [48311] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-17 17:41:21.224 IST [48324] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-17 17:41:21.224 IST [48324] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-17 17:41:21.224 IST [48324] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-17 17:41:30.003 IST [48335] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-17 17:41:30.003 IST [48335] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-17 17:41:30.003 IST [48335] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-17 17:43:00.017 IST [16106] LOG:  checkpoint starting: time
+2026-07-17 17:43:02.860 IST [16106] LOG:  checkpoint complete: wrote 29 buffers (0.2%); 0 WAL file(s) added, 0 removed, 0 recycled; write=2.832 s, sync=0.007 s, total=2.844 s; sync files=22, longest=0.002 s, average=0.001 s; distance=8 kB, estimate=8 kB; lsn=0/198FEF0, redo lsn=0/198FEB8
+2026-07-20 08:59:24.997 IST [70974] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-20 08:59:24.997 IST [70974] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-20 08:59:24.997 IST [70974] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-20 09:00:33.605 IST [16106] LOG:  checkpoint starting: time
+2026-07-20 09:00:34.396 IST [16106] LOG:  checkpoint complete: wrote 8 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.778 s, sync=0.003 s, total=0.792 s; sync files=8, longest=0.002 s, average=0.001 s; distance=6 kB, estimate=7 kB; lsn=0/19918F8, redo lsn=0/19918C0
+2026-07-20 09:16:34.744 IST [72498] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-20 09:16:34.744 IST [72498] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-20 09:16:34.744 IST [72498] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-20 09:34:12.917 IST [74090] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-20 09:34:12.917 IST [74090] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-20 09:34:12.917 IST [74090] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-20 09:40:59.681 IST [74606] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-20 09:40:59.681 IST [74606] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-20 09:40:59.681 IST [74606] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-20 09:48:24.819 IST [75420] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-20 09:48:24.819 IST [75420] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-20 09:48:24.819 IST [75420] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-20 09:58:42.451 IST [76741] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-20 09:58:42.451 IST [76741] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-20 09:58:42.451 IST [76741] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-20 10:03:39.798 IST [77409] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-20 10:03:39.798 IST [77409] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-20 10:03:39.798 IST [77409] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-20 10:44:02.924 IST [80839] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-20 10:44:02.924 IST [80839] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-20 10:44:02.924 IST [80839] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-20 10:46:07.873 IST [81015] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-20 10:46:07.873 IST [81015] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-20 10:46:07.873 IST [81015] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-20 11:15:43.473 IST [83701] ERROR:  invalid input syntax for type integer: "NaN"
+2026-07-20 11:15:43.473 IST [83701] CONTEXT:  unnamed portal parameter $1 = '...'
+2026-07-20 11:15:43.473 IST [83701] STATEMENT:  SELECT 
+	        p.id, 
+	        p.caption, 
+	        p.image_url, 
+	        p.location, 
+	        p.category, 
+	        p.likes_count, 
+	        p.created_at,
+	        u.id AS author_id,
+	        u.name AS author_name,
+	        u.username AS author_username,
+	        u.profile_picture AS author_profile_picture,
+	        COALESCE(
+	          (SELECT TRUE FROM post_likes WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_liked,
+	        COALESCE(
+	          (SELECT TRUE FROM post_bookmarks WHERE post_id = p.id AND user_id = $2 LIMIT 1), 
+	          FALSE
+	        ) AS is_bookmarked,
+	        COALESCE(
+	          (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id), 
+	          0
+	        ) AS comments_count
+	      FROM posts p
+	      INNER JOIN users u ON p.user_id = u.id
+	      WHERE p.id = $1
+2026-07-20 12:08:47.011 IST [16105] LOG:  received smart shutdown request
+2026-07-20 12:08:47.015 IST [16105] LOG:  background worker "logical replication launcher" (PID 16111) exited with exit code 1
+2026-07-20 12:08:47.015 IST [16106] LOG:  shutting down
+2026-07-20 12:08:48.024 IST [16106] LOG:  checkpoint starting: shutdown immediate
+2026-07-20 12:08:48.039 IST [16106] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.006 s, sync=0.001 s, total=1.025 s; sync files=0, longest=0.000 s, average=0.000 s; distance=0 kB, estimate=7 kB; lsn=0/19919A8, redo lsn=0/19919A8
+2026-07-20 12:08:48.048 IST [16105] LOG:  database system is shut down
+2026-07-24 10:09:10.241 IST [4993] LOG:  starting PostgreSQL 16.14 (Postgres.app) on aarch64-apple-darwin21.6.0, compiled by Apple clang version 14.0.0 (clang-1400.0.29.102), 64-bit
+2026-07-24 10:09:10.245 IST [4993] LOG:  listening on IPv6 address "::1", port 5432
+2026-07-24 10:09:10.246 IST [4993] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2026-07-24 10:09:10.247 IST [4993] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-07-24 10:09:10.258 IST [4996] LOG:  database system was shut down at 2026-07-20 12:08:48 IST
+2026-07-24 10:09:10.267 IST [4993] LOG:  database system is ready to accept connections
+2026-07-24 10:14:10.256 IST [4994] LOG:  checkpoint starting: time
+2026-07-24 10:14:10.265 IST [4994] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.001 s, total=0.010 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/1991A90, redo lsn=0/1991A58

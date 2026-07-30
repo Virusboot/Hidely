@@ -1,0 +1,38 @@
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    ext.flutter = [
+        compileSdkVersion: 34,
+        targetSdkVersion: 34,
+        minSdkVersion: 21,
+        ndkVersion: "25.1.8937393"
+    ]
+}
+
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(":app")
+    tasks.withType(JavaCompile) {
+        options.compilerArgs.remove("-Werror")
+        options.compilerArgs << "-Xlint:-options"
+    }
+    project.plugins.whenPluginAdded { plugin ->
+        if (plugin.class.name.startsWith("com.android.build.gradle.LibraryPlugin") || 
+            plugin.class.name.startsWith("com.android.build.gradle.AppPlugin")) {
+            project.android {
+                if (namespace == null) {
+                    namespace = "dev.isar." + project.name.replaceAll("-", "_")
+                }
+            }
+        }
+    }
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}

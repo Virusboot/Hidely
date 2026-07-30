@@ -1,0 +1,5 @@
+# postgis topology extension
+comment = 'PostGIS SFCGAL functions'
+default_version = '3.4.6'
+relocatable = true
+requires = postgis

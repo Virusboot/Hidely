@@ -1,0 +1,3 @@
+-- Just tag extension postgis_tiger_geocoder version as "ANY"
+-- Installed by postgis_tiger_geocoder 3.4.6
+-- Built on 2026-05-13 23:39:27
