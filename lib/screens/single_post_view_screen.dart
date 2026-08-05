@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/screens/location_detail_screen.dart';
@@ -162,11 +163,10 @@ class _SinglePostViewScreenState extends State<SinglePostViewScreen> {
                 controller: _scrollController,
                 child: Column(
                   children: List.generate(_posts.length, (index) {
-                    final Map<String, dynamic> post = Map<String, dynamic>.from(_posts[index]);
-                    
+                    final post = _posts[index];
                     final id = post["id"];
                     final String caption = post["caption"] ?? "";
-                    final String location = post["location"] ?? "";
+                    final String location = post["location"] ?? "Unknown";
                     
                     String displayLocation = location;
                     if (location.isNotEmpty) {
@@ -369,10 +369,12 @@ class _SinglePostViewScreenState extends State<SinglePostViewScreen> {
                                   ? Image.file(post["image"] as File, fit: BoxFit.cover)
                                   : (isAsset
                                       ? Image.asset(imageUrl, fit: BoxFit.cover)
-                                      : Image.network(
-                                          imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
+                                      : CachedNetworkImage(
+                                          imageUrl: imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
                                           fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) => Container(
+                                          memCacheWidth: 1080,
+                                          placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
+                                          errorWidget: (context, url, error) => Container(
                                             color: const Color(0xffCBD5E1),
                                             child: const Icon(Icons.image, color: Colors.white24, size: 40),
                                           ),

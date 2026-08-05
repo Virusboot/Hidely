@@ -4,6 +4,7 @@ import 'package:hidely_new/screens/location_detail_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/data/official_posts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -580,6 +581,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         ),
                       )
                     : GridView.builder(
+                        cacheExtent: 1000,
                         padding: EdgeInsets.only(
                           left: 0.0,
                           right: 0.0,
@@ -625,10 +627,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                       child: Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 40),
                                     )
                                   : isNetwork
-                                  ? Image.network(
-                                      imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
+                                  ? CachedNetworkImage(
+                                      imageUrl: imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
                                       fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) => Container(
+                                      memCacheWidth: 450,
+                                      memCacheHeight: 560,
+                                      placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
+                                      errorWidget: (context, url, error) => Container(
                                         color: const Color(0xffCBD5E1),
                                         child: const Icon(Icons.landscape_outlined, color: Colors.white38),
                                       ),

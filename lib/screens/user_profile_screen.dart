@@ -12,6 +12,7 @@ import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:hidely_new/widgets/empty_state.dart';
 import 'package:hidely_new/widgets/explorer_badge.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final bool isFromLeaderboard;
@@ -1029,6 +1030,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
     return GridView.builder(
       padding: const EdgeInsets.all(2),
+      cacheExtent: 1000,
       physics: const BouncingScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
@@ -1091,10 +1093,13 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                         child: Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 40),
                       )
                     : isNetwork
-                    ? Image.network(
-                        imagePath.startsWith("http") ? imagePath : '${ApiService().baseUrl}/$imagePath',
+                    ? CachedNetworkImage(
+                        imageUrl: imagePath.startsWith("http") ? imagePath : '${ApiService().baseUrl}/$imagePath',
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const Center(
+                        memCacheWidth: 400,
+                        memCacheHeight: 400,
+                        placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
+                        errorWidget: (context, url, error) => const Center(
                           child: Icon(Icons.broken_image_outlined, color: Colors.white54),
                         ),
                       )
@@ -1122,6 +1127,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
     return GridView.builder(
       padding: const EdgeInsets.all(2),
+      cacheExtent: 1000,
       physics: const BouncingScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
@@ -1180,10 +1186,13 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                       ),
                     )
                   : isNetwork
-                      ? Image.network(
-                          imagePath.startsWith("http") ? imagePath : '${ApiService().baseUrl}/$imagePath',
+                      ? CachedNetworkImage(
+                          imageUrl: imagePath.startsWith("http") ? imagePath : '${ApiService().baseUrl}/$imagePath',
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => const Center(
+                          memCacheWidth: 400,
+                          memCacheHeight: 400,
+                          placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
+                          errorWidget: (context, url, error) => const Center(
                             child: Icon(Icons.broken_image_outlined, color: Colors.white54),
                           ),
                         )

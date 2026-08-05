@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:hidely_new/services/api_service.dart';
 
@@ -22,11 +23,12 @@ class UserAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasImage = avatarUrl != null && avatarUrl!.trim().isNotEmpty;
-    final bg = backgroundColor ?? const Color(0xffEFEFEF); // Light grey like instagram
-    final tc = textColor ?? const Color(0xff9E9E9E); // Grey icon
+    final bg = backgroundColor ?? const Color(0xffEFEFEF);
+    final tc = textColor ?? const Color(0xff9E9E9E);
     
     final double diameter = radius * 2;
     final double iconSize = fontSize ?? (radius * 1.2);
+    final int pixelSize = (diameter * 2.5).round();
 
     Widget fallbackChild = Container(
       width: diameter,
@@ -66,28 +68,13 @@ class UserAvatar extends StatelessWidget {
       child: SizedBox(
         width: diameter,
         height: diameter,
-        child: Image.network(
-          resolvedUrl,
+        child: CachedNetworkImage(
+          imageUrl: resolvedUrl,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            debugPrint("Error loading avatar image ($resolvedUrl): $error");
-            return fallbackChild;
-          },
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              color: const Color(0xffCBD5E1),
-              alignment: Alignment.center,
-              child: const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              ),
-            );
-          },
+          memCacheWidth: pixelSize,
+          memCacheHeight: pixelSize,
+          placeholder: (context, url) => Container(color: const Color(0xffE2E8F0)),
+          errorWidget: (context, url, error) => fallbackChild,
         ),
       ),
     );

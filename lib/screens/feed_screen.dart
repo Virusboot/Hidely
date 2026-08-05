@@ -13,6 +13,7 @@ import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:hidely_new/widgets/post_options_bottom_sheet.dart';
 import 'package:hidely_new/data/official_posts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 
 class FeedScreen extends StatefulWidget {
@@ -270,6 +271,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         onRefresh: _loadFeed,
                         color: const Color(0xff2B1564),
                         child: ListView.builder(
+                          cacheExtent: 1500,
                           physics: const AlwaysScrollableScrollPhysics(
                             parent: BouncingScrollPhysics(),
                           ),
@@ -637,10 +639,14 @@ class _FeedScreenState extends State<FeedScreen> {
                         ? Image.file(post["image"] as File, fit: BoxFit.cover)
                         : (isAsset
                             ? Image.asset(imageUrl, fit: BoxFit.cover)
-                            : Image.network(
-                                imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
+                            : CachedNetworkImage(
+                                imageUrl: imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => Container(
+                                memCacheWidth: 1080,
+                                placeholder: (context, url) => Container(
+                                  color: const Color(0xffF1F5F9),
+                                ),
+                                errorWidget: (context, url, error) => Container(
                                   color: const Color(0xffCBD5E1),
                                   child: const Icon(Icons.image, color: Colors.white24, size: 40),
                                 ),
