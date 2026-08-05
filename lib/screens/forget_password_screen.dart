@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hidely_new/screens/otp_verification_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
+import 'package:hidely_new/widgets/custom_snackbar.dart';
 
 class ForgetPasswordScreen extends StatefulWidget {
   const ForgetPasswordScreen({super.key});
@@ -224,35 +225,6 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
 
   // Premium Floating SnackBar Method matching Login/SignUp design
   void _showCustomSnackBar(BuildContext context, String message, {required bool isError}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isError ? Icons.error_outline : Icons.check_circle_outline,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: isError ? Colors.redAccent.shade700 : const Color(0xff2B1564),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    showHidelySnackBar(context, message, isError: isError);
   }
 }

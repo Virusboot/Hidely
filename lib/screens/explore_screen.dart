@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:hidely_new/screens/location_detail_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/data/official_posts.dart';
+
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
 
@@ -110,8 +112,34 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     if (mounted) {
       setState(() {
-        if (result.success) {
-          List<dynamic> posts = result.data?['posts'] ?? [];
+        List<dynamic> posts = result.success ? (result.data?['posts'] as List? ?? []) : [];
+
+        // Filter official posts based on search query
+        List<dynamic> matchingOfficial = officialHidelyPosts;
+        if (_searchQuery.isNotEmpty) {
+          final q = _searchQuery.toLowerCase();
+          matchingOfficial = officialHidelyPosts.where((p) {
+            final title = (p['title'] ?? '').toString().toLowerCase();
+            final loc = (p['location'] ?? '').toString().toLowerCase();
+            final cat = (p['category_name'] ?? p['category'] ?? '').toString().toLowerCase();
+            return title.contains(q) || loc.contains(q) || cat.contains(q);
+          }).toList();
+        }
+
+        final List<dynamic> merged = [...matchingOfficial, ...posts];
+        final Set<String> seenImages = {};
+        final List<dynamic> uniquePosts = [];
+        for (var p in merged) {
+          final img = p['image_url']?.toString() ?? p['image']?.toString() ?? '';
+          if (img.isNotEmpty) {
+            if (seenImages.contains(img)) {
+              continue;
+            }
+            seenImages.add(img);
+          }
+          uniquePosts.add(p);
+        }
+        posts = uniquePosts;
           
           // Apply local multi-filters BEFORE sorting
           if (!_selectedCategories.contains("All") && _selectedCategories.isNotEmpty) {
@@ -167,11 +195,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
             });
           }
           _filteredPosts = posts;
-        } else {
-          _filteredPosts = [];
-        }
-      });
-    }
+        });
+      }
   }
 
   void _filterPosts() {
@@ -185,11 +210,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Container(
+              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               decoration: const BoxDecoration(
                 color: Colors.white,
@@ -197,7 +225,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ),
               child: SafeArea(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Center(
@@ -210,7 +237,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -222,24 +249,41 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        TextButton(
-                          onPressed: () {
-                            setModalState(() {
-                              localCategories = ["All"];
-                              localCities = ["All"];
-                            });
-                          },
-                          child: const Text(
-                            "Reset All",
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontWeight: FontWeight.bold,
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                setModalState(() {
+                                  localCategories = ["All"];
+                                  localCities = ["All"];
+                                });
+                              },
+                              child: const Text(
+                                "Reset All",
+                                style: TextStyle(
+                                  color: Colors.redAccent,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          ),
+                            IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(Icons.close_rounded, color: Color(0xff1C0D5A), size: 24),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                     const SizedBox(height: 24),
+                    
+                    Expanded(
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                     
                     
                     // --- Categories ---
@@ -252,45 +296,64 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: List.generate(_categories.length, (index) {
-                        final cat = _categories[index];
-                        final bool isSelected = localCategories.contains(cat);
-                        return GestureDetector(
-                           onTap: () {
-                             setModalState(() {
-                               if (cat == "All") {
-                                 localCategories = ["All"];
-                               } else {
-                                 localCategories.remove("All");
-                                 if (isSelected) {
-                                   localCategories.remove(cat);
-                                   if (localCategories.isEmpty) localCategories.add("All");
-                                 } else {
-                                   localCategories.add(cat);
-                                 }
-                               }
-                             });
-                           },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xff2B1564) : const Color(0xffF1F5F9),
-                              borderRadius: BorderRadius.circular(20),
+                    SizedBox(
+                      height: 38,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        clipBehavior: Clip.none,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: _categories.length,
+                        itemBuilder: (context, index) {
+                          final cat = _categories[index];
+                          final bool isSelected = localCategories.contains(cat);
+                          final bool isLast = index == _categories.length - 1;
+                          return Padding(
+                            padding: EdgeInsets.only(right: isLast ? 24.0 : 8.0),
+                            child: Builder(
+                              builder: (chipContext) {
+                                return GestureDetector(
+                                  onTap: () {
+                                    setModalState(() {
+                                      if (cat == "All") {
+                                        localCategories = ["All"];
+                                      } else {
+                                        localCategories.remove("All");
+                                        if (isSelected) {
+                                          localCategories.remove(cat);
+                                          if (localCategories.isEmpty) localCategories.add("All");
+                                        } else {
+                                          localCategories.add(cat);
+                                        }
+                                      }
+                                    });
+                                    Scrollable.ensureVisible(
+                                      chipContext,
+                                      duration: const Duration(milliseconds: 300),
+                                      curve: Curves.easeInOut,
+                                      alignment: 0.5,
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? const Color(0xff2B1564) : const Color(0xffF1F5F9),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      cat,
+                                      style: TextStyle(
+                                        color: isSelected ? Colors.white : const Color(0xff1C0D5A).withOpacity(0.7),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                            child: Text(
-                              cat,
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : const Color(0xff1C0D5A).withOpacity(0.7),
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
+                          );
+                        },
+                      ),
                     ),
                     const SizedBox(height: 20),
 
@@ -308,13 +371,24 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        "All",
-                        "Nainital",
-                        "Dehradun",
-                        "Rishikesh",
-                        "Shimla",
-                        "Manali",
-                        "Mussoorie"
+                        "All", "Agra", "Ahmedabad", "Ajmer", "Alappuzha", "Amritsar", 
+                        "Andaman", "Aurangabad", "Ayodhya", "Badrinath", "Bangalore", 
+                        "Bhopal", "Bhubaneswar", "Bikaner", "Chandigarh", "Chennai", 
+                        "Cherrapunji", "Coimbatore", "Coorg", "Dalhousie", "Darjeeling", 
+                        "Dehradun", "Delhi", "Dharamshala", "Dwarka", "Gangtok", 
+                        "Goa", "Gokarna", "Gulmarg", "Gurgaon", "Guwahati", 
+                        "Gwalior", "Hampi", "Haridwar", "Hyderabad", "Indore", 
+                        "Jaipur", "Jaisalmer", "Jammu", "Jodhpur", "Kanpur", 
+                        "Kanyakumari", "Kasauli", "Kashmir", "Kedarnath", "Kochi", 
+                        "Kodaikanal", "Kolkata", "Kovalam", "Kullu", "Ladakh", 
+                        "Lansdowne", "Leh", "Lonavala", "Lucknow", "Madurai", 
+                        "Mahabaleshwar", "Manali", "Mangalore", "Mathura", "Mount Abu", 
+                        "Mumbai", "Munnar", "Mussoorie", "Mysore", "Nainital", 
+                        "Ooty", "Pahalgam", "Patna", "Pondicherry", "Pune", 
+                        "Puri", "Pushkar", "Ranchi", "Ranthambore", "Rishikesh", 
+                        "Shillong", "Shimla", "Siliguri", "Sonmarg", "Srinagar", 
+                        "Surat", "Tirupati", "Trivandrum", "Udaipur", "Ujjain", 
+                        "Vadodara", "Varanasi", "Visakhapatnam", "Vrindavan", "Wayanad"
                       ].map((city) {
                         final bool isSelected = localCities.contains(city);
                         return GestureDetector(
@@ -351,7 +425,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         );
                       }).toList(),
                     ),
-                    const SizedBox(height: 32),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
 
                     // --- Apply Button ---
                     SizedBox(
@@ -483,65 +561,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 ),
               ),
 
-              // --- 2. HORIZONTAL CATEGORIES BAR ---
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10.0),
-                child: SizedBox(
-                  height: 38,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    clipBehavior: Clip.none,
-                    padding: const EdgeInsets.only(left: 20.0, right: 20.0),
-                    itemCount: _categories.length,
-                    itemBuilder: (context, index) {
-                      final String cat = _categories[index];
-                      final bool isSelected = _selectedCategories.contains(cat);
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              if (cat == "All") {
-                                _selectedCategories = ["All"];
-                              } else {
-                                _selectedCategories.remove("All");
-                                if (isSelected) {
-                                  _selectedCategories.remove(cat);
-                                  if (_selectedCategories.isEmpty) _selectedCategories.add("All");
-                                } else {
-                                  _selectedCategories.add(cat);
-                                }
-                              }
-                            });
-                            _fetchExplorePosts();
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xff2B1564) : Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: isSelected ? Colors.transparent : Colors.black.withOpacity(0.05),
-                                width: 1,
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                cat,
-                                style: TextStyle(
-                                  color: isSelected ? Colors.white : const Color(0xff1C0D5A).withOpacity(0.85),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
+
 
               // --- 3. STAGGERED PINTEREST-STYLE GRID DISPLAY ---
               Expanded(
@@ -550,7 +570,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.landscape_outlined, size: 48, color: Colors.black26),
+                            Icon(Icons.landscape_outlined, size: 36, color: Colors.black26),
                             SizedBox(height: 12),
                             Text(
                               "No matching wonders found",

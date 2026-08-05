@@ -54,84 +54,37 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _requestAllPermissions() async {
-    // Request all required permissions at once on first launch
-    final statuses = await [
+    // Request all required permissions together in a single native prompt batch
+    await [
       Permission.location,
       Permission.camera,
       Permission.microphone,
       Permission.photos,
       Permission.videos,
       Permission.audio,
+      Permission.notification,
     ].request();
-
-    // Check if location was permanently denied — guide user to settings
-    if (statuses[Permission.location] == PermissionStatus.permanentlyDenied) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Text(
-              "Location Required",
-              style: TextStyle(color: Color(0xff1C0D5A), fontWeight: FontWeight.bold),
-            ),
-            content: const Text(
-              "Hidely needs location access to show hidden wonders near you. Please enable it in App Settings.",
-              style: TextStyle(color: Colors.black54, fontSize: 14),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text("Later", style: TextStyle(color: Colors.black54)),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xff2B1564),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  openAppSettings();
-                },
-                child: const Text("Open Settings"),
-              ),
-            ],
-          ),
-        );
-      }
-    }
   }
 
   Future<void> _initializeApp() async {
     try {
-      // 0. Request all permissions upfront on first launch
-      await _requestAllPermissions();
-
-      // 1. Initialize Auth Session
-      setState(() => _statusMessage = "Restoring session...");
-      await AuthService().init().timeout(const Duration(seconds: 4), onTimeout: () {
-        debugPrint('[Splash] AuthService init timed out');
-      });
-
-      // 2. Initialize API Service
-      if (!mounted) return;
-      setState(() => _statusMessage = "Connecting to universe...");
-      await ApiService().init().timeout(const Duration(seconds: 4), onTimeout: () {
-        debugPrint('[Splash] ApiService init timed out');
-      });
-
-      // 3. Initialize Local Storage (Isar Database)
-      if (!mounted) return;
-      setState(() => _statusMessage = "Syncing local database...");
-      final localStorageService = LocalStorageService();
-      await localStorageService.init().timeout(const Duration(seconds: 5), onTimeout: () {
-        debugPrint('[Splash] LocalStorage init timed out');
-      });
+      // 1. Initialize all services and request permissions concurrently
+      setState(() => _statusMessage = "Loading Hidely...");
+      await Future.wait([
+        _requestAllPermissions(),
+        AuthService().init().timeout(const Duration(seconds: 4), onTimeout: () {
+          debugPrint('[Splash] AuthService init timed out');
+        }),
+        ApiService().init().timeout(const Duration(seconds: 4), onTimeout: () {
+          debugPrint('[Splash] ApiService init timed out');
+        }),
+        LocalStorageService().init().timeout(const Duration(seconds: 5), onTimeout: () {
+          debugPrint('[Splash] LocalStorage init timed out');
+        }),
+      ]);
 
       // Wait a fraction of a second to show loaded state for smooth transition
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.delayed(const Duration(milliseconds: 300));
 
       if (!mounted) return;
 
@@ -139,6 +92,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
+          settings: const RouteSettings(name: "/main"),
           pageBuilder: (context, animation, secondaryAnimation) =>
               isLoggedIn ? const MainWrapper() : const OnboardingController(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -201,21 +155,42 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 children: [
                   // Beautiful soft ambient glow in the center background
                   Center(
-                    child: Container(
-                      width: 250,
-                      height: 250,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xff9333EA).withOpacity(0.15),
-                        // Soft blur to act as background light
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xff9333EA).withOpacity(0.2),
-                            blurRadius: 100,
-                            spreadRadius: 30,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 250,
+                          height: 250,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xff9333EA).withOpacity(0.15),
+                            // Soft blur to act as background light
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xff9333EA).withOpacity(0.2),
+                                blurRadius: 100,
+                                spreadRadius: 30,
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                        // Logo / Brand Name
+                        Image.asset(
+                          'assets/images/logo_horizontal.png',
+                          width: 240,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => const Text(
+                            'HIDELY',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 3.5,
+                              fontFamily: 'serif',
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
@@ -223,24 +198,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Spacer(flex: 3),
-
-                      // Logo / Brand Name
-                      Image.asset(
-                        'assets/images/logo_horizontal.png',
-                        width: 240,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) => const Text(
-                          'HIDELY',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 3.5,
-                            fontFamily: 'serif',
-                          ),
-                        ),
-                      ),
+                      const Spacer(flex: 5),
 
                       const Spacer(flex: 2),
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/screens/map_discovery_screen.dart';
 import 'package:hidely_new/screens/main_wrapper.dart';
 import 'package:hidely_new/services/auth_service.dart';
@@ -32,7 +33,10 @@ class _StayDetailScreenState extends State<StayDetailScreen> {
     final String reviews = stay["reviews"] ?? "(0 reviews)";
     final String description = stay["description"] ?? "";
     final String image = stay["image"] ?? "assets/images/onboarding_bg.jpg";
+    final List<dynamic> images = stay["images"] ?? [image];
     final String tag = stay["tag"] ?? "HOTEL";
+    final String? hidelyUsername = stay["hidely_username"];
+    final String? hidelyAvatar = stay["hidely_avatar"];
 
     // Set amenities list based on category
     final List<Map<String, dynamic>> amenities = (category == "Restaurants" || category == "Rasturents")
@@ -112,30 +116,62 @@ class _StayDetailScreenState extends State<StayDetailScreen> {
                       );
                     },
                     child: Container(
+                      alignment: Alignment.center,
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.4),
+                        color: Colors.white,
                         shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      child: Icon(
-                        _isFavorite ? Icons.favorite : Icons.favorite_border_rounded,
-                        color: _isFavorite ? Colors.redAccent : Colors.white,
-                        size: 20,
-                      ),
+                      child: _isFavorite
+                          ? const Icon(
+                              Icons.favorite,
+                              color: Colors.redAccent,
+                              size: 20,
+                            )
+                          : Image.asset(
+                              'assets/icons/icon-park-outline_like.png',
+                              color: const Color(0xff1C0D5A),
+                              width: 20,
+                              height: 20,
+                            ),
                     ),
                   ),
                 ),
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              background: Image.asset(
-                image,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: const Color(0xffCBD5E1),
-                  child: const Icon(Icons.landscape_outlined, color: Colors.white24, size: 64),
-                ),
+              background: PageView.builder(
+                itemCount: images.length,
+                itemBuilder: (context, index) {
+                  return Image.asset(
+                    images[index],
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      if (images[index].startsWith('http')) {
+                        return Image.network(
+                          images[index],
+                          fit: BoxFit.cover,
+                          errorBuilder: (c, e, s) => Container(
+                            color: const Color(0xffCBD5E1),
+                            child: const Icon(Icons.landscape_outlined, color: Colors.white24, size: 64),
+                          ),
+                        );
+                      }
+                      return Container(
+                        color: const Color(0xffCBD5E1),
+                        child: const Icon(Icons.landscape_outlined, color: Colors.white24, size: 64),
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ),
@@ -214,6 +250,54 @@ class _StayDetailScreenState extends State<StayDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
+
+                  // Hidely Creator Profile (If Available)
+                  if (hidelyUsername != null && hidelyUsername.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 24.0),
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CreatorProfileScreen(
+                                username: hidelyUsername,
+                                avatarPath: hidelyAvatar ?? "assets/images/nomad_nate_avatar.png",
+                                rank: "Gold",
+                              ),
+                            ),
+                          );
+                        },
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundColor: const Color(0xffE2E8F0),
+                              backgroundImage: hidelyAvatar != null && hidelyAvatar.startsWith('http')
+                                  ? NetworkImage(hidelyAvatar) as ImageProvider
+                                  : AssetImage(hidelyAvatar ?? "assets/images/nomad_nate_avatar.png"),
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text("Hosted by", style: TextStyle(color: Colors.black54, fontSize: 11)),
+                                Text(
+                                  hidelyUsername,
+                                  style: const TextStyle(
+                                    color: Color(0xff1C0D5A),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            const Icon(Icons.chevron_right_rounded, color: Colors.black26),
+                          ],
+                        ),
+                      ),
+                    ),
 
                   // Section Title: Description
                   const Text(
@@ -310,9 +394,11 @@ class _StayDetailScreenState extends State<StayDetailScreen> {
                   child: ElevatedButton(
                     onPressed: () {
                       MapDiscoveryScreen.initialSearchQuery = title;
-                      MapDiscoveryScreen.startNavigationDirectly = true;
-                      Navigator.popUntil(context, (route) => route.isFirst);
-                      MainWrapperState.activeState?.setIndex(1);
+                      MapDiscoveryScreen.startNavigationDirectly = false;
+                      Navigator.popUntil(context, (route) => route.settings.name == '/main' || route.isFirst);
+                      Future.delayed(const Duration(milliseconds: 400), () {
+                        MainWrapperState.activeState?.setIndex(1);
+                      });
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xff2B1564),
@@ -326,12 +412,16 @@ class _StayDetailScreenState extends State<StayDetailScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.near_me_rounded, size: 18),
-                        SizedBox(width: 8),
-                        Text(
-                          "Get Directions",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                        SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            "Get Directions",
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -339,8 +429,9 @@ class _StayDetailScreenState extends State<StayDetailScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
-              SizedBox(
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
                 height: 50,
                 child: OutlinedButton(
                   onPressed: () {
@@ -351,10 +442,10 @@ class _StayDetailScreenState extends State<StayDetailScreen> {
                       );
                       return;
                     }
-                    final String btnText = (category == "Restaurants" || category == "Rasturents") ? "Book a Table" : "Book Stay";
+                    final String btnText = (category == "Restaurants" || category == "Rasturents") ? "Book Table" : "Book Room";
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text("Redirecting to $btnText..."),
+                        content: Text("$btnText feature is coming soon!"),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -366,14 +457,24 @@ class _StayDetailScreenState extends State<StayDetailScreen> {
                     ),
                     foregroundColor: const Color(0xff2B1564),
                   ),
-                  child: Text(
-                    (category == "Restaurants" || category == "Rasturents") ? "Book Table" : "Book Room",
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            (category == "Restaurants" || category == "Rasturents") ? "Book Table" : "Book Room",
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
                 ),
+              ),
               ),
             ],
           ),

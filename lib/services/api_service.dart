@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'image_compression_service.dart';
 
 class ApiResult {
   final bool success;
@@ -36,12 +37,31 @@ class ApiService {
   }
 
   Future<void> autoDiscoverBaseUrl() async {
-    // Point directly to the online server
+    // 1. Try to connect to local server first (Emulator / Simulator)
+    final localUrls = [
+      'http://10.0.2.2:3000', // Android emulator
+      'http://localhost:3000', // iOS simulator / Web
+    ];
+
+    for (final url in localUrls) {
+      try {
+        // Check a lightweight endpoint to see if local server is alive
+        final response = await http.get(Uri.parse('$url/api/users/leaderboard')).timeout(const Duration(milliseconds: 1500));
+        if (response.statusCode == 200) {
+          _resolvedBaseUrl = url;
+          debugPrint('[ApiService] Using local server: $_resolvedBaseUrl');
+          return;
+        }
+      } catch (_) {
+        // Ignore and try next
+      }
+    }
+
+    // 2. Point directly to the online server if local is not available
     _resolvedBaseUrl = 'https://hidely-backend.onrender.com';
     debugPrint('[ApiService] Using online server: $_resolvedBaseUrl');
 
     // Wake up the online Render server in the background (fire and forget)
-    // so we don't block the app startup.
     try {
       final uri = Uri.parse(_resolvedBaseUrl);
       http.get(uri).timeout(const Duration(seconds: 90)).catchError((e) {
@@ -357,11 +377,16 @@ class ApiService {
       if (bio != null) request.fields['bio'] = bio;
 
       if (avatar != null) {
-        final ext = avatar.path.split('.').last.toLowerCase();
+        final compressedAvatar = await ImageCompressionService.compressImage(
+          avatar,
+          quality: 85,
+          maxDimension: 800,
+        );
+        final ext = compressedAvatar.path.split('.').last.toLowerCase();
         request.files.add(
           await http.MultipartFile.fromPath(
             'avatar',
-            avatar.path,
+            compressedAvatar.path,
             contentType: MediaType('image', ext == 'jpg' ? 'jpeg' : ext),
           ),
         );
@@ -487,13 +512,24 @@ class ApiService {
 
       final ext = image.path.split('.').last.toLowerCase();
       final isVideo = ['mp4', 'mov', 'avi', 'mkv', 'mpeg'].contains(ext);
+      
+      File finalFile = image;
+      if (!isVideo) {
+        finalFile = await ImageCompressionService.compressImage(
+          image,
+          quality: 80,
+          maxDimension: 1920,
+        );
+      }
+      
+      final fileExt = finalFile.path.split('.').last.toLowerCase();
       final mediaType = isVideo ? 'video' : 'image';
-      final subType = isVideo ? ext : (ext == 'jpg' ? 'jpeg' : ext);
+      final subType = isVideo ? fileExt : (fileExt == 'jpg' ? 'jpeg' : fileExt);
 
       request.files.add(
         await http.MultipartFile.fromPath(
           'image',
-          image.path,
+          finalFile.path,
           contentType: MediaType(mediaType, subType),
         ),
       );
@@ -532,7 +568,7 @@ class ApiService {
         headers['Authorization'] = 'Bearer $token';
       }
       final response = await http.get(
-        Uri.parse('$baseUrl/api/posts/user').replace(queryParameters: {'user_id': userId}),
+        Uri.parse('$baseUrl/api/posts/user/$userId'),
         headers: headers,
       );
 
@@ -729,6 +765,26 @@ class ApiService {
     }
   }
 
+  /// Get followed creators list
+  Future<ApiResult> getFollowing({required String token}) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/users/following'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(success: true, message: 'Following list loaded.', data: body);
+      } else {
+        return ApiResult(success: false, message: body['error'] ?? 'Failed to load following list.', error: body['error']);
+      }
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
   /// Fetch notifications for current user
   Future<ApiResult> getNotifications({required String token}) async {
     try {
@@ -788,6 +844,27 @@ class ApiService {
       }
     } catch (e) {
       return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
+  /// Delete a post by ID
+  Future<ApiResult> deletePost({required int postId, required String token}) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/posts/$postId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return ApiResult(success: true, message: body['message'] ?? 'Post deleted.', data: body);
+      } else {
+        return ApiResult(success: false, message: body['error'] ?? 'Failed to delete post.', error: body['error']);
+      }
+    } catch (e) {
+      // Network error / timeout — treat as silent (don't revert local UI)
+      return ApiResult(success: false, message: 'network_error', error: e.toString());
     }
   }
 

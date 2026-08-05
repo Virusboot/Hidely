@@ -74,13 +74,19 @@ class AiService {
       );
 
       const prompt = '''
-      Analyze the provided image/frame and determine if it represents a valid outdoor travel, nature, or historical/cultural monument destination (like waterfalls, mountains, rivers, historical monuments, beaches, forests, lakes, parks, etc.).
-      
+      Analyze the provided image/frame with high strictness.
+      Determine if it is a VALID outdoor travel location, nature spot, landscape, or historical/cultural monument (e.g. waterfalls, mountains, rivers, heritage sites, temples, forts, beaches, forests, parks, scenic viewpoints).
+
+      REJECT IMMEDIATELY (set isValid = false) if the photo is:
+      1. Random object (e.g. shoes, car tires, bottles, food closeups, furniture, electronics, documents, text screenshots).
+      2. Selfies, indoor bedroom/office shots, pets, personal portraits with no clear background location/place context.
+      3. Irrelevant memes, graphics, or non-destination images.
+
       Respond strictly in JSON format matching this schema:
       {
         "isValid": true or false,
         "category": "Waterfalls" or "Mountains" or "Rivers",
-        "reason": "short explanation of what was detected"
+        "reason": "Clear short explanation of what was detected and why it was approved or rejected as a place."
       }
       ''';
 

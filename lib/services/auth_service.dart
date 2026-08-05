@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:hidely_new/services/notification_polling_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
@@ -15,7 +16,17 @@ class AuthService {
   String? get token => _token;
   Map<String, dynamic>? get user => _user;
 
-  String get userId => _user?['id']?.toString() ?? '';
+  String get userId {
+    if (_user == null) return '';
+    final id = _user!['id']?.toString() ?? _user!['_id']?.toString() ?? _user!['user_id']?.toString();
+    if (id != null && id.isNotEmpty) return id;
+    
+    final username = _user!['username']?.toString();
+    if (username != null && username.isNotEmpty) {
+      return username.hashCode.abs().toString();
+    }
+    return '';
+  }
   String get userName => _user?['name'] ?? '';
   String get userUsername => _user?['username'] ?? '';
   String get userPronouns => _user?['pronouns'] ?? '';
@@ -23,16 +34,34 @@ class AuthService {
   String get userBio => _user?['bio'] ?? '';
   String get userProfilePicture => _user?['profile_picture'] ?? '';
 
+  Set<String> _deletedPostIds = {};
+  Set<String> get deletedPostIds => _deletedPostIds;
+
+  Future<void> markPostAsDeletedLocally(String postIdStr) async {
+    if (postIdStr.isEmpty) return;
+    _deletedPostIds.add(postIdStr);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('deleted_post_ids', _deletedPostIds.toList());
+  }
+
+  bool isPostDeletedLocally(dynamic postId) {
+    if (postId == null) return false;
+    return _deletedPostIds.contains(postId.toString());
+  }
+
   /// Initialize and load saved session from SharedPreferences
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString('auth_token');
     final userJson = prefs.getString('auth_user');
+    final deleted = prefs.getStringList('deleted_post_ids') ?? [];
+    _deletedPostIds = Set<String>.from(deleted);
 
     if (_token != null && userJson != null) {
       try {
         _user = jsonDecode(userJson);
         _isLoggedIn = true;
+        NotificationPollingService().startPolling();
       } catch (e) {
         // Clear corrupt data
         await logout();
@@ -43,16 +72,23 @@ class AuthService {
   /// Call this when the user logs in successfully
   Future<void> login(String token, Map<String, dynamic> userData) async {
     _token = token;
-    _user = userData;
+    
+
+
+    if (_user != null) {
+      _user = {..._user!, ...userData};
+    } else {
+      _user = userData;
+    }
     _isLoggedIn = true;
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('auth_token', token);
-    await prefs.setString('auth_user', jsonEncode(userData));
+    await prefs.setString('auth_user', jsonEncode(_user));
 
     // Update sessions list
     final List<String> sessionStrings = prefs.getStringList('auth_sessions') ?? [];
-    final sessionData = jsonEncode({'token': token, 'user': userData});
+    final sessionData = jsonEncode({'token': token, 'user': _user});
     
     // Avoid duplicates by comparing user id or username
     sessionStrings.removeWhere((s) {
@@ -66,6 +102,8 @@ class AuthService {
 
     sessionStrings.add(sessionData);
     await prefs.setStringList('auth_sessions', sessionStrings);
+
+    NotificationPollingService().startPolling();
   }
 
   /// Clear the local authentication session
@@ -78,6 +116,8 @@ class AuthService {
     await prefs.remove('auth_token');
     await prefs.remove('auth_user');
     await prefs.remove('auth_sessions');
+
+    NotificationPollingService().stopPolling();
   }
 
   /// Get list of all logged-in sessions

@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hidely_new/screens/single_post_view_screen.dart';
 import 'package:hidely_new/screens/main_wrapper.dart';
+import 'package:hidely_new/screens/follow_list_screen.dart';
+import 'package:hidely_new/widgets/empty_state.dart';
+import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/screens/group_chat_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:hidely_new/widgets/report_bottom_sheet.dart';
 
@@ -83,7 +87,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _loadCreatorProfile();
   }
 
@@ -131,6 +135,34 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
           _isLoading = false;
         });
       } else {
+        if (widget.username == 'hidely_official' || widget.username == 'hidely') {
+          final adminPostsResult = await ApiService().getExplorePosts(token: token);
+          List adminPosts = [];
+          if (adminPostsResult.success) {
+            adminPosts = adminPostsResult.data?['posts'] as List? ?? [];
+          }
+          setState(() {
+            _creatorData = {
+              'id': 'admin_official',
+              'username': 'hidely_official',
+              'full_name': 'Hidely Official',
+              'bio': 'Official Hidely App Account. Exploring the world\'s most breathtaking places! 🌍✨',
+              'is_verified': true,
+              'followers_count': 12800,
+              'followings_count': 42,
+              'posts_count': adminPosts.isNotEmpty ? adminPosts.length : 154,
+              'is_following': false,
+            };
+            _creatorPosts = adminPosts;
+            _followers = "12.8K";
+            _followings = "42";
+            _postsCount = adminPosts.isNotEmpty ? "${adminPosts.length}" : "154";
+            _isFollowing = false;
+            _isBlocked = false;
+            _isLoading = false;
+          });
+          return;
+        }
         setState(() {
           _isBlocked = blocked;
           _isLoading = false;
@@ -257,12 +289,10 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                                     colors: [Color(0xff4F46E5), Color(0xff9333EA)],
                                   ),
                                 ),
-                                child: CircleAvatar(
+                                child: UserAvatar(
+                                  avatarUrl: avatarUrl,
+                                  displayName: _creatorData?["name"]?.toString() ?? widget.username,
                                   radius: 42,
-                                  backgroundColor: const Color(0xffCBD5E1),
-                                  backgroundImage: avatarUrl != null
-                                      ? NetworkImage(avatarUrl) as ImageProvider
-                                      : const AssetImage("assets/images/nomad_nate_avatar.png"),
                                 ),
                               ),
                               Positioned(
@@ -275,7 +305,9 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                                     border: Border.all(color: Colors.white, width: 1.5),
                                   ),
                                   child: Text(
-                                    widget.rank.toUpperCase(),
+                                    widget.rank.toLowerCase().contains('rank')
+                                        ? widget.rank.toUpperCase()
+                                        : (widget.rank.toLowerCase() == 'novice' ? 'NOVICE' : 'RANK ${widget.rank.toUpperCase()}'),
                                     style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.4),
                                   ),
                                 ),
@@ -287,8 +319,36 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
                                 _buildMetaStatColumn(_postsCount, "hidelys"),
-                                _buildMetaStatColumn(_followers, "followers"),
-                                _buildMetaStatColumn(_followings, "following"),
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => FollowListScreen(
+                                          username: _creatorData?["username"] ?? widget.username,
+                                          initialTab: 0,
+                                          isMe: (_creatorData?["username"] ?? widget.username) == AuthService().userUsername,
+                                        ),
+                                      ),
+                                    ).then((_) => _loadCreatorProfile());
+                                  },
+                                  child: _buildMetaStatColumn(_followers, "followers"),
+                                ),
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => FollowListScreen(
+                                          username: _creatorData?["username"] ?? widget.username,
+                                          initialTab: 1,
+                                          isMe: (_creatorData?["username"] ?? widget.username) == AuthService().userUsername,
+                                        ),
+                                      ),
+                                    ).then((_) => _loadCreatorProfile());
+                                  },
+                                  child: _buildMetaStatColumn(_followings, "following"),
+                                ),
                               ],
                             ),
                           ),
@@ -431,26 +491,45 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                                 border: Border.all(color: Colors.black12),
                               ),
                               child: TextButton(
-                                onPressed: () => debugPrint("Opening secure private message chat window context..."),
-                                child: const Text(
+                                onPressed: _isBlocked
+                                    ? () {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text("Unblock this user to send a message."),
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      }
+                                    : () {
+                                        if (AuthService().isGuest) {
+                                          showLoginRequiredSheet(context, reason: 'send a message');
+                                          return;
+                                        }
+                                         final ChatItem directChat = ChatItem(
+                                           id: 'dm_${widget.username}',
+                                           name: widget.username,
+                                           avatar: widget.avatarPath.isNotEmpty ? widget.avatarPath : 'assets/icons/Profile.png',
+                                           lastMessage: 'Tap to send a secure private message...',
+                                           time: 'Just Now',
+                                           unreadCount: 0,
+                                           isGroup: false,
+                                         );
+                                         
+                                         Navigator.pop(context);
+                                         MainWrapperState.activeState?.setIndex(2);
+                                         WidgetsBinding.instance.addPostFrameCallback((_) {
+                                           GroupChatScreen.activeState?.openDirectChat(directChat);
+                                         });
+                                      },
+                                child: Text(
                                   "Message",
-                                  style: TextStyle(color: Color(0xff1C0D5A), fontSize: 15, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    color: _isBlocked ? Colors.black38 : const Color(0xff1C0D5A),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Container(
-                            width: 46,
-                            height: 46,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.black12),
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.person_add_outlined, color: Color(0xff1C0D5A), size: 20),
-                              onPressed: () {},
                             ),
                           ),
                         ],
@@ -474,7 +553,6 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                         tabs: const [
                           Tab(icon: Icon(Icons.grid_view_rounded, size: 22)),
                           Tab(icon: Icon(Icons.movie_creation_outlined, size: 22)),
-                          Tab(icon: Icon(Icons.bookmark_border_rounded, size: 22)),
                         ],
                       ),
                     ),
@@ -485,8 +563,11 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                         controller: _tabController,
                         children: [
                           _buildImageGridStream(),
-                          const Center(child: Icon(Icons.movie_creation_outlined, size: 40, color: Colors.grey)),
-                          _buildPrivateBookmarksPlaceholder(),
+                          const EmptyStateWidget(
+                            icon: Icons.movie_creation_outlined,
+                            title: "No Reels Yet",
+                            description: "No cinematic moments shared yet.",
+                          ),
                         ],
                       ),
                     ),
@@ -495,39 +576,6 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
         ),
       ),
     ),);
-  }
-
-  Widget _buildPrivateBookmarksPlaceholder() {
-    final usernameText = _creatorData?["username"] ?? widget.username;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.lock_outline, size: 44, color: Colors.black38),
-            const SizedBox(height: 12),
-            const Text(
-              "Saved Posts are Private",
-              style: TextStyle(
-                color: Color(0xff1C0D5A),
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              "Only @$usernameText can view their bookmarked posts.",
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.black38,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Future<void> _toggleBlock() async {
@@ -568,39 +616,44 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 10),
-            ListTile(
-              leading: const Icon(Icons.flag_outlined, color: Color(0xff1C0D5A)),
-              title: const Text("Report", style: TextStyle(fontWeight: FontWeight.w600)),
-              onTap: () {
-                Navigator.pop(context);
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (_) => ReportBottomSheet(
-                    targetType: 'Profile',
-                    targetName: widget.username,
-                    onSubmitSuccess: () {},
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: Icon(_isBlocked ? Icons.check_circle_outline : Icons.block, color: Colors.redAccent),
-              title: Text(_isBlocked ? "Unblock" : "Block", style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.redAccent)),
-              onTap: () {
-                Navigator.pop(context);
-                _toggleBlock();
-              },
-            ),
-            const SizedBox(height: 10),
-          ],
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 10),
+              ListTile(
+                leading: const Icon(Icons.flag_outlined, color: Color(0xff1C0D5A)),
+                title: const Text("Report", style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => ReportBottomSheet(
+                      targetType: 'Profile',
+                      targetName: widget.username,
+                      onSubmitSuccess: () {},
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: Icon(_isBlocked ? Icons.check_circle_outline : Icons.block, color: Colors.redAccent),
+                title: Text(_isBlocked ? "Unblock" : "Block", style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.redAccent)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _toggleBlock();
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
         ),
       ),
     );
@@ -650,10 +703,24 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
 
         return GestureDetector(
           onTap: () {
+            final mappedPosts = _creatorPosts.map((p) {
+              final Map<String, dynamic> pm = Map<String, dynamic>.from(p);
+              if (pm["author_username"] == null && _creatorData != null) {
+                pm["author_username"] = _creatorData!["username"];
+              }
+              if (pm["author_profile_picture"] == null && _creatorData != null) {
+                pm["author_profile_picture"] = _creatorData!["profile_picture"];
+              }
+              return pm;
+            }).toList();
+
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => SinglePostViewScreen(post: post),
+                builder: (context) => SinglePostViewScreen(
+                  posts: mappedPosts,
+                  initialIndex: index,
+                ),
               ),
             ).then((_) => _loadCreatorProfile());
           },

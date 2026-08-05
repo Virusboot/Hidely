@@ -5,6 +5,7 @@ import 'package:hidely_new/screens/change_password_screen.dart';
 import 'package:hidely_new/screens/main_wrapper.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/api_service.dart';
+import 'package:hidely_new/widgets/custom_snackbar.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final bool isSignupFlow;
@@ -187,7 +188,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                   if (mounted) {
                                     Navigator.pushAndRemoveUntil(
                                       context,
-                                      MaterialPageRoute(builder: (context) => const MainWrapper()),
+                                      MaterialPageRoute(settings: const RouteSettings(name: "/main"), builder: (context) => const MainWrapper()),
                                       (route) => false,
                                     );
                                   }
@@ -345,35 +346,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   // Premium Floating SnackBar Method matching Login/SignUp design
   void _showCustomSnackBar(BuildContext context, String message, {required bool isError}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isError ? Icons.error_outline : Icons.check_circle_outline,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: isError ? Colors.redAccent.shade700 : const Color(0xff2B1564),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    showHidelySnackBar(context, message, isError: isError);
   }
 }

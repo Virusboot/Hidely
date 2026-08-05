@@ -34,6 +34,7 @@ class RouteInfoCard extends StatelessWidget {
   final VoidCallback? onOpenInCar;
   final String? destinationName;
   final String? destinationCategory;
+  final String travelMode;
 
   const RouteInfoCard({
     super.key,
@@ -47,28 +48,62 @@ class RouteInfoCard extends StatelessWidget {
     this.onOpenInCar,
     this.destinationName,
     this.destinationCategory,
+    this.travelMode = 'driving',
   });
+
+  String _formatDuration(int totalMinutes) {
+    if (totalMinutes < 60) return '$totalMinutes min';
+    final int days = totalMinutes ~/ 1440;
+    final int hours = (totalMinutes % 1440) ~/ 60;
+    final int minutes = totalMinutes % 60;
+
+    if (days > 0) {
+      if (hours > 0 && minutes > 0) {
+        return '$days day${days > 1 ? 's' : ''} $hours hr $minutes min';
+      } else if (hours > 0) {
+        return '$days day${days > 1 ? 's' : ''} $hours hr';
+      } else if (minutes > 0) {
+        return '$days day${days > 1 ? 's' : ''} $minutes min';
+      }
+      return '$days day${days > 1 ? 's' : ''}';
+    } else {
+      if (minutes > 0) {
+        return '$hours hr $minutes min';
+      }
+      return '$hours hr';
+    }
+  }
+
+  IconData _getInstructionIcon(String text) {
+    final lower = text.toLowerCase();
+    if (lower.contains('auto') || lower.contains('rickshaw') || lower.contains('cab') || lower.contains('taxi')) {
+      return Icons.local_taxi_rounded;
+    } else if (lower.contains('metro') || lower.contains('subway') || lower.contains('train') || lower.contains('rail') || lower.contains('express')) {
+      return Icons.directions_subway_rounded;
+    } else if (lower.contains('bus') || lower.contains('isbt') || lower.contains('shuttle')) {
+      return Icons.directions_bus_rounded;
+    } else if (lower.contains('switch') || lower.contains('transfer') || lower.contains('interchange')) {
+      return Icons.alt_route_rounded;
+    } else if (lower.contains('board')) {
+      return Icons.departure_board_rounded;
+    } else if (lower.contains('walk') || lower.contains('foot')) {
+      return Icons.directions_walk_rounded;
+    } else if (lower.contains('right')) {
+      return Icons.turn_right_rounded;
+    } else if (lower.contains('left')) {
+      return Icons.turn_left_rounded;
+    } else if (lower.contains('straight') || lower.contains('continue')) {
+      return Icons.straight_rounded;
+    } else if (lower.contains('arrive') || lower.contains('destination') || lower.contains('de-board') || lower.contains('target')) {
+      return Icons.place_rounded;
+    }
+    return Icons.directions_transit_rounded;
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     
-    // Select turn icon based on instruction text content
-    IconData turnIcon = Icons.navigation_rounded;
-    String instructionText = routeData.instructions.isNotEmpty 
-        ? routeData.instructions[activeInstructionIndex]
-        : l10n.followRoute;
-
-    if (instructionText.toLowerCase().contains('right')) {
-      turnIcon = Icons.turn_right_rounded;
-    } else if (instructionText.toLowerCase().contains('left')) {
-      turnIcon = Icons.turn_left_rounded;
-    } else if (instructionText.toLowerCase().contains('straight')) {
-      turnIcon = Icons.straight_rounded;
-    } else if (instructionText.toLowerCase().contains('arrive')) {
-      turnIcon = Icons.place_rounded;
-    }
-
     // Format estimated arrival time
     final now = DateTime.now();
     final arrivalTime = now.add(Duration(minutes: routeData.durationMin));
@@ -124,88 +159,210 @@ class RouteInfoCard extends StatelessWidget {
             const Divider(color: Color(0xffE2E8F0), height: 1),
             SizedBox(height: context.h(10)),
           ],
-          // Row 1: Prominent ETA (Apple style)
+          // Row 1: Prominent ETA (Google Maps style)
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                '${routeData.durationMin} min',
+                _formatDuration(routeData.durationMin),
                 style: TextStyle(
                   fontFamily: 'PublicSans',
-                  color: const Color(0xff34C759), // iOS Green
+                  color: const Color(0xff188038), // Google Maps Green
                   fontSize: context.sp(22),
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: -0.5,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '${routeData.distanceKm} km  •  $arrivalTimeString',
+                  '(${NumberFormat('#,##0.#').format(routeData.distanceKm)} km)',
                   style: TextStyle(
                     fontFamily: 'PublicSans',
-                    color: const Color(0xFF6B657D),
-                    fontSize: context.sp(13),
+                    color: const Color(0xFF5F6368), // Google grey
+                    fontSize: context.sp(15),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 2),
+          Text(
+            'Fastest route • Arrive around $arrivalTimeString',
+            style: TextStyle(
+              fontFamily: 'PublicSans',
+              color: const Color(0xFF5F6368),
+              fontSize: context.sp(13),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           const SizedBox(height: 12),
           
-          // Row 2: Turn-by-Turn Instruction
-          Row(
-            children: [
-              Container(
-                width: context.w(36),
-                height: context.h(36),
-                decoration: const BoxDecoration(
-                  color: AppColors.primaryPurple,
-                  shape: BoxShape.circle,
+          // Row 2: Turn-by-Turn / Transit Route Details (Scrollable List)
+          if (routeData.instructions.isNotEmpty) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  travelMode == 'transit' ? 'TRANSIT ROUTE DETAILS' : 'ROUTE INSTRUCTIONS',
+                  style: TextStyle(
+                    fontFamily: 'PublicSans',
+                    fontSize: context.sp(11),
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xff5D3EBC),
+                    letterSpacing: 0.6,
+                  ),
                 ),
-                child: Center(
-                  child: Icon(
-                    turnIcon,
-                    color: Colors.white,
-                    size: context.w(18),
+                Text(
+                  '${routeData.instructions.length - activeInstructionIndex} Remaining Step${(routeData.instructions.length - activeInstructionIndex) > 1 ? 's' : ''}',
+                  style: TextStyle(
+                    fontFamily: 'PublicSans',
+                    fontSize: context.sp(11),
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF8E8AA0),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: context.h(140),
+              ),
+              child: Scrollbar(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    children: () {
+                      final int activeIdx = activeInstructionIndex;
+                      final List<int> visibleIndices = [];
+                      double cumulativeDistance = 0.0;
+
+                      for (int i = activeIdx; i < routeData.instructions.length; i++) {
+                        final stepText = routeData.instructions[i];
+                        final dist = _parseDistanceText(stepText);
+                        cumulativeDistance += dist;
+                        
+                        // Always include at least the next 3 steps (or all remaining if less than 3)
+                        if (visibleIndices.length < 3 || cumulativeDistance <= 50.0) {
+                          visibleIndices.add(i);
+                        } else {
+                          break;
+                        }
+                      }
+
+                      return visibleIndices.map((index) {
+                        final stepText = routeData.instructions[index];
+                        final isCurrentStep = index == activeInstructionIndex;
+                        final stepIcon = _getInstructionIcon(stepText);
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isCurrentStep
+                                ? const Color(0xff5D3EBC).withOpacity(0.08)
+                                : const Color(0xffF8FAFC),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isCurrentStep
+                                  ? const Color(0xff5D3EBC).withOpacity(0.4)
+                                  : Colors.transparent,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: context.w(28),
+                                height: context.h(28),
+                                decoration: BoxDecoration(
+                                  color: isCurrentStep ? AppColors.primaryPurple : const Color(0xffE2E8F0),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Icon(
+                                    stepIcon,
+                                    color: isCurrentStep ? Colors.white : const Color(0xff475569),
+                                    size: context.w(15),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      stepText,
+                                      style: TextStyle(
+                                        fontFamily: 'PublicSans',
+                                        color: isCurrentStep ? AppColors.primaryPurple : const Color(0xff1E293B),
+                                        fontSize: context.sp(12.5),
+                                        fontWeight: isCurrentStep ? FontWeight.w700 : FontWeight.w500,
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                    if (isCurrentStep && navStatus == NavigationStatus.navigating) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        l10n.navigationActive,
+                                        style: TextStyle(
+                                          fontFamily: 'PublicSans',
+                                          color: const Color(0xff16A34A),
+                                          fontSize: context.sp(10.5),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList();
+                    }(),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      instructionText,
-                      style: TextStyle(
-                        fontFamily: 'PublicSans',
-                        color: AppColors.primaryPurple,
-                        fontSize: context.sp(13),
-                        fontWeight: FontWeight.w700,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+            ),
+          ] else ...[
+            Row(
+              children: [
+                Container(
+                  width: context.w(36),
+                  height: context.h(36),
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryPurple,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.navigation_rounded,
+                      color: Colors.white,
+                      size: context.w(18),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      navStatus == NavigationStatus.navigating
-                          ? l10n.navigationActive
-                          : l10n.nextTurnAhead,
-                      style: TextStyle(
-                        fontFamily: 'PublicSans',
-                        color: const Color(0xFF8E8AA0),
-                        fontSize: context.sp(11),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    l10n.followRoute,
+                    style: TextStyle(
+                      fontFamily: 'PublicSans',
+                      color: AppColors.primaryPurple,
+                      fontSize: context.sp(13),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 16),
           const Divider(color: Color(0xFFECE6F0), height: 1, thickness: 1),
           const SizedBox(height: 14),
@@ -337,4 +494,19 @@ class RouteInfoCard extends StatelessWidget {
       ),
     );
   }
+}
+
+double _parseDistanceText(String text) {
+  final lower = text.toLowerCase();
+  if (!lower.startsWith('in ')) return 0.0;
+  final match = RegExp(r'in\s+([\d\.]+)\s*(m|km)').firstMatch(lower);
+  if (match != null) {
+    final value = double.tryParse(match.group(1) ?? '') ?? 0.0;
+    final unit = match.group(2) ?? '';
+    if (unit == 'm') {
+      return value / 1000.0;
+    }
+    return value;
+  }
+  return 0.0;
 }

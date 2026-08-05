@@ -10,6 +10,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../state/map_providers.dart';
 import '../../data/models/nearby_place.dart';
 import '../../data/models/route_data.dart';
@@ -75,10 +77,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Timer? _navigationTimer;
   Timer? _debounceTimer;
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
 
   bool _isMapDownloaded = false;
   bool _isDownloadingMap = false;
   bool _isSelectingSuggestion = false;
+  bool _isBottomSheetOpen = false;
 
   // Voice Search variables
   final stt.SpeechToText _speechToText = stt.SpeechToText();
@@ -87,6 +91,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   final Set<String> _dismissedAlerts = {};
   bool _isNavPanelCollapsed = false;
+  final FlutterTts _flutterTts = FlutterTts();
+
+  Future<void> _speakInstruction(String text) async {
+    final cleanText = text.replaceAll(RegExp(r'<[^>]*>'), '');
+    await _flutterTts.setLanguage("en-US");
+    await _flutterTts.setPitch(1.0);
+    await _flutterTts.setSpeechRate(0.45);
+    await _flutterTts.speak(cleanText);
+  }
+
+  void _stopSpeaking() async {
+    await _flutterTts.stop();
+  }
 
   // Core Brand Colors extracted for easy modification
   static const Color _primaryDark = AppColors.primaryPurple;
@@ -126,6 +143,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     super.initState();
     _checkMapDownloadStatus();
     _initSpeech();
+    _searchFocusNode.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.showNearbyOnly) {
@@ -227,9 +249,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           final centerX = _lonToTileX(currentLng, z);
           final centerY = _latToTileY(currentLat, z);
 
-          // Download a 3x3 grid around the user's current tile
-          for (int x = centerX - 1; x <= centerX + 1; x++) {
-            for (int y = centerY - 1; y <= centerY + 1; y++) {
+          // Download a 5x5 grid around the user's current tile (approx 6km x 6km area)
+          for (int x = centerX - 2; x <= centerX + 2; x++) {
+            for (int y = centerY - 2; y <= centerY + 2; y++) {
               tilesToDownload.add({'z': z, 'x': x, 'y': y});
             }
           }
@@ -428,10 +450,27 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   void _startListening() async {
+    // Request microphone permission dynamically
+    final status = await Permission.microphone.request();
+    if (!status.isGranted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Microphone permission is required for voice search'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
     if (!_speechEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Speech recognition not available')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Speech recognition not available')),
+        );
+      }
       return;
     }
     
@@ -524,6 +563,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _navigationTimer?.cancel();
     _debounceTimer?.cancel();
     _searchController.dispose();
+    _searchFocusNode.dispose();
+    _stopSpeaking();
     super.dispose();
   }
 
@@ -549,6 +590,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   void _stopNavigation() {
     _navigationTimer?.cancel();
+    _stopSpeaking();
     ref.read(navigationStatusProvider.notifier).state = NavigationStatus.idle;
     ref.read(navigationIndexProvider.notifier).state = 0;
     ref.read(simulatedLocationProvider.notifier).state = null;
@@ -671,56 +713,59 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final visibleAlerts = alerts.where((alert) => !_dismissedAlerts.contains(alert.title)).toList();
     if (visibleAlerts.isEmpty) return const SizedBox.shrink();
 
+    // Show ONLY ONE notification banner at a time so screen isn't flooded
+    final alert = visibleAlerts.first;
+
     return Padding(
       padding: EdgeInsets.only(top: context.h(8)),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: visibleAlerts.map((alert) {
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Container(
-                margin: EdgeInsets.only(bottom: context.h(6)),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.78),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.4),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            margin: EdgeInsets.only(bottom: context.h(6)),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.88),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.4),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
                 ),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                        width: 4,
-                        decoration: BoxDecoration(
-                          color: alert.color,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            bottomLeft: Radius.circular(16),
-                          ),
-                        ),
+              ],
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 4,
+                    decoration: BoxDecoration(
+                      color: alert.color,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        bottomLeft: Radius.circular(16),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Row(
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Container(
-                                width: 32,
-                                height: 32,
+                                width: 28,
+                                height: 28,
                                 decoration: BoxDecoration(
                                   color: alert.color.withOpacity(0.12),
                                   shape: BoxShape.circle,
@@ -729,11 +774,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                   child: Icon(
                                     alert.icon,
                                     color: alert.color,
-                                    size: 18,
+                                    size: 16,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -742,7 +787,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                       alert.title,
                                       style: TextStyle(
                                         fontFamily: 'PublicSans',
-                                        fontSize: 13,
+                                        fontSize: 12.5,
                                         fontWeight: FontWeight.bold,
                                         color: alert.color,
                                       ),
@@ -760,7 +805,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               // Close/Dismiss Button
                               GestureDetector(
                                 onTap: () {
@@ -783,16 +828,40 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                               ),
                             ],
                           ),
-                        ),
+                          if (alert.actionLabel != null) ...[
+                            const SizedBox(height: 8),
+                            InkWell(
+                              onTap: () {
+                                _downloadOfflineMap();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: alert.color,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  alert.actionLabel!,
+                                  style: const TextStyle(
+                                    fontFamily: 'PublicSans',
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                ],
               ),
             ),
-          );
-        }).toList(),
+          ),
+        ),
       ),
     );
   }
@@ -936,6 +1005,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
             Expanded(
               child: TextField(
+                focusNode: _searchFocusNode,
                 controller: _searchController,
                 textInputAction: TextInputAction.search,
                 onSubmitted: (value) async {
@@ -988,76 +1058,100 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       {'id': 'walking', 'label': l10n.walking, 'icon': Icons.directions_walk_rounded},
       {'id': 'bicycling', 'label': l10n.biking, 'icon': Icons.directions_bike_rounded},
       {'id': 'driving', 'label': l10n.driving, 'icon': Icons.directions_car_rounded},
-      {'id': 'transit', 'label': l10n.transit, 'icon': Icons.directions_bus_rounded},
+      {'id': 'transit', 'label': l10n.transit, 'icon': Icons.directions_transit_rounded},
     ];
+
+    final int selectedIndex = modes.indexWhere((m) => m['id'] == currentMode).clamp(0, 3);
+    final double alignX = -1.0 + (selectedIndex * (2.0 / 3.0));
 
     return Container(
       height: context.h(40),
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: const Color(0xffEEEEEE),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Row(
-        children: modes.map((mode) {
-          final isSelected = currentMode == mode['id'];
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                ref.read(travelModeProvider.notifier).state = mode['id'] as String;
-                _stopNavigation();
-              },
+      child: Stack(
+        children: [
+          // 1. Sliding Pill Indicator
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            alignment: Alignment(alignX, 0.0),
+            child: FractionallySizedBox(
+              widthFactor: 0.25,
+              heightFactor: 1.0,
               child: Container(
                 decoration: BoxDecoration(
-                  color: isSelected ? Colors.white : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : [],
-                ),
-                alignment: Alignment.center,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      mode['icon'] as IconData,
-                      color: isSelected ? _primaryDark : Colors.grey[600],
-                      size: 16,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      mode['label'] as String,
-                      style: TextStyle(
-                        fontFamily: 'PublicSans',
-                        color: isSelected ? Colors.black : Colors.grey[600],
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
               ),
             ),
-          );
-        }).toList(),
+          ),
+          
+          // 2. Interactive Mode Items Overlay
+          Row(
+            children: modes.map((mode) {
+              final isSelected = currentMode == mode['id'];
+              return Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    ref.read(travelModeProvider.notifier).state = mode['id'] as String;
+                    _stopNavigation();
+                  },
+                  child: Container(
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          mode['icon'] as IconData,
+                          color: isSelected ? _primaryDark : Colors.grey[600],
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          mode['label'] as String,
+                          style: TextStyle(
+                            fontFamily: 'PublicSans',
+                            color: isSelected ? Colors.black : Colors.grey[600],
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
 
   void _showCategoryFilterSheet(AppLocalizations l10n) {
     final categories = [
-      {'key': 'All', 'label': l10n.all, 'icon': Icons.explore_outlined, 'color': const Color(0xff5B3EC8)},
-      {'key': 'Hidden Places', 'label': 'Hidden Places', 'icon': Icons.location_on_outlined, 'color': const Color(0xff29A96A)},
-      {'key': 'Restaurant', 'label': l10n.restaurants, 'icon': Icons.restaurant_outlined, 'color': const Color(0xffF57C00)},
-      {'key': 'Stay', 'label': 'Stays', 'icon': Icons.hotel_outlined, 'color': const Color(0xff0288D1)},
-      {'key': 'Most Popular', 'label': 'Most Popular', 'icon': Icons.local_fire_department_rounded, 'color': const Color(0xffE53935)},
+      {'key': 'All', 'label': l10n.all, 'icon': Icons.explore_outlined, 'color': _primaryDark},
+      {'key': 'Hidden Places', 'label': 'Hidden Places', 'icon': Icons.location_on_outlined, 'color': _primaryDark},
+      {'key': 'Restaurant', 'label': l10n.restaurants, 'icon': Icons.restaurant_outlined, 'color': _primaryDark},
+      {'key': 'Stay', 'label': 'Stays', 'icon': Icons.hotel_outlined, 'color': _primaryDark},
+      {'key': 'Most Popular', 'label': 'Most Popular', 'icon': Icons.local_fire_department_rounded, 'color': _primaryDark},
     ];
+
+    setState(() {
+      _isBottomSheetOpen = true;
+    });
 
     showModalBottomSheet(
       context: context,
@@ -1072,12 +1166,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+              padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.of(ctx).padding.bottom),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Handle bar
                   Center(
                     child: Container(
                       width: 40,
@@ -1121,7 +1214,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                 fontFamily: 'PublicSans',
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xff5B3EC8),
+                                color: _primaryDark,
                               ),
                             ),
                           ),
@@ -1140,7 +1233,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     return GestureDetector(
                       onTap: () {
                         ref.read(activeCategoryProvider.notifier).state = key;
-                        // Auto-toggle heatmap when Most Popular is selected
                         ref.read(showHeatmapProvider.notifier).state = isMostPopular;
                         setSheetState(() {});
                         Navigator.pop(ctx);
@@ -1214,10 +1306,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           },
         );
       },
-    );
+    ).then((_) {
+      if (mounted) {
+        setState(() {
+          _isBottomSheetOpen = false;
+        });
+      }
+    });
   }
 
   Widget _buildFilterFAB(AppLocalizations l10n) {
+    if (_isBottomSheetOpen) return const SizedBox.shrink();
     final activeCategory = ref.watch(activeCategoryProvider);
     final hasActiveFilter = activeCategory.toLowerCase() != 'all';
 
@@ -1303,31 +1402,148 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
-  Widget _buildMapEngineToggle() {
-    final mapType = ref.watch(googleMapTypeProvider);
-    final isSatellite = mapType == 'satellite';
-    return GestureDetector(
-      onTap: () {
-        ref.read(googleMapTypeProvider.notifier).state =
-            isSatellite ? 'normal' : 'satellite';
+  void _showMapLayersSheet() {
+    final engine = ref.read(mapEngineProvider);
+    final mapType = ref.read(googleMapTypeProvider);
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.fromLTRB(24, 16, 24, 24 + MediaQuery.of(context).padding.bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const Text(
+                'Map Type & Layers',
+                style: TextStyle(
+                  fontFamily: 'PublicSans',
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xff1C0D5A),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildLayerOptionItem(
+                    icon: Icons.map_outlined,
+                    label: 'Default',
+                    isSelected: engine == MapEngine.googleMaps && mapType == 'normal',
+                    onTap: () {
+                      ref.read(mapEngineProvider.notifier).state = MapEngine.googleMaps;
+                      ref.read(googleMapTypeProvider.notifier).state = 'normal';
+                      Navigator.pop(context);
+                    },
+                  ),
+                  _buildLayerOptionItem(
+                    icon: Icons.satellite_outlined,
+                    label: 'Satellite',
+                    isSelected: engine == MapEngine.googleMaps && mapType == 'satellite',
+                    onTap: () {
+                      ref.read(mapEngineProvider.notifier).state = MapEngine.googleMaps;
+                      ref.read(googleMapTypeProvider.notifier).state = 'satellite';
+                      Navigator.pop(context);
+                    },
+                  ),
+                  _buildLayerOptionItem(
+                    icon: Icons.wifi_off_rounded,
+                    label: 'Offline Map',
+                    isSelected: engine == MapEngine.openStreetMap,
+                    onTap: () {
+                      ref.read(mapEngineProvider.notifier).state = MapEngine.openStreetMap;
+                      Navigator.pop(context);
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
       },
+    );
+  }
+
+  Widget _buildLayerOptionItem({
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xff2B1564) : const Color(0xffF1F5F9),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected ? const Color(0xff2B1564) : const Color(0xffCBD5E1),
+                width: 1.5,
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: isSelected ? Colors.white : const Color(0xff1C0D5A),
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? const Color(0xff2B1564) : const Color(0xff475569),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapEngineToggle() {
+    return GestureDetector(
+      onTap: _showMapLayersSheet,
       child: Container(
         width: 44,
         height: 44,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black12,
               blurRadius: 8,
-              offset: const Offset(0, 2),
+              offset: Offset(0, 2),
             ),
           ],
         ),
-        child: Center(
+        child: const Center(
           child: Icon(
-            isSatellite ? Icons.map_rounded : Icons.layers_rounded,
+            Icons.layers_rounded,
             color: _primaryDark,
             size: 22,
           ),
@@ -1397,7 +1613,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   Widget _buildRecenterButton() {
-    final isTracking = ref.watch(isTrackingUserProvider);
     return GestureDetector(
       onTap: () {
         ref.read(isTrackingUserProvider.notifier).state = true;
@@ -1407,7 +1622,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: isTracking ? _primaryDark : Colors.white,
+          color: Colors.white,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
@@ -1417,10 +1632,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
           ],
         ),
-        child: Center(
+        child: const Center(
           child: Icon(
             Icons.gps_fixed_rounded,
-            color: isTracking ? Colors.white : _primaryDark,
+            color: _primaryDark,
             size: 20,
           ),
         ),
@@ -1432,6 +1647,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final isOnline = ref.watch(isOnlineProvider);
+
+    // Auto-switch to offline map if there is no internet connection
+    if (!isOnline && ref.read(mapEngineProvider) != MapEngine.openStreetMap) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (ref.read(mapEngineProvider) != MapEngine.openStreetMap && mounted) {
+          ref.read(mapEngineProvider.notifier).state = MapEngine.openStreetMap;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Offline: Automatically switched to Offline Map.'),
+              duration: Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      });
+    }
 
     final center = ref.watch(mapCenterProvider);
     final activeDestination = ref.watch(activeDestinationProvider);
@@ -1499,6 +1730,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final simulatedLoc = ref.watch(simulatedLocationProvider);
     final alerts = ref.watch(navigationAlertsProvider);
     final searchQuery = ref.watch(searchQueryProvider);
+    final bool isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+    final bool isSearching = searchQuery.trim().isNotEmpty && ref.watch(activeDestinationProvider) == null;
+    final bool isSearchFocused = _searchFocusNode.hasFocus;
+
+    ref.listen<int>(navigationIndexProvider, (previous, next) {
+      final isVoiceEnabled = ref.read(voiceEnabledProvider);
+      if (isVoiceEnabled) {
+        final routeAsync = ref.read(routeDataProvider);
+        final route = routeAsync.valueOrNull;
+        if (route != null && next >= 0 && next < route.instructions.length) {
+          final instruction = route.instructions[next];
+          _speakInstruction(instruction);
+        }
+      }
+    });
 
     ref.listen<LatLng>(userLocationProvider, (previous, next) {
       final currentNavStatus = ref.read(navigationStatusProvider);
@@ -1573,16 +1819,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     ref.listen<bool>(isOnlineProvider, (previous, next) {
       if (previous == true && next == false) {
-        if (!_isMapDownloaded) {
-          _stopNavigation();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(AppLocalizations.of(context)!.internetLostOfflineMapUnavailable),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Internet connection lost. Running in offline/cached mode."),
+            duration: Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     });
 
@@ -1655,9 +1898,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ),
 
         // 3. Bottom Panel Overlay
-        Positioned(
-          left: 0,
-          right: 0,
+        if (!isKeyboardOpen && !isSearchFocused)
+          Positioned(
+            left: 0,
+            right: 0,
           bottom: context.bottomPadding + context.h(10) + extraBottomPadding,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1735,6 +1979,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             onVoiceToggle: () {
                               final val = ref.read(voiceEnabledProvider);
                               ref.read(voiceEnabledProvider.notifier).state = !val;
+                              if (!val == false) {
+                                _stopSpeaking();
+                              }
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(!val ? "Voice guidance enabled" : "Voice guidance muted"),
@@ -1768,7 +2015,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ),
 
         // 4. Floating Action Buttons Column (Apple style)
-        if (navStatus != NavigationStatus.navigating && !(activeDestination != null && displayRouteData != null))
+        if (!_isBottomSheetOpen && !isKeyboardOpen && !isSearchFocused && !isSearching && navStatus != NavigationStatus.navigating && !(activeDestination != null && displayRouteData != null))
           Positioned(
             right: context.w(16),
             bottom: (activeDestination != null && displayRouteData != null
@@ -1779,23 +2026,42 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                _buildIntelligenceFAB(),
+                SizedBox(height: context.h(10)),
                 _buildFilterFAB(l10n),
                 SizedBox(height: context.h(10)),
                 _buildMapEngineToggle(),
                 SizedBox(height: context.h(10)),
                 _buildDownloadMapButton(isOnline),
-                SizedBox(height: context.h(10)),
-                _buildRecenterButton(),
+                if (!ref.watch(isTrackingUserProvider)) ...[
+                  SizedBox(height: context.h(10)),
+                  _buildRecenterButton(),
+                ],
               ],
             ),
           ),
-        if (navStatus == NavigationStatus.navigating)
+        if (!_isBottomSheetOpen && !isKeyboardOpen && !isSearchFocused && !isSearching && navStatus == NavigationStatus.navigating && _isNavPanelCollapsed)
           Positioned(
             right: context.w(16),
-            bottom: _isNavPanelCollapsed
+            bottom: (_isNavPanelCollapsed
                 ? context.h(60) + context.bottomPadding
-                : context.h(240) + context.bottomPadding,
-            child: _buildRecenterButton(),
+                : context.h(240) + context.bottomPadding) + extraBottomPadding,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildIntelligenceFAB(),
+                SizedBox(height: context.h(10)),
+                _buildFilterFAB(l10n),
+                SizedBox(height: context.h(10)),
+                _buildMapEngineToggle(),
+                SizedBox(height: context.h(10)),
+                _buildDownloadMapButton(isOnline),
+                if (!ref.watch(isTrackingUserProvider)) ...[
+                  SizedBox(height: context.h(10)),
+                  _buildRecenterButton(),
+                ],
+              ],
+            ),
           ),
       ],
     );
@@ -1840,7 +2106,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       ),
     );
 
-    final bodyWidget = (!isOnline && !_isMapDownloaded) ? offlineMapPlaceholder : mapContent;
+    final showOfflinePlaceholder = !isOnline && ref.watch(mapEngineProvider) == MapEngine.openStreetMap && !_isMapDownloaded;
+    final bodyWidget = showOfflinePlaceholder ? offlineMapPlaceholder : mapContent;
 
     if (widget.isPushed) {
       return Scaffold(
@@ -1857,12 +2124,362 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       );
     }
 
-    // Reverted back to the original Container approach to avoid nested Scaffold constraints failure
     return Container(
       width: double.infinity,
       height: double.infinity,
       color: Colors.white,
       child: bodyWidget,
     );
+  }
+
+  Widget _buildIntelligenceFAB() {
+    final activeDest = ref.watch(activeDestinationProvider);
+
+    return GestureDetector(
+      onTap: () {
+        final dest = activeDest ?? NearbyPlace(
+          id: 'current_area',
+          name: 'Current Travel Area',
+          description: 'Live Tourist Intelligence Brief',
+          category: 'Attraction',
+          latitude: ref.read(userLocationProvider).latitude,
+          longitude: ref.read(userLocationProvider).longitude,
+          rating: 4.8,
+          distanceText: '',
+          distanceM: 0,
+        );
+        _showLocationIntelligenceDialog(dest);
+      },
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: const Color(0xff2B1564), // Deep Brand Purple
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xff2B1564).withOpacity(0.35),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Icon(
+            Icons.info_outline_rounded,
+            color: Colors.white,
+            size: 22,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIntelligenceChip({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.18), width: 1.2),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            style: TextStyle(
+              fontFamily: 'PublicSans',
+              fontSize: 11,
+              color: color.withOpacity(0.9),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: const TextStyle(
+              fontFamily: 'PublicSans',
+              fontSize: 12,
+              color: Color(0xff1C0D5A),
+              fontWeight: FontWeight.w800,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBriefBullet({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String desc,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: Icon(icon, color: color, size: 18),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontFamily: 'PublicSans',
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xff1C0D5A),
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  desc,
+                  style: const TextStyle(
+                    fontFamily: 'PublicSans',
+                    fontSize: 12,
+                    color: Color(0xff6B657D),
+                    height: 1.35,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLocationIntelligenceDialog(NearbyPlace destination) {
+    setState(() {
+      _isBottomSheetOpen = true;
+    });
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 20,
+                offset: Offset(0, -4),
+              ),
+            ],
+          ),
+          padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.of(context).padding.bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Drag Handle Bar
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4.5,
+                  decoration: BoxDecoration(
+                    color: const Color(0xffE2E8F0),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              
+              // Header Row
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xff2B1564).withOpacity(0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.info_outline_rounded, color: Color(0xff2B1564), size: 22),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          destination.name,
+                          style: const TextStyle(
+                            fontFamily: 'PublicSans',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xff1C0D5A),
+                            height: 1.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 3),
+                        const Text(
+                          'Live Tourist Intelligence & Travel Brief',
+                          style: TextStyle(
+                            fontFamily: 'PublicSans',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xff6B657D),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.05),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close_rounded, color: Colors.black54, size: 18),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              
+              // 1. Live Status Grid Cards
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildIntelligenceChip(
+                      icon: Icons.traffic_rounded,
+                      color: const Color(0xff2B1564),
+                      title: 'Traffic',
+                      value: 'Clear Flow',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildIntelligenceChip(
+                      icon: Icons.groups_rounded,
+                      color: const Color(0xff2B1564),
+                      title: 'Crowd',
+                      value: 'Low Density',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildIntelligenceChip(
+                      icon: Icons.wb_sunny_rounded,
+                      color: const Color(0xff2B1564),
+                      title: 'Weather',
+                      value: '24°C Pleasant',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              
+              // 2. Real-time Advisory Section Title
+              const Text(
+                'LIVE LOCATION UPDATES & ADVISORY',
+                style: TextStyle(
+                  fontFamily: 'PublicSans',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xff2B1564),
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              _buildBriefBullet(
+                icon: Icons.camera_alt_rounded,
+                color: const Color(0xff2B1564),
+                title: 'Best Time to Visit & Photo Spot',
+                desc: 'Soft natural lighting from 4:00 PM – 6:30 PM. Great vantage point for photography.',
+              ),
+              _buildBriefBullet(
+                icon: Icons.local_parking_rounded,
+                color: const Color(0xff2B1564),
+                title: 'Parking & Facilities',
+                desc: 'Ample vehicle parking available near gate. Restrooms and snack stalls open.',
+              ),
+              _buildBriefBullet(
+                icon: Icons.cell_tower_rounded,
+                color: const Color(0xff2B1564),
+                title: 'Mobile Signal Alert',
+                desc: 'Strong signal at destination, but weak network zone 2 km before arrival.',
+              ),
+
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 18),
+                  label: const Text(
+                    'Got it, thanks!',
+                    style: TextStyle(
+                      fontFamily: 'PublicSans',
+                      fontSize: 14,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff2B1564),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ).then((_) {
+      if (mounted) {
+        setState(() {
+          _isBottomSheetOpen = false;
+        });
+      }
+    });
   }
 }

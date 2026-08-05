@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/widgets/custom_snackbar.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   final String? email;
@@ -159,10 +160,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
                         final isResetFlow = widget.email != null && widget.otp != null;
 
-                        if (password.isEmpty || confirmPassword.isEmpty) {
-                          _showCustomSnackBar(context, "Please fill in all fields.", isError: true);
-                        } else if (!isResetFlow && currentPassword.isEmpty) {
+                        if (!isResetFlow && currentPassword.isEmpty) {
                           _showCustomSnackBar(context, "Please enter your current password.", isError: true);
+                        } else if (password.isEmpty) {
+                          _showCustomSnackBar(context, "Please enter your new password.", isError: true);
+                        } else if (confirmPassword.isEmpty) {
+                          _showCustomSnackBar(context, "Please confirm your new password.", isError: true);
                         } else if (password.length < 6) {
                           _showCustomSnackBar(context, "Password must be at least 6 characters long.", isError: true);
                         } else if (password != confirmPassword) {
@@ -286,35 +289,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   // Premium Floating SnackBar Method matching Login/SignUp design
   void _showCustomSnackBar(BuildContext context, String message, {required bool isError}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isError ? Icons.error_outline : Icons.check_circle_outline,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: isError ? Colors.redAccent.shade700 : const Color(0xff2B1564),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    showHidelySnackBar(context, message, isError: isError);
   }
 }

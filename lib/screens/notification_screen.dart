@@ -4,6 +4,7 @@ import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/screens/single_post_view_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/widgets/empty_state.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -77,7 +78,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
             ),
           ),
           child: SafeArea(
-            bottom: false,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -116,18 +116,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   child: _isLoading
                       ? const Center(child: CircularProgressIndicator(color: Color(0xff2B1564)))
                       : _notifications.isEmpty
-                          ? const Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.notifications_off_outlined, size: 48, color: Colors.black38),
-                                  SizedBox(height: 12),
-                                  Text(
-                                    "No new notifications",
-                                    style: TextStyle(color: Colors.black38, fontSize: 14),
-                                  ),
-                                ],
-                              ),
+                          ? const EmptyStateWidget(
+                              icon: Icons.notifications_off_outlined,
+                              title: "No New Notifications",
+                              description: "You're all caught up! Check back later for activity.",
                             )
                           : ListView.builder(
                               physics: const BouncingScrollPhysics(),
@@ -183,7 +175,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => SinglePostViewScreen(post: post),
+                    builder: (context) => SinglePostViewScreen(
+                      posts: [post],
+                      initialIndex: 0,
+                    ),
                   ),
                 ).then((_) => _loadNotifications());
               }

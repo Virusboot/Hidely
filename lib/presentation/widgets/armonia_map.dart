@@ -62,14 +62,14 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
       "featureType": "water",
       "elementType": "geometry",
       "stylers": [
-        { "color": "#bcd6fc" }
+        { "color": "#e1e4e6" }
       ]
     },
     {
       "featureType": "landscape.natural",
       "elementType": "geometry",
       "stylers": [
-        { "color": "#f4f3f0" }
+        { "color": "#f1f3f5" }
       ]
     },
     {
@@ -83,7 +83,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
       "featureType": "poi.park",
       "elementType": "geometry",
       "stylers": [
-        { "color": "#dbebd4" }
+        { "color": "#e8ebed" }
       ]
     },
     {
@@ -104,7 +104,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
       "featureType": "road.highway",
       "elementType": "geometry.stroke",
       "stylers": [
-        { "color": "#e0e0e0" }
+        { "color": "#e2e5e8" }
       ]
     },
     {
@@ -118,7 +118,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
       "featureType": "road.arterial",
       "elementType": "geometry.stroke",
       "stylers": [
-        { "color": "#dcdcdc" }
+        { "color": "#e2e5e8" }
       ]
     },
     {
@@ -132,7 +132,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
       "featureType": "road.local",
       "elementType": "geometry.stroke",
       "stylers": [
-        { "color": "#e2e2e2" }
+        { "color": "#e8ebed" }
       ]
     },
     {
@@ -168,7 +168,8 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
 
   gmaps.GoogleMapController? _googleMapController;
   final fm.MapController _osmMapController = fm.MapController();
-  String _offlineStyleString = '';
+  // ignore: unused_field
+  String? _offlineStyleString;
   String _offlineTilesPath = '';
 
   final Map<String, gmaps.BitmapDescriptor> _customMarkers = {};
@@ -269,10 +270,17 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     if (cat == 'user') {
       return Icons.my_location_rounded;
     }
-    if (cat.contains('restaurant') || cat.contains('food') || cat.contains('dining') || cat.contains('cafe')) {
+    
+    final bool hasRestaurant = cat.contains('restaurant') || cat.contains('food') || cat.contains('dining') || cat.contains('cafe');
+    final bool hasStay = cat.contains('stay') || cat.contains('hotel') || cat.contains('hostel') || cat.contains('lodging') || cat.contains('resort');
+    
+    if (hasRestaurant && hasStay) {
+      return Icons.room_service_rounded; // Combined Stay & Restaurant icon
+    }
+    if (hasRestaurant) {
       return Icons.restaurant_rounded;
     }
-    if (cat.contains('stay') || cat.contains('hotel') || cat.contains('hostel') || cat.contains('lodging') || cat.contains('resort')) {
+    if (hasStay) {
       return Icons.hotel_rounded;
     }
     if (cat.contains('mountain') || cat.contains('hill') || cat.contains('trek') || cat.contains('peak') || cat.contains('landscape') || cat.contains('terrain')) {
@@ -281,60 +289,76 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     if (cat.contains('river') || cat.contains('lake') || cat.contains('water') || cat.contains('boating') || cat.contains('pond')) {
       return Icons.waves_rounded;
     }
-    if (cat.contains('monument') || cat.contains('museum') || cat.contains('history') || cat.contains('temple') || cat.contains('fort') || cat.contains('palace') || cat.contains('tomb')) {
-      return Icons.account_balance_rounded;
-    }
     if (cat.contains('waterfall') || cat.contains('falls')) {
       return Icons.water_drop_rounded;
+    }
+    if (cat.contains('monument') || cat.contains('museum') || cat.contains('history') || cat.contains('temple') || cat.contains('fort') || cat.contains('palace') || cat.contains('tomb')) {
+      return Icons.account_balance_rounded;
     }
     return Icons.place_rounded;
   }
 
   Color _getColorForCategory(String category) {
     final cat = category.toLowerCase();
-    if (cat.contains('restaurant') || cat.contains('cafe') || cat.contains('food') || cat.contains('dining')) {
-      return const Color(0xffF57C00); // Orange
-    } else if (cat.contains('hotel') || cat.contains('lodging') || cat.contains('stay') || cat.contains('hostel') || cat.contains('resort')) {
-      return const Color(0xff0288D1); // Blue
-    } else if (cat.contains('mountain') || cat.contains('hill') || cat.contains('trek') || cat.contains('peak') || cat.contains('landscape') || cat.contains('terrain')) {
-      return const Color(0xff795548); // Brown
-    } else if (cat.contains('river') || cat.contains('lake') || cat.contains('water') || cat.contains('boating')) {
-      return const Color(0xff00BCD4); // Cyan
-    } else if (cat.contains('monument') || cat.contains('museum') || cat.contains('history') || cat.contains('temple') || cat.contains('fort') || cat.contains('palace') || cat.contains('tomb')) {
-      return const Color(0xff9C27B0); // Purple
-    } else if (cat.contains('waterfall') || cat.contains('falls')) {
-      return const Color(0xff3F51B5); // Indigo
-    } else {
-      return const Color(0xff5B3EC8); // Default purple
+    
+    final bool hasRestaurant = cat.contains('restaurant') || cat.contains('food') || cat.contains('dining') || cat.contains('cafe');
+    final bool hasStay = cat.contains('stay') || cat.contains('hotel') || cat.contains('hostel') || cat.contains('lodging') || cat.contains('resort');
+    
+    if (hasRestaurant && hasStay) {
+      return const Color(0xff009688); // Teal/Emerald for combined Stay + Restaurant
     }
+    if (hasRestaurant) {
+      return const Color(0xffF57C00); // Orange for Restaurant
+    }
+    if (hasStay) {
+      return const Color(0xff0288D1); // Blue for Stay
+    }
+    if (cat.contains('mountain') || cat.contains('hill') || cat.contains('trek') || cat.contains('peak') || cat.contains('landscape') || cat.contains('terrain')) {
+      return const Color(0xff795548); // Brown for Mountains
+    }
+    if (cat.contains('river') || cat.contains('lake') || cat.contains('water') || cat.contains('boating')) {
+      return const Color(0xff00BCD4); // Cyan for River/Lake
+    }
+    if (cat.contains('waterfall') || cat.contains('falls')) {
+      return const Color(0xff3F51B5); // Indigo for Waterfalls
+    }
+    if (cat.contains('monument') || cat.contains('museum') || cat.contains('history') || cat.contains('temple') || cat.contains('fort') || cat.contains('palace') || cat.contains('tomb')) {
+      return const Color(0xff9C27B0); // Purple for Monuments
+    }
+    return const Color(0xff5B3EC8); // Default purple
   }
 
   Future<gmaps.BitmapDescriptor> _createCategoryMarker(Color color, String category) async {
     final pictureRecorder = ui.PictureRecorder();
     final canvas = Canvas(pictureRecorder);
-    const double size = 32.0;
+    
+    // Scale up the canvas size for crisp rendering on high-DPI devices
+    final bool isUser = category == 'user';
+    final double baseSize = isUser ? 12.0 : 20.0; // Dynamic size for user location marker
+    const double pixelRatio = 1.0; // 1.0x ratio for true logical size mapping on Android
+    final double size = baseSize * pixelRatio;
 
     final shadowPaint = Paint()
       ..color = Colors.black.withOpacity(0.2)
-      ..maskFilter = const MaskFilter.blur(ui.BlurStyle.normal, 2.0);
-    canvas.drawCircle(const Offset(size / 2, size / 2), size / 2 - 2.0, shadowPaint);
+      ..maskFilter = const MaskFilter.blur(ui.BlurStyle.normal, 1.0 * pixelRatio);
+    canvas.drawCircle(Offset(size / 2, size / 2), (baseSize / 2 - 1.0) * pixelRatio, shadowPaint);
 
     final whitePaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(const Offset(size / 2, size / 2), size / 2 - 2.0, whitePaint);
+    canvas.drawCircle(Offset(size / 2, size / 2), (baseSize / 2 - 1.0) * pixelRatio, whitePaint);
 
     final colorPaint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(const Offset(size / 2, size / 2), size / 2 - 4.5, colorPaint);
+    canvas.drawCircle(Offset(size / 2, size / 2), (baseSize / 2 - 2.5) * pixelRatio, colorPaint);
 
     final iconData = _getIconForCategory(category);
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     textPainter.text = TextSpan(
       text: String.fromCharCode(iconData.codePoint),
       style: TextStyle(
-        fontSize: 16.0,
+        fontSize: (isUser ? 5.5 : 9.5) * pixelRatio, // Scaled with pixel ratio
         fontFamily: iconData.fontFamily,
         package: iconData.fontPackage,
         color: Colors.white,
@@ -377,8 +401,10 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
       final pictureRecorder = ui.PictureRecorder();
       final canvas = Canvas(pictureRecorder);
       
-      // Walking uses 60px (tall teardrop arrow), car/bike use 72px
-      final double size = (travelMode == 'walking') ? 60.0 : 72.0;
+      // Significantly reduced logical sizes (walking uses 22px, car/bike use 26px)
+      final double baseSize = (travelMode == 'walking') ? 22.0 : 26.0;
+      const double pixelRatio = 1.0; // 1.0x ratio for true logical size mapping on Android
+      final double size = baseSize * pixelRatio;
       
       // Calculate scaled bounds to maintain perfect aspect ratio without stretching
       double imgWidth = image.width.toDouble();
@@ -419,6 +445,8 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
       ...widget.places,
     ];
 
+    final List<Future<void>> loadingFutures = [];
+
     for (final place in allPlaces) {
       final isDest = widget.activeDestination?.id == place.id;
       final cacheKey = isDest ? '${place.id}_dest' : place.id;
@@ -428,14 +456,21 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
       _customMarkers[cacheKey] = gmaps.BitmapDescriptor.defaultMarker;
 
       final color = isDest ? const Color(0xff5B3EC8) : _getColorForCategory(place.category);
-      _createCategoryMarker(color, isDest ? 'destination' : place.category).then((descriptor) {
-        if (mounted) {
-          setState(() {
-            _customMarkers[cacheKey] = descriptor;
-          });
-        }
+      final future = _createCategoryMarker(color, isDest ? 'destination' : place.category).then((descriptor) {
+        _customMarkers[cacheKey] = descriptor;
       }).catchError((e) {
         debugPrint('Failed to load category marker for ${place.name}: $e');
+      });
+      loadingFutures.add(future);
+    }
+
+    if (loadingFutures.isNotEmpty) {
+      Future.wait(loadingFutures).then((_) {
+        if (mounted) {
+          setState(() {
+            // Rebuild the map once after all new markers are generated
+          });
+        }
       });
     }
   }
@@ -645,12 +680,14 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     final route = widget.activeRoute;
     final hasActiveRoute = route != null && route.coordinates.isNotEmpty;
 
+    final activeCategory = ref.read(activeCategoryProvider).toLowerCase();
+
     // Nearby places markers
     for (final place in widget.places) {
       if (activeDestination?.id == place.id) continue;
 
-      // If active route is present, only show nearby places that are near the route path
-      if (hasActiveRoute && !_isPlaceNearRoute(place.location, route.coordinates, 300.0)) {
+      // Show if a specific filter is selected, OR if 'All' is selected and they are near the route path
+      if (activeCategory == 'all' && (!hasActiveRoute || !_isPlaceNearRoute(place.location, route.coordinates, 300.0))) {
         continue;
       }
 
@@ -780,7 +817,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     final currentLocation = widget.simulatedLocation ?? widget.center;
     final destinationTarget = widget.activeDestination?.location ?? const LatLng(28.6139, 77.2090);
 
-    if (isOnline && mapEngine == MapEngine.googleMaps) {
+    if (mapEngine == MapEngine.googleMaps) {
       // --- Online Mode: Google Maps ---
       final googleMapType = ref.watch(googleMapTypeProvider);
       return gmaps.GoogleMap(
@@ -811,8 +848,8 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
             gmaps.Polyline(
               polylineId: const gmaps.PolylineId('routing_line'),
               points: widget.activeRoute!.coordinates.map(_toGoogleLatLng).toList(),
-              color: (travelMode == 'transit' || travelMode == 'walking') ? const Color(0xFF0080FF) : AppColors.primaryPurple,
-              width: 5,
+              color: const Color(0xFF007AFF), // Vibrant iOS blue
+              width: 6,
               jointType: gmaps.JointType.round,
               startCap: gmaps.Cap.roundCap,
               endCap: gmaps.Cap.roundCap,
@@ -824,8 +861,8 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
             gmaps.Polyline(
               polylineId: const gmaps.PolylineId('routing_line'),
               points: [_toGoogleLatLng(currentLocation), _toGoogleLatLng(destinationTarget)],
-              color: (travelMode == 'transit' || travelMode == 'walking') ? const Color(0xFF0080FF) : AppColors.primaryPurple,
-              width: 5,
+              color: const Color(0xFF007AFF), // Vibrant iOS blue
+              width: 6,
               jointType: gmaps.JointType.round,
               startCap: gmaps.Cap.roundCap,
               endCap: gmaps.Cap.roundCap,
@@ -838,49 +875,6 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
         circles: _buildGoogleCircles(widget.places),
       );
     } else {
-      // If offline but no local offline style file exists, display a beautiful placeholder
-      if (!isOnline && _offlineStyleString.isEmpty) {
-        return Container(
-          color: const Color(0xFFECE6F0),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.map_outlined,
-                    color: AppColors.primaryPurple.withOpacity(0.4),
-                    size: 64,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    AppLocalizations.of(context)!.offlineMapUnavailable,
-                    style: const TextStyle(
-                      fontFamily: 'PublicSans',
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF1D1B20),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    AppLocalizations.of(context)!.offlineMapUnavailableMessage,
-                    style: const TextStyle(
-                      fontFamily: 'PublicSans',
-                      fontSize: 13,
-                      color: Color(0xFF49454F),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }
-
       // --- Offline/OSM Mode: Interactive Tile Map via flutter_map ---
       return fm.FlutterMap(
         mapController: _osmMapController,
@@ -889,22 +883,28 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
           initialZoom: 14.5,
           maxZoom: isOnline ? 19.5 : 15.0,
           minZoom: isOnline ? 1.0 : 13.0,
+          onPositionChanged: (position, hasGesture) {
+            if (hasGesture) {
+              ref.read(isTrackingUserProvider.notifier).state = false;
+            }
+          },
         ),
         children: [
-          fm.TileLayer(
-            urlTemplate: isOnline 
-                ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png' 
-                : '$_offlineTilesPath/{z}/{x}/{y}.png',
-            subdomains: const ['a', 'b', 'c', 'd'],
-            tileProvider: isOnline 
-                ? fm.NetworkTileProvider(
-                    headers: {
-                      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-                    },
-                  ) 
-                : fm.FileTileProvider(),
-            fallbackUrl: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-          ),
+          if (isOnline || _offlineTilesPath.isNotEmpty)
+            fm.TileLayer(
+              urlTemplate: isOnline 
+                  ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png' 
+                  : '$_offlineTilesPath/{z}/{x}/{y}.png',
+              subdomains: const ['a', 'b', 'c', 'd'],
+              tileProvider: isOnline 
+                  ? fm.NetworkTileProvider(
+                      headers: {
+                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+                      },
+                    ) 
+                  : fm.FileTileProvider(),
+              fallbackUrl: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+            ),
           if (ref.watch(showHeatmapProvider))
             fm.CircleLayer(
               circles: _buildOfflineCircles(widget.places),
@@ -931,63 +931,14 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
   List<fm.Polyline> _buildOfflinePolylines(List<LatLng> coordinates, String travelMode) {
     if (coordinates.isEmpty) return [];
 
-    if (travelMode != 'driving') {
-      return [
-        fm.Polyline(
-          points: coordinates,
-          color: (travelMode == 'transit' || travelMode == 'walking')
-              ? const Color(0xFF0080FF)
-              : AppColors.primaryPurple,
-          strokeWidth: 5.0,
-          isDotted: travelMode == 'walking',
-        ),
-      ];
-    }
-
-    final List<fm.Polyline> polylines = [];
-    final int length = coordinates.length;
-
-    if (length < 6) {
-      polylines.add(
-        fm.Polyline(
-          points: coordinates,
-          color: const Color(0xFF4CAF50), // Green for clear traffic
-          strokeWidth: 6.0,
-        ),
-      );
-      return polylines;
-    }
-
-    // Segment 1 (Start to 40%): Clear Traffic (Green)
-    final int firstSplit = (length * 0.4).round();
-    polylines.add(
+    return [
       fm.Polyline(
-        points: coordinates.sublist(0, firstSplit + 1),
-        color: const Color(0xFF4CAF50), // Green
+        points: coordinates,
+        color: const Color(0xFF007AFF), // Vibrant iOS blue
         strokeWidth: 6.0,
+        isDotted: travelMode == 'walking',
       ),
-    );
-
-    // Segment 2 (40% to 70%): Heavy Traffic (Red)
-    final int secondSplit = (length * 0.7).round();
-    polylines.add(
-      fm.Polyline(
-        points: coordinates.sublist(firstSplit, secondSplit + 1),
-        color: const Color(0xFFF44336), // Red
-        strokeWidth: 6.0,
-      ),
-    );
-
-    // Segment 3 (70% to End): Moderate Traffic (Orange)
-    polylines.add(
-      fm.Polyline(
-        points: coordinates.sublist(secondSplit),
-        color: const Color(0xFFFF9800), // Orange
-        strokeWidth: 6.0,
-      ),
-    );
-
-    return polylines;
+    ];
   }
 
   List<fm.Marker> _buildOfflineMapMarkers(LatLng currentLocation, NearbyPlace? activeDestination) {
@@ -1054,12 +1005,14 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     final route = widget.activeRoute;
     final hasActiveRoute = route != null && route.coordinates.isNotEmpty;
 
+    final activeCategory = ref.read(activeCategoryProvider).toLowerCase();
+
     // Nearby places markers
     for (final place in widget.places) {
       if (activeDestination != null && place.id == activeDestination.id) continue;
 
-      // If active route is present, only show nearby places that are near the route path
-      if (hasActiveRoute && !_isPlaceNearRoute(place.location, route.coordinates, 300.0)) {
+      // Show if a specific filter is selected, OR if 'All' is selected and they are near the route path
+      if (activeCategory == 'all' && (!hasActiveRoute || !_isPlaceNearRoute(place.location, route.coordinates, 300.0))) {
         continue;
       }
       
@@ -1108,8 +1061,17 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     final showHeatmap = ref.watch(showHeatmapProvider);
     if (!showHeatmap) return {};
 
+    final route = widget.activeRoute;
+    final hasActiveRoute = route != null && route.coordinates.isNotEmpty;
+
+    final activeCategory = ref.read(activeCategoryProvider).toLowerCase();
+
     final Set<gmaps.Circle> circles = {};
     for (final place in places) {
+      if (activeCategory == 'all' && (!hasActiveRoute || !_isPlaceNearRoute(place.location, route.coordinates, 300.0))) {
+        continue;
+      }
+
       final googleLoc = _toGoogleLatLng(place.location);
 
       // Outer glow
@@ -1149,8 +1111,17 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
   }
 
   List<fm.CircleMarker> _buildOfflineCircles(List<NearbyPlace> places) {
+    final route = widget.activeRoute;
+    final hasActiveRoute = route != null && route.coordinates.isNotEmpty;
+
+    final activeCategory = ref.read(activeCategoryProvider).toLowerCase();
+
     final List<fm.CircleMarker> circles = [];
     for (final place in places) {
+      if (activeCategory == 'all' && (!hasActiveRoute || !_isPlaceNearRoute(place.location, route.coordinates, 300.0))) {
+        continue;
+      }
+
       // Outer glow
       circles.add(
         fm.CircleMarker(

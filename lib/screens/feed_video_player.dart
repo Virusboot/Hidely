@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:hidely_new/services/api_service.dart';
 
+import 'package:hidely_new/screens/full_screen_video_player.dart';
+
 class FeedVideoPlayer extends StatefulWidget {
   final String videoUrl;
   const FeedVideoPlayer({super.key, required this.videoUrl});
@@ -57,18 +59,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     super.dispose();
   }
 
-  void _togglePlay() {
-    if (_controller == null || !_isInitialized) return;
-    setState(() {
-      if (_controller!.value.isPlaying) {
-        _controller!.pause();
-        _isPlaying = false;
-      } else {
-        _controller!.play();
-        _isPlaying = true;
-      }
-    });
-  }
+
 
   void _toggleMute() {
     if (_controller == null || !_isInitialized) return;
@@ -92,7 +83,25 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     return GestureDetector(
-      onTap: _togglePlay,
+      onTap: () {
+        _controller?.pause();
+        setState(() {
+          _isPlaying = false;
+        });
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FullScreenVideoPlayer(videoUrl: widget.videoUrl),
+          ),
+        ).then((_) {
+          if (mounted) {
+            _controller?.play();
+            setState(() {
+              _isPlaying = true;
+            });
+          }
+        });
+      },
       child: Container(
         height: 480,
         width: double.infinity,

@@ -9,6 +9,7 @@ import 'package:hidely_new/services/ai_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:exif/exif.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PostDetailsScreen extends StatefulWidget {
   final File selectedImage;
@@ -90,17 +91,48 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      
+
       if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
-        Position pos = await Geolocator.getCurrentPosition(
+        // Try to get a high-accuracy position within 100 meters
+        // Stream positions and accept the first one with accuracy <= 100m
+        Position? bestPos;
+
+        try {
+          await for (final pos in Geolocator.getPositionStream(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.bestForNavigation,
+              distanceFilter: 0,
+            ),
+          ).timeout(const Duration(seconds: 8))) {
+            if (bestPos == null || pos.accuracy < bestPos.accuracy) {
+              bestPos = pos;
+            }
+            // Accept as soon as we get <= 100m accuracy
+            if (pos.accuracy <= 100.0) {
+              break;
+            }
+          }
+        } catch (_) {
+          // Timeout or stream error — use whatever we got
+        }
+
+        // Fallback: if stream gave nothing, try a direct single fix
+        bestPos ??= await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
+            accuracy: LocationAccuracy.bestForNavigation,
           ),
-        );
-        _latitude = pos.latitude;
-        _longitude = pos.longitude;
-        List<Placemark> marks =
-            await placemarkFromCoordinates(pos.latitude, pos.longitude);
+        ).timeout(const Duration(seconds: 6)).catchError((_) async =>
+          Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+            ),
+          ));
+
+        _latitude = bestPos.latitude;
+        _longitude = bestPos.longitude;
+        debugPrint('[Location] Accuracy: ${bestPos.accuracy.toStringAsFixed(1)}m');
+
+        List<Placemark> marks = await placemarkFromCoordinates(bestPos.latitude, bestPos.longitude);
         if (marks.isNotEmpty && mounted) {
           _updateLocationState(marks[0]);
         }
@@ -113,22 +145,47 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   }
 
   void _updateLocationState(Placemark mark) {
+    final name = mark.name ?? '';
     final locality = mark.locality ?? '';
     final subAdministrativeArea = mark.subAdministrativeArea ?? '';
     final country = mark.country ?? '';
     
     String formattedLoc = "";
+
+    // Build the base generic location (City, State / Country)
     if (locality.isNotEmpty) {
       formattedLoc = locality;
     }
-    if (subAdministrativeArea.isNotEmpty) {
+    if (subAdministrativeArea.isNotEmpty && subAdministrativeArea != locality) {
       formattedLoc = formattedLoc.isNotEmpty ? "$formattedLoc, $subAdministrativeArea" : subAdministrativeArea;
-    } else if (country.isNotEmpty) {
-      formattedLoc = formattedLoc.isNotEmpty ? "$formattedLoc, $country" : country;
+    } else if (country.isNotEmpty && formattedLoc.isEmpty) {
+      formattedLoc = country;
+    }
+
+    // Check if there is a specific POI / famous name
+    bool isPOI = false;
+    if (name.isNotEmpty) {
+      // It's a POI if it's not just a number, not a plus code, and not a duplicate
+      final isNumber = double.tryParse(name) != null;
+      final isPlusCode = name.contains('+');
+      final isDuplicate = name.toLowerCase() == locality.toLowerCase() || 
+                          name.toLowerCase() == subAdministrativeArea.toLowerCase();
+                          
+      if (!isNumber && !isPlusCode && !isDuplicate && name.length > 2) {
+        isPOI = true;
+      }
+    }
+
+    if (isPOI) {
+      if (formattedLoc.isNotEmpty) {
+        formattedLoc = "$name, $formattedLoc";
+      } else {
+        formattedLoc = name;
+      }
     }
     
     if (formattedLoc.isEmpty) {
-      formattedLoc = mark.name ?? "Unknown Location";
+      formattedLoc = "Unknown Location";
     }
 
     setState(() => _location = formattedLoc);
@@ -218,7 +275,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
       await _showNewPlaceNotification();
       
       navigator.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const MainWrapper()),
+        MaterialPageRoute(settings: const RouteSettings(name: "/main"), builder: (context) => const MainWrapper()),
         (route) => false,
       );
     } else {
@@ -233,6 +290,10 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   }
 
   Future<void> _showNewPlaceNotification() async {
+    final prefs = await SharedPreferences.getInstance();
+    final notificationsEnabled = prefs.getBool('enable_notifications') ?? true;
+    if (!notificationsEnabled) return;
+
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
     const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');

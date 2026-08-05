@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'post_details_screen.dart';
 import 'package:video_player/video_player.dart';
 
@@ -125,6 +126,20 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
   }
 
   Future<void> _initializeCamera() async {
+    final cameraStatus = await Permission.camera.request();
+    final micStatus = await Permission.microphone.request();
+
+    if (cameraStatus.isDenied || cameraStatus.isPermanentlyDenied ||
+        micStatus.isDenied || micStatus.isPermanentlyDenied) {
+      if (mounted) {
+        setState(() {
+          _noCameraFound = true;
+        });
+        _showCustomSnackBar("Camera & Microphone permissions are required to create a reel.", isError: true);
+      }
+      return;
+    }
+
     try {
       _cameras = await availableCameras();
       if (_cameras != null && _cameras!.isNotEmpty) {
@@ -222,11 +237,16 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
   Future<void> _pickVideoFromGallery() async {
     if (_isRecording) return;
     try {
-      final XFile? video = await _picker.pickVideo(
-        source: ImageSource.gallery,
-      );
-      if (video != null) {
-        final File processedVideo = await _ensureMp4Extension(File(video.path));
+      final XFile? media = await _picker.pickMedia();
+      if (media != null) {
+        final path = media.path.toLowerCase();
+        final isVideo = path.endsWith('.mp4') || path.endsWith('.mov') || path.endsWith('.avi') || path.endsWith('.mkv');
+        if (!isVideo) {
+          _showCustomSnackBar("Reels only support videos. Please select a video.", isError: true);
+          return;
+        }
+
+        final File processedVideo = await _ensureMp4Extension(File(media.path));
         setState(() {
           _recordedVideo = processedVideo;
         });
@@ -234,7 +254,7 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
         _setupVideoPreview();
       }
     } catch (e) {
-      debugPrint("Error picking video from gallery: $e");
+      debugPrint("Error picking media from gallery: $e");
       _showCustomSnackBar("Could not access device gallery.", isError: true);
     }
   }
@@ -645,7 +665,7 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                             Positioned(
                               left: 12,
                               right: 12,
-                              bottom: 130,
+                              bottom: 130 + MediaQuery.of(context).padding.bottom,
                               child: Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
@@ -695,7 +715,7 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                             Positioned(
                               left: 0,
                               right: 0,
-                              bottom: 24,
+                              bottom: 24 + MediaQuery.of(context).padding.bottom,
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                                 children: [

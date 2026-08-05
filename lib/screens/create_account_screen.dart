@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/screens/main_wrapper.dart';
 import 'package:hidely_new/services/api_service.dart';
+import 'package:hidely_new/widgets/custom_snackbar.dart';
 import 'package:hidely_new/screens/terms_of_service_screen.dart';
 import 'package:hidely_new/screens/privacy_policy_screen.dart';
 
@@ -120,6 +121,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           controller: _nameController,
                           hintText: "Full Name",
                           icon: Icons.person_outline,
+                          maxLength: 30,
                         ),
                         const SizedBox(height: 16),
 
@@ -127,6 +129,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           controller: _usernameController,
                           hintText: "Username",
                           icon: Icons.alternate_email_rounded,
+                          maxLength: 30,
                         ),
                         const SizedBox(height: 16),
 
@@ -144,6 +147,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           icon: Icons.lock_outline,
                           isPassword: true,
                           obscureText: _isPasswordObscured,
+                          maxLength: 30,
                           onSuffixTap: () {
                             setState(() {
                               _isPasswordObscured = !_isPasswordObscured;
@@ -158,6 +162,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           icon: Icons.lock_clock_outlined,
                           isPassword: true,
                           obscureText: _isConfirmPasswordObscured,
+                          maxLength: 30,
                           onSuffixTap: () {
                             setState(() {
                               _isConfirmPasswordObscured = !_isConfirmPasswordObscured;
@@ -238,12 +243,25 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
                               final emailRegex = RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+");
 
+                              final usernameRegex = RegExp(r'^(?!.*\.\.)(?!.*__)(?!.*_\.)(?!.*\._)[a-zA-Z0-9._]{3,30}$');
+                              final startEndCheck = RegExp(r'^[a-zA-Z0-9].*[a-zA-Z0-9]$');
+
                               if (name.isEmpty) {
                                 _showCustomSnackBar(context, "Please write your full name", isError: true);
+                              } else if (name.length > 30) {
+                                _showCustomSnackBar(context, "Name cannot exceed 30 characters", isError: true);
                               } else if (username.isEmpty) {
                                 _showCustomSnackBar(context, "Please create a username", isError: true);
                               } else if (username.length < 3) {
                                 _showCustomSnackBar(context, "Username must be at least 3 characters", isError: true);
+                              } else if (username.length > 30) {
+                                _showCustomSnackBar(context, "Username cannot exceed 30 characters", isError: true);
+                              } else if (!startEndCheck.hasMatch(username) || !usernameRegex.hasMatch(username)) {
+                                _showCustomSnackBar(
+                                  context, 
+                                  "Username can only contain letters, numbers, underscores, and periods. It cannot start/end with or have consecutive dots or underscores.", 
+                                  isError: true,
+                                );
                               } else if (email.isEmpty) {
                                 _showCustomSnackBar(context, "Please enter your email", isError: true);
                               } else if (!emailRegex.hasMatch(email)) {
@@ -252,6 +270,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                 _showCustomSnackBar(context, "Please enter your password", isError: true);
                               } else if (password.length < 6) {
                                 _showCustomSnackBar(context, "Password must be at least 6 characters", isError: true);
+                              } else if (password.length > 30) {
+                                _showCustomSnackBar(context, "Password cannot exceed 30 characters", isError: true);
                               } else if (confirmPassword.isEmpty) {
                                 _showCustomSnackBar(context, "Please confirm your password", isError: true);
                               } else if (password != confirmPassword) {
@@ -294,7 +314,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                        final navigator = Navigator.of(context);
                                        Future.delayed(const Duration(milliseconds: 500), () {
                                          navigator.pushAndRemoveUntil(
-                                           MaterialPageRoute(builder: (context) => const MainWrapper()),
+                                           MaterialPageRoute(settings: const RouteSettings(name: "/main"), builder: (context) => const MainWrapper()),
                                            (route) => false,
                                          );
                                        });
@@ -371,6 +391,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     bool obscureText = false,
     VoidCallback? onSuffixTap,
     TextInputType keyboardType = TextInputType.text,
+    int? maxLength,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -385,9 +406,11 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         controller: controller,
         obscureText: obscureText,
         keyboardType: keyboardType,
+        inputFormatters: maxLength != null ? [LengthLimitingTextInputFormatter(maxLength)] : null,
         style: const TextStyle(color: Color(0xff1C0D5A), fontSize: 16),
         decoration: InputDecoration(
           hintText: hintText,
+          counterText: "",
           hintStyle: TextStyle(color: const Color(0xff1C0D5A).withOpacity(0.4)),
           prefixIcon: Icon(icon, color: const Color(0xff1C0D5A).withOpacity(0.6)),
           suffixIcon: isPassword
@@ -408,35 +431,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
   // Custom SnackBar Method
   void _showCustomSnackBar(BuildContext context, String message, {required bool isError}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isError ? Icons.error_outline : Icons.check_circle_outline,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: isError ? Colors.redAccent.shade700 : const Color(0xff2B1564),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    showHidelySnackBar(context, message, isError: isError);
   }
 }

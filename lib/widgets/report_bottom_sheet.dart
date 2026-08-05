@@ -155,21 +155,22 @@ class _ReportBottomSheetState extends State<ReportBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final double keyboardPadding = MediaQuery.of(context).viewInsets.bottom;
-    final double safePadding = MediaQuery.of(context).padding.bottom;
-    final double bottomPadding = keyboardPadding > 0 
-        ? keyboardPadding + 16 
-        : (safePadding > 0 ? safePadding : 24);
+    final double bottomPadding = keyboardPadding > 0 ? keyboardPadding + 12 : 8.0;
 
     return Wrap(
       children: [
         Container(
-          padding: EdgeInsets.only(bottom: bottomPadding),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: SafeArea(
+            top: false,
+            bottom: true,
+            child: Padding(
+              padding: EdgeInsets.only(bottom: bottomPadding),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
             children: [
               // Drag handle
               const SizedBox(height: 12),
@@ -185,19 +186,32 @@ class _ReportBottomSheetState extends State<ReportBottomSheet> {
 
               // Header
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Row(
                   children: [
-                    if (_currentStep > 0)
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xff1C0D5A)),
-                        onPressed: () => setState(() => _currentStep = 0),
-                      ),
+                    SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: _currentStep > 0
+                          ? GestureDetector(
+                              onTap: () => setState(() => _currentStep = 0),
+                              child: Center(
+                                child: Image.asset(
+                                  'assets/images/back_icon.png',
+                                  color: const Color(0xff1C0D5A),
+                                  width: 18.0,
+                                  height: 18.0,
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
                     Expanded(
                       child: Text(
                         _currentStep == 0 
                             ? "Report ${widget.targetType}" 
                             : "Add Details",
+                        textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: Color(0xff1C0D5A),
                           fontSize: 18,
@@ -205,9 +219,17 @@ class _ReportBottomSheetState extends State<ReportBottomSheet> {
                         ),
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 22, color: Colors.grey),
-                      onPressed: () => Navigator.pop(context),
+                    SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 22,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -219,9 +241,11 @@ class _ReportBottomSheetState extends State<ReportBottomSheet> {
             ],
           ),
         ),
-      ],
-    );
-  }
+      ),
+    ),
+  ],
+);
+}
 
   Widget _buildReasonSelector() {
     return Flexible(

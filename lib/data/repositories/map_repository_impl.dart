@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hidely_new/config/constants.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -10,6 +12,7 @@ import '../../services/api_service.dart';
 import '../../domain/repositories/map_repository.dart';
 import '../models/nearby_place.dart';
 import '../models/route_data.dart';
+import '../official_posts.dart';
 
 class MapRepositoryImpl implements MapRepository {
   final LocalStorageService _storage;
@@ -25,20 +28,44 @@ class MapRepositoryImpl implements MapRepository {
     if (_geocodingCache.containsKey(cleanName)) {
       return _geocodingCache[cleanName];
     }
+
+    // Try persistent cache in SharedPreferences
     try {
-      const apiKey = 'AIzaSyB5ftUcwqjuC1BZtI26KrZsblQIF1Bl7t0';
+      final prefs = await SharedPreferences.getInstance();
+      final cachedVal = prefs.getString('geocode_$cleanName');
+      if (cachedVal != null && cachedVal.isNotEmpty) {
+        final parts = cachedVal.split(',');
+        if (parts.length == 2) {
+          final lat = double.tryParse(parts[0]);
+          final lng = double.tryParse(parts[1]);
+          if (lat != null && lng != null) {
+            final latLng = LatLng(lat, lng);
+            _geocodingCache[cleanName] = latLng;
+            return latLng;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('SharedPreferences geocode lookup failed: $e');
+    }
+
+    try {
+      const apiKey = AppConstants.googleMapsApiKey;
       final url = Uri.parse(
         'https://maps.googleapis.com/maps/api/geocode/json'
         '?address=${Uri.encodeComponent(address)}'
         '&key=$apiKey'
       );
-      final response = await http.get(url).timeout(const Duration(seconds: 5));
+      final response = await http.get(url).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['status'] == 'OK' && data['results'] != null && data['results'].isNotEmpty) {
           final loc = data['results'][0]['geometry']['location'];
           final latLng = LatLng(loc['lat'] as double, loc['lng'] as double);
+          
           _geocodingCache[cleanName] = latLng;
+          _saveGeocodeToPrefs(cleanName, latLng);
+          
           return latLng;
         }
       }
@@ -60,7 +87,7 @@ class MapRepositoryImpl implements MapRepository {
         headers: {
           'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
         },
-      ).timeout(const Duration(seconds: 4));
+      ).timeout(const Duration(seconds: 15));
       if (fallbackResponse.statusCode == 200) {
         final fallbackData = json.decode(fallbackResponse.body);
         if (fallbackData is List && fallbackData.isNotEmpty) {
@@ -68,7 +95,10 @@ class MapRepositoryImpl implements MapRepository {
           final lat = double.parse(first['lat'] as String);
           final lng = double.parse(first['lon'] as String);
           final latLng = LatLng(lat, lng);
+          
           _geocodingCache[cleanName] = latLng;
+          _saveGeocodeToPrefs(cleanName, latLng);
+
           debugPrint('[Geocode] Nominatim succeeded: Lat $lat, Lng $lng');
           return latLng;
         }
@@ -79,16 +109,26 @@ class MapRepositoryImpl implements MapRepository {
     return null;
   }
 
+  void _saveGeocodeToPrefs(String cleanName, LatLng latLng) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('geocode_$cleanName', '${latLng.latitude},${latLng.longitude}');
+    } catch (e) {
+      debugPrint('Failed to save geocode to SharedPreferences: $e');
+    }
+  }
+
   @override
   Future<List<Map<String, String>>> getAutocompletePredictions(String input) async {
     try {
-      const apiKey = 'AIzaSyB5ftUcwqjuC1BZtI26KrZsblQIF1Bl7t0';
+      const apiKey = AppConstants.googleMapsApiKey;
       final url = Uri.parse(
         'https://maps.googleapis.com/maps/api/place/autocomplete/json'
         '?input=${Uri.encodeComponent(input)}'
+        '&components=country:in'
         '&key=$apiKey'
       );
-      final response = await http.get(url).timeout(const Duration(seconds: 5));
+      final response = await http.get(url).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['status'] == 'OK' && data['predictions'] != null) {
@@ -111,14 +151,14 @@ class MapRepositoryImpl implements MapRepository {
   @override
   Future<LatLng?> getLatLngFromPlaceId(String placeId) async {
     try {
-      const apiKey = 'AIzaSyB5ftUcwqjuC1BZtI26KrZsblQIF1Bl7t0';
+      const apiKey = AppConstants.googleMapsApiKey;
       final url = Uri.parse(
         'https://maps.googleapis.com/maps/api/place/details/json'
         '?place_id=$placeId'
         '&fields=geometry'
         '&key=$apiKey'
       );
-      final response = await http.get(url).timeout(const Duration(seconds: 5));
+      final response = await http.get(url).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['status'] == 'OK' && data['result'] != null) {
@@ -133,7 +173,7 @@ class MapRepositoryImpl implements MapRepository {
   }
 
   Future<List<NearbyPlace>> _getCreatorPlaces(double lat, double lng, String? query) async {
-    final List<NearbyPlace> creatorPlaces = [];
+    final List<NearbyPlace> creatorPlaces = getOfficialNearbyPlaces();
     try {
       final apiResult = await ApiService().getExplorePosts(search: query ?? '');
       final dataMap = apiResult.data;
@@ -211,14 +251,14 @@ class MapRepositoryImpl implements MapRepository {
       // 1. If query is present, search Google Places API for real locations globally/in India
       if (query != null && query.trim().isNotEmpty) {
         try {
-          const apiKey = 'AIzaSyB5ftUcwqjuC1BZtI26KrZsblQIF1Bl7t0';
+          const apiKey = AppConstants.googleMapsApiKey;
           final url = Uri.parse(
             'https://maps.googleapis.com/maps/api/place/textsearch/json'
             '?query=${Uri.encodeComponent(query)}'
             '&key=$apiKey'
           );
 
-          final response = await http.get(url).timeout(const Duration(seconds: 5));
+          final response = await http.get(url).timeout(const Duration(seconds: 15));
           if (response.statusCode == 200) {
             final data = json.decode(response.body);
             if (data['status'] == 'OK' && data['results'] != null) {
@@ -244,6 +284,14 @@ class MapRepositoryImpl implements MapRepository {
                     ? '${distM.round()}m'
                     : '${(distM / 1000.0).toStringAsFixed(1)}km';
 
+                String placeImg = '';
+                if (result['photos'] != null && (result['photos'] as List).isNotEmpty) {
+                  final photoRef = result['photos'][0]['photo_reference'];
+                  if (photoRef != null) {
+                    placeImg = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=$photoRef&key=$apiKey';
+                  }
+                }
+
                 searchedPlaces.add(
                   NearbyPlace(
                     id: result['place_id'] ?? '',
@@ -255,6 +303,7 @@ class MapRepositoryImpl implements MapRepository {
                     rating: rating,
                     distanceText: distanceText,
                     distanceM: distM.round(),
+                    imageUrl: placeImg,
                   ),
                 );
               }
@@ -273,7 +322,7 @@ class MapRepositoryImpl implements MapRepository {
       } else {
         // 2. Fetch live nearby places in India/global coordinates using Google Places Nearby Search API
         try {
-          const apiKey = 'AIzaSyB5ftUcwqjuC1BZtI26KrZsblQIF1Bl7t0';
+          const apiKey = AppConstants.googleMapsApiKey;
 
           List<String> googleTypes = [];
           if (category == null || category.toLowerCase() == 'all') {
@@ -306,7 +355,7 @@ class MapRepositoryImpl implements MapRepository {
             );
 
             try {
-              final response = await http.get(url).timeout(const Duration(seconds: 5));
+              final response = await http.get(url).timeout(const Duration(seconds: 15));
               if (response.statusCode == 200) {
                 final data = json.decode(response.body);
                 if (data['status'] == 'OK' && data['results'] != null) {
@@ -337,6 +386,14 @@ class MapRepositoryImpl implements MapRepository {
                         ? '${distM.round()}m'
                         : '${(distM / 1000.0).toStringAsFixed(1)}km';
 
+                    String placeImg = '';
+                    if (result['photos'] != null && (result['photos'] as List).isNotEmpty) {
+                      final photoRef = result['photos'][0]['photo_reference'];
+                      if (photoRef != null) {
+                        placeImg = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=$photoRef&key=$apiKey';
+                      }
+                    }
+
                     allParsedPlaces.add(
                       NearbyPlace(
                         id: placeId,
@@ -348,6 +405,7 @@ class MapRepositoryImpl implements MapRepository {
                         rating: rating,
                         distanceText: distanceText,
                         distanceM: distM.round(),
+                        imageUrl: placeImg,
                       ),
                     );
                   }
@@ -399,10 +457,10 @@ class MapRepositoryImpl implements MapRepository {
           final response = await http.get(
             uri,
             headers: {
-              'X-App-Token': 'armonia_4f7d92b1c8e6a9f5d3e7b1c9a8f6d2e5b7c1a9f4d8e6b2c3f5a7d9e1b6c8f0',
+              'X-App-Token': AppConstants.armoniaMockApiToken,
               'Content-Type': 'application/json',
             },
-          ).timeout(const Duration(seconds: 5));
+          ).timeout(const Duration(seconds: 15));
 
           if (response.statusCode == 200) {
             final Map<String, dynamic> body = json.decode(response.body);
@@ -609,7 +667,7 @@ class MapRepositoryImpl implements MapRepository {
     if (isOnline) {
       // 1. Google Directions API for all modes (walking, driving, transit)
       try {
-        const apiKey = 'AIzaSyB5ftUcwqjuC1BZtI26KrZsblQIF1Bl7t0';
+        const apiKey = AppConstants.googleMapsApiKey;
         final googleMode = mode == 'transit' ? 'transit' : mode == 'driving' ? 'driving' : mode == 'bicycling' ? 'bicycling' : 'walking';
         final googleLang = language ?? 'en';
         final url = Uri.parse(
@@ -621,7 +679,7 @@ class MapRepositoryImpl implements MapRepository {
           '&key=$apiKey'
         );
 
-        final response = await http.get(url).timeout(const Duration(seconds: 5));
+        final response = await http.get(url).timeout(const Duration(seconds: 15));
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           if (data['status'] == 'OK' && data['routes'] != null && data['routes'].isNotEmpty) {
@@ -636,24 +694,55 @@ class MapRepositoryImpl implements MapRepository {
             List<String> instructions = [];
             if (legs['steps'] != null) {
               for (final step in legs['steps']) {
+                final travelMode = (step['travel_mode'] as String? ?? '').toLowerCase();
                 final htmlInstruction = step['html_instructions'] as String? ?? '';
-                final cleanInstruction = htmlInstruction.replaceAll(RegExp(r'<[^>]*>'), '');
+                String cleanInstruction = htmlInstruction.replaceAll(RegExp(r'<[^>]*>'), '');
+
+                if (travelMode == 'transit' && step['transit_details'] != null) {
+                  final transit = step['transit_details'];
+                  final line = transit['line'];
+                  final lineName = line?['short_name'] ?? line?['name'] ?? '';
+                  final vehicleType = line?['vehicle']?['name'] ?? 'Bus / Metro / Train';
+                  final depStop = transit['departure_stop']?['name'] ?? '';
+                  final arrStop = transit['arrival_stop']?['name'] ?? '';
+                  final numStops = transit['num_stops'] ?? 0;
+
+                  String modeDesc = 'Board $vehicleType';
+                  if (lineName.isNotEmpty) modeDesc += ' ($lineName)';
+                  if (depStop.isNotEmpty && arrStop.isNotEmpty) {
+                    modeDesc += ' from $depStop to $arrStop ($numStops stops)';
+                  } else if (depStop.isNotEmpty) {
+                    modeDesc += ' from $depStop';
+                  }
+                  cleanInstruction = modeDesc;
+                } else if (mode == 'transit' && travelMode == 'walking') {
+                  if (instructions.isEmpty) {
+                    cleanInstruction = 'Take local Auto / Cab / E-Rickshaw to nearest bus stand or station.';
+                  } else {
+                    cleanInstruction = 'Change to local Auto / E-Rickshaw for final stretch to destination.';
+                  }
+                }
+
                 if (cleanInstruction.trim().isNotEmpty) {
                   instructions.add(cleanInstruction.trim());
                 }
               }
             }
             if (instructions.isEmpty) {
-              instructions = [
-                mode == 'transit'
-                    ? (language == 'es' ? 'Proceda al destino usando el transporte público.' : language == 'de' ? 'Fahren Sie mit den öffentlichen Verkehrsmitteln zum Ziel.' : 'Proceed to destination using public transit.')
-                    : (language == 'es' ? 'Proceda al destino.' : language == 'de' ? 'Fahren Sie zum Ziel fort.' : 'Proceed to destination.')
-              ];
+              instructions = mode == 'transit'
+                  ? [
+                      'Take local Auto / Cab to nearest transit hub (e.g. Anand Vihar ISBT / Metro).',
+                      'Board Bus / Metro / Train towards destination route.',
+                      'Switch to local Auto / E-Rickshaw for final connection to destination.'
+                    ]
+                  : [
+                      language == 'es' ? 'Proceda al destino.' : language == 'de' ? 'Fahren Sie zum Ziel fort.' : 'Proceed to destination.'
+                    ];
             }
 
             return RouteData(
               coordinates: points,
-              distanceKm: double.parse(distanceKm.toStringAsFixed(1)),
+              distanceKm: double.parse(distanceKm.toStringAsFixed(2)),
               durationMin: durationMin > 0 ? durationMin : 1,
               elevationGainM: mode == 'walking' ? (distanceKm * 20).round() : (distanceKm * 5).round(),
               instructions: instructions,
@@ -678,7 +767,7 @@ class MapRepositoryImpl implements MapRepository {
 
           http.Response response;
           try {
-            response = await http.get(url).timeout(const Duration(seconds: 4));
+            response = await http.get(url).timeout(const Duration(seconds: 15));
             if (response.statusCode != 200) {
               throw Exception('Primary OSRM server status code: ${response.statusCode}');
             }
@@ -691,7 +780,7 @@ class MapRepositoryImpl implements MapRepository {
               '${start.longitude},${start.latitude};${end.longitude},${end.latitude}'
               '?overview=full&geometries=geojson',
             );
-            response = await http.get(fallbackUrl).timeout(const Duration(seconds: 5));
+            response = await http.get(fallbackUrl).timeout(const Duration(seconds: 15));
           }
 
           if (response.statusCode == 200) {
@@ -711,7 +800,7 @@ class MapRepositoryImpl implements MapRepository {
 
               return RouteData(
                 coordinates: points,
-                distanceKm: double.parse(distanceKm.toStringAsFixed(1)),
+                distanceKm: double.parse(distanceKm.toStringAsFixed(2)),
                 durationMin: durationMin > 0 ? durationMin : 1,
                 elevationGainM: (distanceKm * 15).round(),
                 instructions: _generateInstructionsForPoints(points, language),
@@ -722,8 +811,24 @@ class MapRepositoryImpl implements MapRepository {
           debugPrint('[Repository] Online OSRM routing failed: $e. Falling back to direct line.');
         }
       } else {
-        // Fallback for online transit to OSRM driving route
-        return getRoute(start: start, end: end, mode: 'driving', language: language);
+        // Fallback for online transit: generate rich multi-modal transit roadmap steps
+        final distanceKm = const Distance().as(LengthUnit.Meter, start, end) / 1000.0;
+        final int durationMin = ((distanceKm / 25.0) * 60).round().clamp(10, 180);
+        final String mainHub = distanceKm > 20 ? 'Anand Vihar ISBT / Railway Junction' : 'Central Bus Terminal / Metro Station';
+
+        return RouteData(
+          coordinates: [start, end],
+          distanceKm: double.parse(distanceKm.toStringAsFixed(1)),
+          durationMin: durationMin,
+          elevationGainM: 0,
+          instructions: [
+            'Take local Auto / Cab from current location to $mainHub.',
+            'Board Bus / Train / Metro from $mainHub towards destination route.',
+            'De-board at major interchange station.',
+            'Switch to local Auto / E-Rickshaw for final stretch to destination.',
+            'Arrive at target destination.'
+          ],
+        );
       }
     }
 

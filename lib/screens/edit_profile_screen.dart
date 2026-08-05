@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
@@ -16,7 +17,6 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _usernameController;
-  late final TextEditingController _pronounsController;
   late final TextEditingController _bioController;
   late final TextEditingController _instagramController;
   late final TextEditingController _youtubeController;
@@ -31,7 +31,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     _nameController = TextEditingController(text: AuthService().userName);
     _usernameController = TextEditingController(text: AuthService().userUsername);
-    _pronounsController = TextEditingController(text: AuthService().userPronouns);
     
     final originalBio = AuthService().userBio;
     String cleanBio = originalBio;
@@ -62,7 +61,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void dispose() {
     _nameController.dispose();
     _usernameController.dispose();
-    _pronounsController.dispose();
     _bioController.dispose();
     _instagramController.dispose();
     _youtubeController.dispose();
@@ -71,7 +69,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _pickProfileImage() async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 800,
+        maxHeight: 800,
+      );
       if (image != null) {
         setState(() {
           _selectedImagePath = image.path;
@@ -132,9 +135,79 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         child: GestureDetector(
                           onTap: () async {
                             if (_isLoading) return;
+
+                            final name = _nameController.text.trim();
+                            final username = _usernameController.text.trim().toLowerCase();
+                            final bio = _bioController.text.trim();
+                            final instagram = _instagramController.text.trim();
+                            final youtube = _youtubeController.text.trim();
+
+                            // 1. Validations (Instagram-like limitations)
+                            if (name.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Name cannot be empty"), behavior: SnackBarBehavior.floating),
+                              );
+                              return;
+                            }
+                            if (username.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Username cannot be empty"), behavior: SnackBarBehavior.floating),
+                              );
+                              return;
+                            }
+                            if (username.length < 3) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Username must be at least 3 characters long"), behavior: SnackBarBehavior.floating),
+                              );
+                              return;
+                            }
+                            // Regex: Lowercase alphanumeric, underscores, and periods. Cannot start or end with a period/underscore.
+                            final usernameRegex = RegExp(r'^[a-z0-9]([a-z0-9_.]*[a-z0-9])?$');
+                            if (!usernameRegex.hasMatch(username)) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Username can only contain lowercase letters, numbers, underscores, and periods. It cannot start or end with a period/underscore."),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                              return;
+                            }
+
+                            // 2. Strict Link / Handle Validation (must be valid URL or start with @)
+                            final urlRegex = RegExp(r'^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$');
+                            final handleRegex = RegExp(r'^@[a-zA-Z0-9_.]+$');
+
+                            if (instagram.isNotEmpty) {
+                              final isUrl = urlRegex.hasMatch(instagram);
+                              final isHandle = handleRegex.hasMatch(instagram);
+                              if (!isUrl && !isHandle) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Instagram must be a valid link (https://...) or username starting with @"),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                                return;
+                              }
+                            }
+                            if (youtube.isNotEmpty) {
+                              final isUrl = urlRegex.hasMatch(youtube);
+                              final isHandle = handleRegex.hasMatch(youtube);
+                              if (!isUrl && !isHandle) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("YouTube must be a valid link (https://...) or channel starting with @"),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                                return;
+                              }
+                            }
+
                             setState(() {
                               _isLoading = true;
                             });
+                            
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text("Saving profile changes..."),
@@ -143,19 +216,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               ),
                             );
 
-                            String finalBio = _bioController.text.trim();
-                            if (_instagramController.text.trim().isNotEmpty) {
-                              finalBio = '$finalBio\nInstagram: ${_instagramController.text.trim()}';
+                            String finalBio = bio;
+                            if (instagram.isNotEmpty) {
+                              finalBio = '$finalBio\nInstagram: $instagram';
                             }
-                            if (_youtubeController.text.trim().isNotEmpty) {
-                              finalBio = '$finalBio\nYouTube: ${_youtubeController.text.trim()}';
+                            if (youtube.isNotEmpty) {
+                              finalBio = '$finalBio\nYouTube: $youtube';
                             }
 
                             final result = await ApiService().updateUserProfile(
                               token: AuthService().token ?? '',
-                              name: _nameController.text,
-                              username: _usernameController.text,
-                              pronouns: _pronounsController.text,
+                              name: name,
+                              username: username,
                               bio: finalBio,
                               avatar: _selectedImagePath != null ? File(_selectedImagePath!) : null,
                             );
@@ -244,7 +316,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             ),
                             const SizedBox(height: 12),
                             const Text(
-                              "Edit picture or avatar",
+                              "Edit picture",
                               style: TextStyle(
                                 color: Color(0xff1C0D5A),
                                 fontWeight: FontWeight.bold,
@@ -257,10 +329,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                       // 3. Editable Fields List
                       const SizedBox(height: 40),
-                      _buildEditableField("Name", _nameController),
-                      _buildEditableField("Username", _usernameController),
-                      _buildEditableField("Pronouns", _pronounsController, hint: "Optional"),
-                      _buildEditableField("Bio", _bioController, maxLines: 4),
+                      _buildEditableField(
+                        "Name",
+                        _nameController,
+                        inputFormatters: [LengthLimitingTextInputFormatter(30)],
+                      ),
+                      _buildEditableField(
+                        "Username",
+                        _usernameController,
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(30),
+                          FilteringTextInputFormatter.allow(RegExp(r'[a-z0-9_.]')),
+                        ],
+                      ),
+                      _buildEditableField(
+                        "Bio",
+                        _bioController,
+                        maxLines: 4,
+                        inputFormatters: [LengthLimitingTextInputFormatter(150)],
+                      ),
                       
                       // 4. Links Section
                       const Padding(
@@ -278,8 +365,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ),
                       ),
                       const Divider(height: 1, thickness: 0.5, color: Colors.black12),
-                      _buildEditableField("Instagram", _instagramController, hint: "@username or link"),
-                      _buildEditableField("YouTube", _youtubeController, hint: "@channel or link"),
+                      _buildEditableField(
+                        "Instagram",
+                        _instagramController,
+                        hint: "@username or link",
+                        inputFormatters: [LengthLimitingTextInputFormatter(80)],
+                      ),
+                      _buildEditableField(
+                        "YouTube",
+                        _youtubeController,
+                        hint: "@channel or link",
+                        inputFormatters: [LengthLimitingTextInputFormatter(80)],
+                      ),
 
                       const SizedBox(height: 30),
                     ],
@@ -294,7 +391,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   // Helper for creating editable rows exactly like the design
-  Widget _buildEditableField(String label, TextEditingController controller, {int maxLines = 1, String? hint}) => Column(
+  Widget _buildEditableField(
+    String label,
+    TextEditingController controller, {
+    int maxLines = 1,
+    String? hint,
+    List<TextInputFormatter>? inputFormatters,
+  }) => Column(
     children: [
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -316,6 +419,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: TextFormField(
                 controller: controller,
                 maxLines: maxLines,
+                inputFormatters: inputFormatters,
                 style: const TextStyle(fontSize: 15, color: Colors.black87),
                 decoration: InputDecoration(
                   hintText: hint,

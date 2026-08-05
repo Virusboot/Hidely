@@ -3,9 +3,13 @@ import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/screens/feed_video_player.dart';
 import 'package:hidely_new/screens/creator_profile_screen.dart';
+import 'package:hidely_new/screens/user_profile_screen.dart';
 
 class ReelsScreen extends StatefulWidget {
   const ReelsScreen({super.key});
+
+  // ignore: library_private_types_in_public_api
+  static _ReelsScreenState? activeState;
 
   @override
   State<ReelsScreen> createState() => _ReelsScreenState();
@@ -19,6 +23,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
   @override
   void initState() {
     super.initState();
+    ReelsScreen.activeState = this;
     _fetchReels();
   }
 
@@ -38,6 +43,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
         if (result.success) {
           final allPosts = result.data?['posts'] ?? [];
           _videoReels = allPosts.where((post) {
+            if (AuthService().isPostDeletedLocally(post['id'])) return false;
             final imageUrl = post["image_url"]?.toString().toLowerCase() ?? "";
             return imageUrl.endsWith('.mp4') ||
                 imageUrl.endsWith('.mov') ||
@@ -53,8 +59,18 @@ class _ReelsScreenState extends State<ReelsScreen> {
 
   @override
   void dispose() {
+    if (ReelsScreen.activeState == this) {
+      ReelsScreen.activeState = null;
+    }
     _pageController.dispose();
     super.dispose();
+  }
+
+  void removePostLocally(int postId) {
+    if (!mounted) return;
+    setState(() {
+      _videoReels.removeWhere((p) => p['id'] == postId || p['id']?.toString() == postId.toString());
+    });
   }
 
   @override
@@ -85,7 +101,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.video_library_outlined, size: 64, color: Colors.white24),
+                              Icon(Icons.video_library_outlined, size: 40, color: Colors.white24),
                               SizedBox(height: 12),
                               Text(
                                 "No Reels Published Yet",
@@ -135,8 +151,8 @@ class _ReelsScreenState extends State<ReelsScreen> {
 
   Widget _buildReelPageItem(dynamic reel) {
     final id = reel["id"];
-    final String authorUsername = reel["author_username"] ?? "realharshbhardwaj";
-    final String? authorPic = reel["author_profile_picture"];
+    final String authorUsername = reel["author_username"] ?? reel["username"] ?? AuthService().userUsername;
+    final String? authorPic = reel["author_profile_picture"] ?? AuthService().userProfilePicture;
     final String caption = reel["caption"] ?? "";
     final String imageUrl = reel["image_url"] ?? "";
     
@@ -176,18 +192,22 @@ class _ReelsScreenState extends State<ReelsScreen> {
                 children: [
                   GestureDetector(
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CreatorProfileScreen(
-                            username: authorUsername,
-                            avatarPath: authorPic != null && authorPic.isNotEmpty
-                                ? '${ApiService().baseUrl}/$authorPic'
-                                : "assets/images/nomad_nate_avatar.png",
-                            rank: "Gold",
+                      if (authorUsername == AuthService().userUsername) {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const UserProfileScreen()));
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CreatorProfileScreen(
+                              username: authorUsername,
+                              avatarPath: authorPic != null && authorPic.isNotEmpty
+                                  ? '${ApiService().baseUrl}/$authorPic'
+                                  : "assets/images/nomad_nate_avatar.png",
+                              rank: "Gold",
+                            ),
                           ),
-                        ),
-                      );
+                        );
+                      }
                     },
                     child: CircleAvatar(
                       radius: 16,
@@ -200,18 +220,22 @@ class _ReelsScreenState extends State<ReelsScreen> {
                   const SizedBox(width: 10),
                   GestureDetector(
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CreatorProfileScreen(
-                            username: authorUsername,
-                            avatarPath: authorPic != null && authorPic.isNotEmpty
-                                ? '${ApiService().baseUrl}/$authorPic'
-                                : "assets/images/nomad_nate_avatar.png",
-                            rank: "Gold",
+                      if (authorUsername == AuthService().userUsername) {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const UserProfileScreen()));
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CreatorProfileScreen(
+                              username: authorUsername,
+                              avatarPath: authorPic != null && authorPic.isNotEmpty
+                                  ? '${ApiService().baseUrl}/$authorPic'
+                                  : "assets/images/nomad_nate_avatar.png",
+                              rank: "Gold",
+                            ),
                           ),
-                        ),
-                      );
+                        );
+                      }
                     },
                     child: Text(
                       authorUsername,
@@ -279,11 +303,18 @@ class _ReelsScreenState extends State<ReelsScreen> {
                 },
                 child: Column(
                   children: [
-                    Icon(
-                      isLiked ? Icons.favorite : Icons.favorite_border_rounded,
-                      color: isLiked ? Colors.redAccent.shade700 : Colors.white,
-                      size: 28,
-                    ),
+                    isLiked
+                        ? Icon(
+                            Icons.favorite,
+                            color: Colors.redAccent.shade700,
+                            size: 28,
+                          )
+                        : Image.asset(
+                            'assets/icons/icon-park-outline_like.png',
+                            color: Colors.white,
+                            width: 28,
+                            height: 28,
+                          ),
                     const SizedBox(height: 6),
                     Text(
                       "$likes",
@@ -297,7 +328,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
                 onTap: () => debugPrint("Launching Feed Sheet Comments System Framework Context..."),
                 child: Column(
                   children: [
-                    const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 26),
+                    Image.asset('assets/icons/uit_comment-dots.png', color: Colors.white, width: 26, height: 26),
                     const SizedBox(height: 6),
                     Text(
                       "$comments",
@@ -309,11 +340,11 @@ class _ReelsScreenState extends State<ReelsScreen> {
               const SizedBox(height: 22),
               GestureDetector(
                 onTap: () => debugPrint("Launching Feed Sheet Grid Sharing Framework Context..."),
-                child: const Column(
+                child: Column(
                   children: [
-                    Icon(Icons.share_outlined, color: Colors.white, size: 26),
-                    SizedBox(height: 6),
-                    Text(
+                    Image.asset('assets/icons/solar_share-linear.png', color: Colors.white, width: 26, height: 26),
+                    const SizedBox(height: 6),
+                    const Text(
                       "Share",
                       style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                     ),

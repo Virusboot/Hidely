@@ -32,17 +32,24 @@ class TermsOfServiceScreen extends StatelessWidget {
               children: [
                 // Header Bar with Back Button
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                   child: Row(
                     children: [
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
                         child: Container(
-                          width: 48,
-                          height: 48,
-                          decoration: const BoxDecoration(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xff1C0D5A).withOpacity(0.08),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: Center(
                             child: Image.asset(
@@ -54,15 +61,19 @@ class TermsOfServiceScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      const Text(
-                        "Terms of Service",
-                        style: TextStyle(
-                          color: Color(0xff1C0D5A),
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                      const Expanded(
+                        child: Text(
+                          "Terms of Service",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'PublicSans',
+                            color: Color(0xff1C0D5A),
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 40), // Balance the back button on the left
                     ],
                   ),
                 ),

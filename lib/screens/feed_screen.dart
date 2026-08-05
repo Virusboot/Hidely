@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:hidely_new/screens/notification_screen.dart';
 import 'package:hidely_new/screens/create_media_screen.dart';
 import 'package:hidely_new/screens/creator_profile_screen.dart';
-import 'package:hidely_new/screens/user_profile_screen.dart';
 import 'package:hidely_new/screens/feed_video_player.dart';
 import 'package:hidely_new/screens/category_screen.dart';
 import 'package:hidely_new/screens/main_wrapper.dart';
@@ -13,6 +12,7 @@ import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:hidely_new/widgets/post_options_bottom_sheet.dart';
+import 'package:hidely_new/data/official_posts.dart';
 import 'dart:io';
 
 class FeedScreen extends StatefulWidget {
@@ -21,77 +21,78 @@ class FeedScreen extends StatefulWidget {
   static final List<Map<String, dynamic>> mockPosts = [
     {
       "id": 0,
-      "likes": 1215,
+      "likes": 1840,
       "comments": 504,
       "shares": 70,
       "isLiked": false,
       "isBookmarked": false,
-      "location": "Athens, Greece",
-      "title": "Parthenon Temple",
+      "location": "Nainital, Uttarakhand",
+      "title": "Nainital Lake Boating",
       "image": "assets/images/explore_1.png",
       "isAsset": true,
       "caption":
-          "Exploring the historical temple ruins under the golden hour sun. Augmenting your travel journey with cinematic depth.",
+          "Exploring the serene Naini Lake surrounded by misty pine hills under the golden hour sun.",
     },
     {
       "id": 1,
-      "likes": 1230,
+      "likes": 2150,
       "comments": 508,
       "shares": 75,
       "isLiked": false,
       "isBookmarked": false,
-      "location": "Rome, Italy",
-      "title": "Colosseum Ruins",
+      "location": "Manali, Himachal Pradesh",
+      "title": "Solang Valley Snow",
       "image": "assets/images/explore_2.png",
       "isAsset": true,
       "caption":
-          "An ancient structural marvel that stood the test of time. Walking through the historical amphitheater.",
+          "Snowy peaks and pine trees in Solang Valley. Crisp mountain breeze and adventure trails.",
     },
     {
       "id": 2,
-      "likes": 1180,
+      "likes": 1920,
       "comments": 492,
       "shares": 65,
       "isLiked": false,
       "isBookmarked": false,
-      "location": "Santorini, Greece",
-      "title": "Lighthouse Cliffs",
+      "location": "North Goa, India",
+      "title": "Vagator Sunset Cliff",
       "image": "assets/images/explore_3.png",
       "isAsset": true,
       "caption":
-          "Stunning blue domes and white cliffs overlooking the crystal clear Aegean sea.",
+          "Stunning coastal cliffs and coconut palms overlooking the Arabian Sea during sunset.",
     },
     {
       "id": 3,
-      "likes": 1245,
+      "likes": 3410,
       "comments": 512,
       "shares": 80,
       "isLiked": false,
       "isBookmarked": false,
-      "location": "Giza, Egypt",
-      "title": "Great Pyramids",
+      "location": "Agra, Uttar Pradesh",
+      "title": "Taj Mahal Marvel",
       "image": "assets/images/explore_4.png",
       "isAsset": true,
       "caption":
-          "Witnessing the scale of the ancient wonders. A cinematic view across the desert sands.",
+          "Witnessing the pure white marble wonder along Yamuna River. A cinematic morning view.",
     },
     {
       "id": 4,
-      "likes": 1260,
+      "likes": 2890,
       "comments": 516,
       "shares": 90,
       "isLiked": false,
       "isBookmarked": false,
-      "location": "Varanasi, India",
+      "location": "Varanasi, Uttar Pradesh",
       "title": "Holy Ganga Ghats",
       "image": "assets/images/explore_5.png",
       "isAsset": true,
       "caption":
-          "Immersing in the spiritual evening rituals along the banks of the sacred river Ganga.",
+          "Immersing in the spiritual evening rituals and oil lamps along the banks of sacred River Ganga.",
     },
   ];
 
-  static dynamic activeState;
+  // ignore: library_private_types_in_public_api
+  static _FeedScreenState? activeState;
 
   @override
   State<FeedScreen> createState() => _FeedScreenState();
@@ -110,6 +111,12 @@ class _FeedScreenState extends State<FeedScreen> {
 
   void reload() {
     _loadFeed();
+  }
+
+  void removePostLocally(int postId) {
+    setState(() {
+      _feedPosts.removeWhere((p) => p['id'] == postId || p['id']?.toString() == postId.toString());
+    });
   }
 
   void _showPostOptionsSheet(BuildContext context, dynamic post) {
@@ -139,22 +146,96 @@ class _FeedScreenState extends State<FeedScreen> {
 
     if (!mounted) return;
 
+    List<dynamic> serverFeed = [];
     if (result.success) {
       final feedList = result.data?['feed'];
       if (feedList != null && feedList is List) {
-        setState(() {
-          _feedPosts = feedList;
-          _isLoading = false;
-        });
-        return;
+        serverFeed = feedList;
       }
     }
 
-    // Fallback if API fails or offline
+    final mixedFeed = _mixFeedAlgorithm(serverFeed, officialHidelyPosts);
+    final cleanFeed = mixedFeed.where((p) => !AuthService().isPostDeletedLocally(p['id'])).toList();
+
     setState(() {
-      _feedPosts = [];
+      _feedPosts = cleanFeed;
       _isLoading = false;
     });
+  }
+
+  List<dynamic> _mixFeedAlgorithm(List<dynamic> serverPosts, List<dynamic> officialPosts) {
+    // 1. Sort all server posts by date (latest first)
+    final List<dynamic> sortedServerPosts = List.from(serverPosts);
+    sortedServerPosts.sort((a, b) {
+      final aDateStr = a['created_at'] ?? a['createdAt'];
+      final bDateStr = b['created_at'] ?? b['createdAt'];
+      if (aDateStr != null && bDateStr != null) {
+        try {
+          final DateTime aDate = DateTime.parse(aDateStr.toString());
+          final DateTime bDate = DateTime.parse(bDateStr.toString());
+          return bDate.compareTo(aDate); // descending
+        } catch (_) {}
+      }
+      // Fallback to ID sorting
+      final aId = int.tryParse(a['id']?.toString() ?? '') ?? 0;
+      final bId = int.tryParse(b['id']?.toString() ?? '') ?? 0;
+      return bId.compareTo(aId); // descending
+    });
+
+    // 2. Interleave server posts to prevent consecutive posts from same author
+    final List<dynamic> interleavedServer = [];
+    final Map<String, List<dynamic>> userBuckets = {};
+    
+    for (final post in sortedServerPosts) {
+      final author = (post['author_username'] ?? post['username'] ?? '').toString();
+      userBuckets.putIfAbsent(author, () => []).add(post);
+    }
+
+    // Pick posts sequentially, trying to avoid matching the author of the last post
+    String lastAuthor = '';
+    while (userBuckets.isNotEmpty) {
+      String? bestUser;
+      
+      // Find a user who has posts and is NOT the last author
+      for (final user in userBuckets.keys) {
+        if (user != lastAuthor) {
+          bestUser = user;
+          break;
+        }
+      }
+      
+      // If all remaining posts are from the last author, just pick the first available
+      if (bestUser == null && userBuckets.isNotEmpty) {
+        bestUser = userBuckets.keys.first;
+      }
+      
+      if (bestUser != null) {
+        final userPostsList = userBuckets[bestUser]!;
+        interleavedServer.add(userPostsList.removeAt(0));
+        if (userPostsList.isEmpty) {
+          userBuckets.remove(bestUser);
+        }
+        lastAuthor = bestUser;
+      }
+    }
+
+    // 3. Intersperse official/fallback posts (e.g. 1 official post after every 3 server posts)
+    final List<dynamic> finalFeed = [];
+    final List<dynamic> localOfficial = List.from(officialPosts);
+    
+    int serverIndex = 0;
+    while (serverIndex < interleavedServer.length || localOfficial.isNotEmpty) {
+      // Add up to 3 server posts
+      for (int i = 0; i < 3 && serverIndex < interleavedServer.length; i++) {
+        finalFeed.add(interleavedServer[serverIndex++]);
+      }
+      // Add 1 official post if available
+      if (localOfficial.isNotEmpty) {
+        finalFeed.add(localOfficial.removeAt(0));
+      }
+    }
+
+    return finalFeed;
   }
 
   @override
@@ -377,9 +458,10 @@ class _FeedScreenState extends State<FeedScreen> {
     final bool isBookmarked = post["is_bookmarked"] ?? post["isBookmarked"] ?? false;
     
     // Author details
-    final String authorUsername = post["author_username"] ?? "realharshbhardwaj";
-    final String? authorPic = post["author_profile_picture"];
-    
+    final String authorUsername = post["author_username"] ?? post["username"] ?? (post["isAsset"] == true ? "hidely_official" : AuthService().userUsername);
+    final String? authorPic = post["author_profile_picture"] ?? AuthService().userProfilePicture;
+    final bool isVerified = authorUsername == 'hidely_official' || authorUsername == 'hidely' || post["is_verified"] == true;
+
     // Image configuration
     final String imageUrl = post["image_url"] ?? (post["image"] is String ? post["image"] : "");
     final bool isAsset = post["isAsset"] ?? (imageUrl.startsWith("assets/") == true);
@@ -394,10 +476,7 @@ class _FeedScreenState extends State<FeedScreen> {
               GestureDetector(
                 onTap: () {
                   if (authorUsername == AuthService().userUsername) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const UserProfileScreen()),
-                    );
+                    MainWrapperState.activeState?.setIndex(4);
                   } else {
                     Navigator.push(
                       context,
@@ -407,7 +486,7 @@ class _FeedScreenState extends State<FeedScreen> {
                           avatarPath: authorPic != null && authorPic.isNotEmpty
                               ? (authorPic.startsWith('http') ? authorPic : '${ApiService().baseUrl}/$authorPic')
                               : "assets/images/nomad_nate_avatar.png",
-                          rank: "Gold",
+                          rank: "Official",
                         ),
                       ),
                     );
@@ -427,10 +506,7 @@ class _FeedScreenState extends State<FeedScreen> {
                     GestureDetector(
                       onTap: () {
                         if (authorUsername == AuthService().userUsername) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const UserProfileScreen()),
-                          );
+                          MainWrapperState.activeState?.setIndex(4);
                         } else {
                           Navigator.push(
                             context,
@@ -440,18 +516,27 @@ class _FeedScreenState extends State<FeedScreen> {
                                 avatarPath: authorPic != null && authorPic.isNotEmpty
                                     ? (authorPic.startsWith('http') ? authorPic : '${ApiService().baseUrl}/$authorPic')
                                     : "assets/images/nomad_nate_avatar.png",
-                                rank: "Gold",
+                                rank: "Official",
                               ),
                             ),
                           );
                         }
                       },
-                      child: Text(
-                        authorUsername,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14.5,
-                            color: Colors.black87),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            authorUsername,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14.5,
+                                color: Colors.black87),
+                          ),
+                          if (isVerified) ...[
+                            const SizedBox(width: 4),
+                            const Icon(Icons.verified_rounded, color: Color(0xff2563EB), size: 15),
+                          ],
+                        ],
                       ),
                     ),
                     Row(
@@ -539,22 +624,29 @@ class _FeedScreenState extends State<FeedScreen> {
                   );
                 }
 
-                return Container(
-                  width: double.infinity,
-                  height: 380,
-                  color: Colors.black12,
-                  child: post["image"] is File
-                      ? Image.file(post["image"] as File, fit: BoxFit.cover)
-                      : (isAsset
-                          ? Image.asset(imageUrl, fit: BoxFit.cover)
-                          : Image.network(
-                              imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                color: const Color(0xffCBD5E1),
-                                child: const Icon(Icons.image, color: Colors.white24, size: 40),
-                              ),
-                            )),
+                return InteractiveViewer(
+                  clipBehavior: Clip.none,
+                  minScale: 1.0,
+                  maxScale: 4.0,
+                  child: AspectRatio(
+                    aspectRatio: 4 / 5,
+                    child: Container(
+                      width: double.infinity,
+                      color: Colors.black12,
+                    child: post["image"] is File
+                        ? Image.file(post["image"] as File, fit: BoxFit.cover)
+                        : (isAsset
+                            ? Image.asset(imageUrl, fit: BoxFit.cover)
+                            : Image.network(
+                                imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  color: const Color(0xffCBD5E1),
+                                  child: const Icon(Icons.image, color: Colors.white24, size: 40),
+                                ),
+                              )),
+                    ),
+                  ),
                 );
               }(),
             ),
@@ -626,11 +718,18 @@ class _FeedScreenState extends State<FeedScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      isLiked ? Icons.favorite : Icons.favorite_border_rounded,
-                      color: isLiked ? Colors.redAccent.shade700 : Colors.black87,
-                      size: 26,
-                    ),
+                    isLiked
+                        ? Icon(
+                            Icons.favorite,
+                            color: Colors.redAccent.shade700,
+                            size: 26,
+                          )
+                        : Image.asset(
+                            'assets/icons/icon-park-outline_like.png',
+                            color: Colors.black87,
+                            width: 26,
+                            height: 26,
+                          ),
                     const SizedBox(width: 6),
                     Text("$likes",
                         style: const TextStyle(
@@ -651,8 +750,7 @@ class _FeedScreenState extends State<FeedScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.chat_bubble_outline_rounded,
-                        color: Colors.black87, size: 24),
+                    Image.asset('assets/icons/uit_comment-dots.png', color: Colors.black87, width: 24, height: 24),
                     const SizedBox(width: 6),
                     Text("${post["comments_count"] ?? post["comments"] ?? 0}",
                         style: const TextStyle(
@@ -666,11 +764,7 @@ class _FeedScreenState extends State<FeedScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Transform.rotate(
-                      angle: -0.5,
-                      child: const Icon(Icons.send_rounded,
-                          color: Colors.black87, size: 24),
-                    ),
+                    Image.asset('assets/icons/solar_share-linear.png', color: Colors.black87, width: 24, height: 24),
                     const SizedBox(width: 6),
                     Text("${post["shares"] ?? 0}",
                         style: const TextStyle(
@@ -990,11 +1084,18 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(
-                                          (comment["is_liked"] ?? false) ? Icons.favorite : Icons.favorite_border,
-                                          size: 16,
-                                          color: (comment["is_liked"] ?? false) ? Colors.red : Colors.black38,
-                                        ),
+                                        (comment["is_liked"] ?? false)
+                                          ? const Icon(
+                                              Icons.favorite,
+                                              color: Colors.redAccent,
+                                              size: 16,
+                                            )
+                                          : Image.asset(
+                                              'assets/icons/icon-park-outline_like.png',
+                                              color: Colors.grey,
+                                              width: 16,
+                                              height: 16,
+                                            ),
                                         if ((comment["likes_count"] ?? 0) > 0) ...[
                                           const SizedBox(width: 4),
                                           Text(
@@ -1044,11 +1145,10 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
                 padding: const EdgeInsets.all(12.0),
                 child: Row(
                   children: [
-                    const CircleAvatar(
+                    UserAvatar(
+                      avatarUrl: AuthService().userProfilePicture,
+                      displayName: AuthService().userUsername,
                       radius: 18,
-                      backgroundColor: Color(0xffE2DCF7),
-                      backgroundImage:
-                          AssetImage('assets/images/nomad_nate_avatar.png'),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1309,7 +1409,7 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
                       crossAxisCount: 4,
                       mainAxisSpacing: 16,
                       crossAxisSpacing: 10,
-                      childAspectRatio: 0.82,
+                      childAspectRatio: 0.68,
                     ),
                     itemCount: filteredUsers.length,
                     itemBuilder: (context, index) {

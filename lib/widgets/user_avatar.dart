@@ -22,27 +22,74 @@ class UserAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasImage = avatarUrl != null && avatarUrl!.trim().isNotEmpty;
-    final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
+    final bg = backgroundColor ?? const Color(0xffEFEFEF); // Light grey like instagram
+    final tc = textColor ?? const Color(0xff9E9E9E); // Grey icon
+    
+    final double diameter = radius * 2;
+    final double iconSize = fontSize ?? (radius * 1.2);
 
-    final bg = backgroundColor ?? const Color(0xff2B1564); // Theme primary dark purple
-    final tc = textColor ?? Colors.white;
+    Widget fallbackChild = Container(
+      width: diameter,
+      height: diameter,
+      color: bg,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.person,
+        color: tc,
+        size: iconSize,
+      ),
+    );
 
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: hasImage ? const Color(0xffCBD5E1) : bg,
-      backgroundImage: hasImage
-          ? NetworkImage(avatarUrl!.trim().startsWith('http') ? avatarUrl!.trim() : '${ApiService().baseUrl}/${avatarUrl!.trim()}') as ImageProvider
-          : null,
-      child: !hasImage
-          ? Text(
-              initial,
-              style: TextStyle(
-                color: tc,
-                fontSize: fontSize ?? (radius * 0.75),
-                fontWeight: FontWeight.bold,
+    if (!hasImage) {
+      return ClipOval(child: fallbackChild);
+    }
+
+    final String trimmedUrl = avatarUrl!.trim();
+    String resolvedUrl = trimmedUrl;
+    if (trimmedUrl.startsWith('http')) {
+      if (trimmedUrl.contains('localhost') || trimmedUrl.contains('127.0.0.1')) {
+        try {
+          final uri = Uri.parse(trimmedUrl);
+          final baseUri = Uri.parse(ApiService().baseUrl);
+          resolvedUrl = uri.replace(
+            scheme: baseUri.scheme,
+            host: baseUri.host,
+            port: baseUri.hasPort ? baseUri.port : null,
+          ).toString();
+        } catch (_) {}
+      }
+    } else {
+      resolvedUrl = '${ApiService().baseUrl}/${trimmedUrl.startsWith('/') ? trimmedUrl.substring(1) : trimmedUrl}';
+    }
+
+    return ClipOval(
+      child: SizedBox(
+        width: diameter,
+        height: diameter,
+        child: Image.network(
+          resolvedUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint("Error loading avatar image ($resolvedUrl): $error");
+            return fallbackChild;
+          },
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              color: const Color(0xffCBD5E1),
+              alignment: Alignment.center,
+              child: const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
               ),
-            )
-          : null,
+            );
+          },
+        ),
+      ),
     );
   }
 }

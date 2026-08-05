@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:hidely_new/screens/location_detail_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/widgets/empty_state.dart';
 
 class NearbyLocationsScreen extends StatefulWidget {
   const NearbyLocationsScreen({super.key});
@@ -21,6 +22,7 @@ class _NearbyLocationsScreenState extends State<NearbyLocationsScreen> {
 
   List<Map<String, dynamic>> _allPosts = [];
   List<Map<String, dynamic>> _filteredPosts = [];
+  bool _isLoading = true;
 
   Position? _currentPosition;
 
@@ -32,6 +34,7 @@ class _NearbyLocationsScreenState extends State<NearbyLocationsScreen> {
 
   Future<void> _fetchLiveLocations() async {
     try {
+      setState(() => _isLoading = true);
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -70,6 +73,12 @@ class _NearbyLocationsScreenState extends State<NearbyLocationsScreen> {
       }
     } catch (e) {
       debugPrint('[NearbyLocations] Failed to load live locations: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -126,7 +135,6 @@ class _NearbyLocationsScreenState extends State<NearbyLocationsScreen> {
           ),
         ),
         child: SafeArea(
-          bottom: false,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -197,6 +205,8 @@ class _NearbyLocationsScreenState extends State<NearbyLocationsScreen> {
                         showModalBottomSheet(
                           context: context,
                           isScrollControlled: true,
+                          isDismissible: false,
+                          enableDrag: false,
                           backgroundColor: Colors.transparent,
                           builder: (context) => StatefulBuilder(
                             builder: (context, setModalState) => Container(
@@ -220,58 +230,88 @@ class _NearbyLocationsScreenState extends State<NearbyLocationsScreen> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(height: 20),
+                                    const SizedBox(height: 12),
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         const Text("Filters", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A))),
-                                        TextButton(
-                                          onPressed: () => setModalState(() => localCategories = ["All"]),
-                                          child: const Text("Reset", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                                        Row(
+                                          children: [
+                                            TextButton(
+                                              onPressed: () => setModalState(() => localCategories = ["All"]),
+                                              child: const Text("Reset", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                                            ),
+                                            IconButton(
+                                              onPressed: () => Navigator.pop(context),
+                                              icon: const Icon(Icons.close_rounded, color: Color(0xff1C0D5A), size: 24),
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
                                     const SizedBox(height: 20),
                                     const Text("Category (Multi-Select)", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A))),
                                     const SizedBox(height: 12),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: _categories.map((cat) {
-                                        final isSelected = localCategories.contains(cat);
-                                        return GestureDetector(
-                                          onTap: () {
-                                            setModalState(() {
-                                               if (cat == "All") {
-                                                 localCategories = ["All"];
-                                               } else {
-                                                 localCategories.remove("All");
-                                                 if (isSelected) {
-                                                   localCategories.remove(cat);
-                                                   if (localCategories.isEmpty) localCategories.add("All");
-                                                 } else {
-                                                   localCategories.add(cat);
-                                                 }
-                                               }
-                                            });
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                            decoration: BoxDecoration(
-                                              color: isSelected ? const Color(0xff2B1564) : const Color(0xffF1F5F9),
-                                              borderRadius: BorderRadius.circular(20),
+                                    SizedBox(
+                                      height: 38,
+                                      child: ListView.builder(
+                                        scrollDirection: Axis.horizontal,
+                                        clipBehavior: Clip.none,
+                                        physics: const BouncingScrollPhysics(),
+                                        itemCount: _categories.length,
+                                        itemBuilder: (context, idx) {
+                                          final cat = _categories[idx];
+                                          final isSelected = localCategories.contains(cat);
+                                          final isLast = idx == _categories.length - 1;
+                                          return Padding(
+                                            padding: EdgeInsets.only(right: isLast ? 24.0 : 8.0),
+                                            child: Builder(
+                                              builder: (chipContext) {
+                                                return GestureDetector(
+                                                  onTap: () {
+                                                    setModalState(() {
+                                                      if (cat == "All") {
+                                                        localCategories = ["All"];
+                                                      } else {
+                                                        localCategories.remove("All");
+                                                        if (isSelected) {
+                                                          localCategories.remove(cat);
+                                                          if (localCategories.isEmpty) localCategories.add("All");
+                                                        } else {
+                                                          localCategories.add(cat);
+                                                        }
+                                                      }
+                                                    });
+                                                    Scrollable.ensureVisible(
+                                                      chipContext,
+                                                      duration: const Duration(milliseconds: 300),
+                                                      curve: Curves.easeInOut,
+                                                      alignment: 0.5,
+                                                    );
+                                                  },
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                                    decoration: BoxDecoration(
+                                                      color: isSelected ? const Color(0xff2B1564) : const Color(0xffF1F5F9),
+                                                      borderRadius: BorderRadius.circular(20),
+                                                    ),
+                                                    child: Text(
+                                                      cat,
+                                                      style: TextStyle(
+                                                        color: isSelected ? Colors.white : const Color(0xff1C0D5A).withOpacity(0.7),
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+                                              },
                                             ),
-                                            child: Text(
-                                              cat,
-                                              style: TextStyle(
-                                                color: isSelected ? Colors.white : const Color(0xff1C0D5A).withOpacity(0.7),
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      }).toList(),
+                                          );
+                                        },
+                                      ),
                                     ),
                                     const SizedBox(height: 32),
                                     SizedBox(
@@ -321,91 +361,26 @@ class _NearbyLocationsScreenState extends State<NearbyLocationsScreen> {
                 ),
               ),
 
-              // --- 2. HORIZONTAL CATEGORY CHIPS ---
-              SizedBox(
-                height: 44,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  clipBehavior: Clip.none,
-                  padding: const EdgeInsets.only(left: 16.0, right: 16.0),
-                  itemCount: _categories.length,
-                  itemBuilder: (context, index) {
-                    final cat = _categories[index];
-                    final bool isSelected = _selectedCategories.contains(cat);
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            if (cat == "All") {
-                              _selectedCategories = ["All"];
-                            } else {
-                              _selectedCategories.remove("All");
-                              if (isSelected) {
-                                _selectedCategories.remove(cat);
-                                if (_selectedCategories.isEmpty) _selectedCategories.add("All");
-                              } else {
-                                _selectedCategories.add(cat);
-                              }
-                            }
-                            _filterPosts();
-                          });
-                          Scrollable.ensureVisible(
-                            context,
-                            duration: const Duration(milliseconds: 300),
-                            alignment: 0.5,
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xff2B1564) : Colors.white.withOpacity(0.7),
-                            borderRadius: BorderRadius.circular(22),
-                            border: Border.all(
-                              color: isSelected ? Colors.transparent : Colors.white.withOpacity(0.6),
-                            ),
-                          ),
-                          child: Text(
-                            cat,
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : const Color(0xff1C0D5A).withOpacity(0.7),
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
               const SizedBox(height: 16),
 
               // --- 3. DYNAMIC EXPLORATION STREAM GRID (Asymmetric Layout) ---
               Expanded(
-                child: _filteredPosts.isEmpty
-                        ? Padding(
-                            padding: const EdgeInsets.only(bottom: 140.0),
-                            child: Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.search_off_rounded, size: 64, color: Colors.black26),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    "No wonders found",
-                                    style: TextStyle(
-                                      color: const Color(0xff1C0D5A).withOpacity(0.5),
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xff2B1564),
+                        ),
+                      )
+                    : _filteredPosts.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.only(bottom: 140.0),
+                            child: EmptyStateWidget(
+                              icon: Icons.search_off_rounded,
+                              title: "No Wonders Found",
+                              description: "Try checking other categories or searching for a different destination.",
                             ),
                           )
-                    : GridView.builder(
+                        : GridView.builder(
                         padding: EdgeInsets.only(
                           left: 0.0,
                           right: 0.0,

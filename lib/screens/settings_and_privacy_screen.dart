@@ -10,8 +10,8 @@ import 'blocked_accounts_screen.dart';
 import 'help_center_screen.dart';
 import 'about_screen.dart';
 import 'add_account_screen.dart';
-import 'package:hidely_new/services/ai_service.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsAndPrivacyScreen extends StatefulWidget {
   const SettingsAndPrivacyScreen({super.key});
@@ -25,7 +25,6 @@ class _SettingsAndPrivacyScreenState
     extends State<SettingsAndPrivacyScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  String _geminiApiKey = '';
 
   @override
   void initState() {
@@ -34,81 +33,13 @@ class _SettingsAndPrivacyScreenState
   }
 
   void _loadApiKey() async {
-    final key = await AiService().getApiKey() ?? '';
+    final prefs = await SharedPreferences.getInstance();
+    final notifsEnabled = prefs.getBool('enable_notifications') ?? true;
     if (mounted) {
       setState(() {
-        _geminiApiKey = key;
+        _enableNotifications = notifsEnabled;
       });
     }
-  }
-
-  void _showApiKeyDialog() {
-    final controller = TextEditingController(text: _geminiApiKey);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text(
-          'Gemini API Key',
-          style: TextStyle(
-            color: Color(0xff2B1564), 
-            fontWeight: FontWeight.bold,
-            fontFamily: 'PublicSans',
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Enter your Google Gemini API Key to enable on-device AI place verification:',
-              style: TextStyle(fontSize: 13, color: Colors.black54, fontFamily: 'PublicSans'),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                hintText: 'AIzaSy...',
-                fillColor: const Color(0xffF1F5F9),
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              ),
-              style: const TextStyle(fontSize: 14, fontFamily: 'PublicSans'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey, fontFamily: 'PublicSans')),
-          ),
-          TextButton(
-            onPressed: () async {
-              final newKey = controller.text.trim();
-              final messenger = ScaffoldMessenger.of(context);
-              await AiService().saveApiKey(newKey);
-              setState(() {
-                _geminiApiKey = newKey;
-              });
-              if (!context.mounted) return;
-              Navigator.pop(context);
-              messenger.showSnackBar(
-                const SnackBar(
-                  content: Text('Gemini API Key updated'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-            child: const Text('Save', style: TextStyle(color: Color(0xff5B3EC8), fontWeight: FontWeight.bold, fontFamily: 'PublicSans')),
-          ),
-        ],
-      ),
-    );
   }
 
   // Toggle states
@@ -179,8 +110,10 @@ class _SettingsAndPrivacyScreenState
             'iconColor': const Color(0xffF57C00),
             'toggle': true,
             'toggleValue': _enableNotifications,
-            'onToggle': (val) {
+            'onToggle': (val) async {
               setState(() => _enableNotifications = val);
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('enable_notifications', val);
               _showSnack(val ? 'Notifications enabled' : 'Notifications paused');
             },
           },
@@ -253,20 +186,7 @@ class _SettingsAndPrivacyScreenState
           },
         ],
       },
-      {
-        'category': 'AI Verification Settings',
-        'icon': Icons.psychology_outlined,
-        'items': [
-          {
-            'title': 'Gemini API Key',
-            'subtitle': _geminiApiKey.isEmpty ? 'Not Set (Configure for Place Detection)' : '••••••••${_geminiApiKey.length > 8 ? _geminiApiKey.substring(_geminiApiKey.length - 4) : ""}',
-            'icon': Icons.vpn_key_outlined,
-            'iconBg': const Color(0xffEDE9FC),
-            'iconColor': const Color(0xff5B3EC8),
-            'onTap': _showApiKeyDialog,
-          },
-        ],
-      },
+
       {
         'category': 'More info and support',
         'icon': Icons.help_outline_rounded,
@@ -512,7 +432,6 @@ class _SettingsAndPrivacyScreenState
             ),
           ),
           child: SafeArea(
-            bottom: false,
             child: Column(
               children: [
                 // ─── Custom App Bar ───────────────────────────────────────
@@ -547,10 +466,10 @@ class _SettingsAndPrivacyScreenState
                           ),
                         ),
                       ),
-                      const SizedBox(width: 14),
                       const Expanded(
                         child: Text(
                           'Settings & Privacy',
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             fontFamily: 'PublicSans',
                             fontSize: 20,
@@ -560,6 +479,7 @@ class _SettingsAndPrivacyScreenState
                           ),
                         ),
                       ),
+                      const SizedBox(width: 40), // Balance the back button on the left
                     ],
                   ),
                 ),

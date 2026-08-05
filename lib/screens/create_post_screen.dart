@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'post_details_screen.dart';
 import 'package:photo_manager/photo_manager.dart';
 
@@ -99,7 +100,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     try {
       final XFile? pickedFile = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 90,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
       );
       if (pickedFile != null) {
         setState(() {
@@ -118,6 +121,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _captureImageFromCamera() async {
+    final cameraStatus = await Permission.camera.request();
+    if (cameraStatus.isDenied || cameraStatus.isPermanentlyDenied) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Camera permission is required.")),
+        );
+      }
+      return;
+    }
+    
     try {
       final XFile? pickedFile = await _picker.pickImage(
         source: ImageSource.camera,

@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:video_player/video_player.dart';
+import 'package:hidely_new/services/auth_service.dart';
 import 'post_details_screen.dart';
 
 class CreateMediaScreen extends StatefulWidget {
@@ -129,11 +131,51 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
     super.initState();
     // Initialize POST gallery assets
     _fetchRecentAssets();
-    
-    // Removed auto-trigger of native picker here as per user request to use internal gallery
 
     // Initialize Camera for REEL mode in background
     _initializeCamera();
+
+    // Check if user full name is entered
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkUserFullName();
+    });
+  }
+
+  void _checkUserFullName() {
+    final name = AuthService().userName;
+    if (name.trim().isEmpty) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: const Row(
+            children: [
+              Icon(Icons.info_outline_rounded, color: Color(0xff2B1564)),
+              SizedBox(width: 8),
+              Text(
+                "Notice",
+                style: TextStyle(color: Color(0xff1C0D5A), fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ],
+          ),
+          content: const Text(
+            "Enter your full name",
+            style: TextStyle(color: Colors.black87, fontSize: 15),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff2B1564),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text("OK", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   @override
@@ -207,7 +249,9 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
     try {
       final XFile? pickedFile = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 90,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
       );
       if (pickedFile != null) {
         setState(() {
@@ -221,10 +265,20 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
   }
 
   Future<void> _captureImageFromCamera() async {
+    final cameraStatus = await Permission.camera.request();
+    if (cameraStatus.isDenied || cameraStatus.isPermanentlyDenied) {
+      if (mounted) {
+        _showCustomSnackBar("Camera permission is required.", isError: true);
+      }
+      return;
+    }
+    
     try {
       final XFile? pickedFile = await _picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 90,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
       );
       if (pickedFile != null) {
         setState(() {
@@ -257,6 +311,17 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
 
   // --- GENERAL ACTIONS ---
   Future<void> _initializeCamera() async {
+    final cameraStatus = await Permission.camera.request();
+    final micStatus = await Permission.microphone.request();
+
+    if (cameraStatus.isDenied || cameraStatus.isPermanentlyDenied ||
+        micStatus.isDenied || micStatus.isPermanentlyDenied) {
+      if (mounted) {
+        _showCustomSnackBar("Camera & Microphone permissions are required.", isError: true);
+      }
+      return;
+    }
+
     try {
       _cameras = await availableCameras();
       if (_cameras != null && _cameras!.isNotEmpty) {
@@ -1050,7 +1115,7 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
                         Positioned(
                           left: 12,
                           right: 12,
-                          bottom: 130,
+                          bottom: 130 + MediaQuery.of(context).padding.bottom,
                           child: Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
@@ -1116,7 +1181,7 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
                         Positioned(
                           left: 0,
                           right: 0,
-                          bottom: 74,
+                          bottom: 74 + MediaQuery.of(context).padding.bottom,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [

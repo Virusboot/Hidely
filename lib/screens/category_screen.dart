@@ -81,11 +81,14 @@ class _CategoryScreenState extends State<CategoryScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Container(
+              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               decoration: const BoxDecoration(
                 color: Colors.white,
@@ -93,7 +96,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
               ),
               child: SafeArea(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Center(
@@ -106,7 +108,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -118,16 +120,29 @@ class _CategoryScreenState extends State<CategoryScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        TextButton(
-                          onPressed: () {
-                            setModalState(() {
-                              localCities = ["All"];
-                            });
-                          },
-                          child: const Text(
-                            "Reset",
-                            style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
-                          ),
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                setModalState(() {
+                                  localCities = ["All"];
+                                });
+                              },
+                              child: const Text(
+                                "Reset All",
+                                style: TextStyle(
+                                  color: Colors.redAccent,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(Icons.close_rounded, color: Color(0xff1C0D5A), size: 24),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -142,17 +157,31 @@ class _CategoryScreenState extends State<CategoryScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Wrap(
+                    Expanded(
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        "All",
-                        "Nainital",
-                        "Dehradun",
-                        "Rishikesh",
-                        "Shimla",
-                        "Manali",
-                        "Mussoorie"
+                        "All", "Agra", "Ahmedabad", "Ajmer", "Alappuzha", "Amritsar", 
+                        "Andaman", "Aurangabad", "Ayodhya", "Badrinath", "Bangalore", 
+                        "Bhopal", "Bhubaneswar", "Bikaner", "Chandigarh", "Chennai", 
+                        "Cherrapunji", "Coimbatore", "Coorg", "Dalhousie", "Darjeeling", 
+                        "Dehradun", "Delhi", "Dharamshala", "Dwarka", "Gangtok", 
+                        "Goa", "Gokarna", "Gulmarg", "Gurgaon", "Guwahati", 
+                        "Gwalior", "Hampi", "Haridwar", "Hyderabad", "Indore", 
+                        "Jaipur", "Jaisalmer", "Jammu", "Jodhpur", "Kanpur", 
+                        "Kanyakumari", "Kasauli", "Kashmir", "Kedarnath", "Kochi", 
+                        "Kodaikanal", "Kolkata", "Kovalam", "Kullu", "Ladakh", 
+                        "Lansdowne", "Leh", "Lonavala", "Lucknow", "Madurai", 
+                        "Mahabaleshwar", "Manali", "Mangalore", "Mathura", "Mount Abu", 
+                        "Mumbai", "Munnar", "Mussoorie", "Mysore", "Nainital", 
+                        "Ooty", "Pahalgam", "Patna", "Pondicherry", "Pune", 
+                        "Puri", "Pushkar", "Ranchi", "Ranthambore", "Rishikesh", 
+                        "Shillong", "Shimla", "Siliguri", "Sonmarg", "Srinagar", 
+                        "Surat", "Tirupati", "Trivandrum", "Udaipur", "Ujjain", 
+                        "Vadodara", "Varanasi", "Visakhapatnam", "Vrindavan", "Wayanad"
                       ].map((city) {
                         final bool isSelected = localCities.contains(city);
                         return GestureDetector(
@@ -188,6 +217,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
                           ),
                         );
                       }).toList(),
+                    ),
+                      ),
                     ),
                     const SizedBox(height: 32),
                     SizedBox(
@@ -388,7 +419,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.search_off_rounded, size: 48, color: Colors.black38),
+                                const Icon(Icons.search_off_rounded, size: 36, color: Colors.black38),
                                 const SizedBox(height: 12),
                                 Text(
                                   "No wonders found in ${widget.categoryName}",

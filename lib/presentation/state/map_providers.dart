@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
@@ -14,12 +16,16 @@ class MapAlert {
   final String message;
   final IconData icon;
   final Color color;
+  final bool isInfoBrief;
+  final String? actionLabel;
 
   const MapAlert({
     required this.title,
     required this.message,
     required this.icon,
     required this.color,
+    this.isInfoBrief = false,
+    this.actionLabel,
   });
 }
 
@@ -44,70 +50,88 @@ final isOnlineProvider = Provider<bool>((ref) {
 
 final navigationAlertsProvider = Provider<List<MapAlert>>((ref) {
   final destination = ref.watch(activeDestinationProvider);
-  final mode = ref.watch(travelModeProvider);
+  final navStatus = ref.watch(navigationStatusProvider);
+  final navIndex = ref.watch(navigationIndexProvider); // Watch active step index to show situation-aware alerts
   
   if (destination == null) return [];
 
   final List<MapAlert> alerts = [];
 
-  // 1. Crowd Warning Alert
-  final cat = destination.category.toLowerCase();
-  if (cat == 'monument' || cat == 'attraction' || cat == 'monuments') {
-    alerts.add(
-      const MapAlert(
-        title: 'High Venue Crowds',
-        message: 'Acropolis area is currently very crowded. Expect longer entry queues.',
-        icon: Icons.people_outline_rounded,
-        color: Color(0xFFE65100), // Dark Orange
-      ),
-    );
-  } else if (cat == 'restaurant' || cat == 'cafe') {
-    alerts.add(
-      const MapAlert(
-        title: 'Busy Dining Hours',
-        message: 'Peak lunch/dinner time. Average waiting time: 20-30 mins.',
-        icon: Icons.restaurant_menu_rounded,
-        color: Color(0xFF0D47A1), // Blue
-      ),
-    );
-  }
-
-  // 2. Traffic Congestion Alert
-  if (mode == 'driving') {
-    alerts.add(
-      const MapAlert(
-        title: 'Route Traffic Alert',
-        message: 'Heavy traffic detected on center streets. Alternate lanes suggested.',
-        icon: Icons.traffic_rounded,
-        color: Color(0xFFB71C1C), // Deep Red
-      ),
-    );
-  }
-
-  // 3. Best Season Warning Alert
-  final currentMonth = DateTime.now().month;
-  if (cat == 'monument' || cat == 'attraction' || cat == 'monuments') {
-    // High summer months (June = 6, July = 7, August = 8)
-    if (currentMonth >= 6 && currentMonth <= 8) {
+  // Active Navigation Real-Time Situational Alerts (triggered sequentially/situationally during navigation)
+  if (navStatus == NavigationStatus.navigating) {
+    // 1. Weak Network Warning (Shown only at early steps: step 1 or 2)
+    if (navIndex == 1 || navIndex == 2) {
       alerts.add(
         const MapAlert(
-          title: 'Seasonal Weather Alert',
-          message: 'Extreme temperature warning (38°C). Not the best season for daytime walking.',
-          icon: Icons.wb_sunny_rounded,
-          color: Color(0xFFFF8F00), // Amber
+          title: '⚠️ Low Mobile Network Zone Ahead (2 km)',
+          message: 'Weak signal expected ahead. Download offline map pack now to avoid losing signal.',
+          icon: Icons.signal_cellular_connected_no_internet_4_bar_rounded,
+          color: Color(0xFFD97706), // Amber
+          actionLabel: 'Download Offline Map',
+        ),
+      );
+    }
+
+    // 2. Traffic Delay Caution (Shown only around step 4)
+    if (navIndex == 4) {
+      alerts.add(
+        const MapAlert(
+          title: '🚦 Traffic Slowdown 1.5 km Ahead',
+          message: 'Moderate congestion near toll plaza. Keep right lane for smooth bypass.',
+          icon: Icons.traffic_rounded,
+          color: Color(0xFFDC2626), // Red
+        ),
+      );
+    }
+
+    // 3. Weather & Mountain Road Caution (Shown only around step 7)
+    if (navIndex == 7) {
+      alerts.add(
+        const MapAlert(
+          title: '🌫️ Weather & Winding Road Caution',
+          message: 'Patchy fog & steep turns ahead. Drive slow with low beams.',
+          icon: Icons.wb_cloudy_rounded,
+          color: Color(0xFF4B5563), // Slate
+        ),
+      );
+    }
+
+    // 4. Fuel & Rest Area Alert (Shown only around step 10)
+    if (navIndex == 10) {
+      alerts.add(
+        const MapAlert(
+          title: '⛽ Last Fuel & Rest Area Ahead',
+          message: 'Final petrol pump & service station before 25 km mountain stretch.',
+          icon: Icons.local_gas_station_rounded,
+          color: Color(0xFF2563EB), // Blue
         ),
       );
     }
   }
 
-  // 4. Destination Too Far / Simulator Location Alert
+  // 3. Crowd Density Alert (when not navigating)
+  if (navStatus != NavigationStatus.navigating) {
+    final cat = destination.category.toLowerCase();
+    if (cat == 'monument' || cat == 'attraction' || cat == 'monuments') {
+      alerts.add(
+        const MapAlert(
+          title: 'Optimal Visit Time',
+          message: 'Venue is currently at low crowd levels. Entry queue < 5 minutes.',
+          icon: Icons.people_outline_rounded,
+          color: Color(0xFF16A34A), // Green
+        ),
+      );
+    }
+  }
+
+  // 4. Destination Distance Notice
   final routeAsync = ref.watch(routeDataProvider);
   final route = routeAsync.valueOrNull;
   if (route != null && route.distanceKm > 1000.0) {
     alerts.add(
       const MapAlert(
-        title: 'Destination Too Far',
-        message: 'Your current GPS location is very far from the destination (e.g. Cupertino, USA vs. India). Set your device GPS to Noida/local area to calculate valid street routes.',
+        title: 'Destination Distance Notice',
+        message: 'Current GPS location is very far from destination. Ensure location settings are precise.',
         icon: Icons.warning_amber_rounded,
         color: Color(0xFFD32F2F),
       ),
@@ -243,7 +267,12 @@ final mapCenterProvider = StateProvider<LatLng>((ref) {
 
 // Travel Selection State
 final activeDestinationProvider = StateProvider<NearbyPlace?>((ref) => null);
-final travelModeProvider = StateProvider<String>((ref) => 'walking'); // 'walking', 'driving', 'transit'
+final travelModeProvider = StateProvider<String>((ref) {
+  if (!kIsWeb && Platform.isAndroid) {
+    return 'bicycling';
+  }
+  return 'walking';
+}); // 'walking', 'driving', 'transit'
 
 // Provider to cache original online route coordinates
 final originalRouteCoordinatesProvider = StateProvider<List<LatLng>>((ref) => []);

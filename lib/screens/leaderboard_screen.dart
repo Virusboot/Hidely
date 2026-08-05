@@ -56,7 +56,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           ),
         ),
         child: SafeArea(
-          bottom: false,
           child: _isLoading
               ? const SizedBox.shrink()
               : Column(
@@ -95,57 +94,43 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                               letterSpacing: -0.5,
                             ),
                           ),
-                          const SizedBox(width: 44), // Spacer to balance back button
-                        ],
-                      ),
-                    ),
-
-                    // 2. Filter Tabs Row (Static design preserved)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              physics: const BouncingScrollPhysics(),
-                              child: Row(
-                                children: [
-                                  _buildTab("Global", true),
-                                  const SizedBox(width: 8),
-                                  _buildTab("Friends", false),
-                                  const SizedBox(width: 8),
-                                  _buildTab("Landmarks", false),
+                          // Filter button on the right
+                          GestureDetector(
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Filters updated to Global ranking."),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.06),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
                                 ],
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.tune_rounded,
+                                  color: Color(0xff432C81),
+                                  size: 20,
+                                ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.8),
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.tune_rounded,
-                              color: Color(0xff432C81),
-                              size: 20,
-                            ),
-                          ),
                         ],
                       ),
                     ),
-
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10),
 
                     // 3. Podium and Rankings List
                     Expanded(
@@ -190,38 +175,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     ),);
   }
 
-  Widget _buildTab(String title, bool isSelected) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xff432C81) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: isSelected
-            ? [
-                BoxShadow(
-                  color: const Color(0xff432C81).withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ]
-            : [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-      ),
-      child: Text(
-        title,
-        style: TextStyle(
-          color: isSelected ? Colors.white : const Color(0xff1C0D5A).withOpacity(0.6),
-          fontWeight: FontWeight.bold,
-          fontSize: 14,
-        ),
-      ),
-    );
-  }
 
   Widget _buildPodiumSection() {
     final dynamic rank1User = _users.isNotEmpty ? _users[0] : null;
@@ -243,7 +196,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               rank: "2",
               imageUrl: rank2User['profile_picture'] ?? '',
               height: 120,
-              isCurrentUser: rank2User['id']?.toString() == AuthService().userId,
+              isCurrentUser: rank2User['id']?.toString() == AuthService().userId || rank2User['username'] == AuthService().userUsername,
             )
           else
             const SizedBox(width: 90),
@@ -258,7 +211,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               imageUrl: rank1User['profile_picture'] ?? '',
               height: 150,
               isFirst: true,
-              isCurrentUser: rank1User['id']?.toString() == AuthService().userId,
+              isCurrentUser: rank1User['id']?.toString() == AuthService().userId || rank1User['username'] == AuthService().userUsername,
             )
           else
             const SizedBox(width: 90),
@@ -272,7 +225,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               rank: "3",
               imageUrl: rank3User['profile_picture'] ?? '',
               height: 120,
-              isCurrentUser: rank3User['id']?.toString() == AuthService().userId,
+              isCurrentUser: rank3User['id']?.toString() == AuthService().userId || rank3User['username'] == AuthService().userUsername,
             )
           else
             const SizedBox(width: 90),
@@ -461,7 +414,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
     for (int i = 3; i < _users.length; i++) {
       final user = _users[i];
-      final isCurrentUser = user['id']?.toString() == AuthService().userId;
+      final isCurrentUser = user['id']?.toString() == AuthService().userId || user['username'] == AuthService().userUsername;
       listItems.add(
         _buildRankItem(
           rank: "${i + 1}",
@@ -505,7 +458,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               builder: (context) => CreatorProfileScreen(
                 username: name.replaceAll(" (Explorer)", ""),
                 avatarPath: imageUrl,
-                rank: int.tryParse(rank) != null && int.parse(rank) <= 5 ? "Gold" : "Bronze",
+                rank: (int.tryParse(rank) ?? 0) == 1 
+                    ? "Diamonds" 
+                    : ((int.tryParse(rank) ?? 0) == 2 
+                        ? "Gold" 
+                        : ((int.tryParse(rank) ?? 0) == 3 
+                            ? "Silver" 
+                            : "Explorer")),
               ),
             ),
           );
@@ -623,13 +582,30 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final bool isNetwork = imagePath.startsWith("http") || imagePath.startsWith("uploads");
     final bool hasImage = imagePath.isNotEmpty;
 
+    String resolvedUrl = imagePath;
+    if (imagePath.startsWith('http')) {
+      if (imagePath.contains('localhost') || imagePath.contains('127.0.0.1')) {
+        try {
+          final uri = Uri.parse(imagePath);
+          final baseUri = Uri.parse(ApiService().baseUrl);
+          resolvedUrl = uri.replace(
+            scheme: baseUri.scheme,
+            host: baseUri.host,
+            port: baseUri.hasPort ? baseUri.port : null,
+          ).toString();
+        } catch (_) {}
+      }
+    } else {
+      resolvedUrl = '${ApiService().baseUrl}/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}';
+    }
+
     return CircleAvatar(
       radius: radius,
       backgroundColor: isHighlighted ? const Color(0xff432C81) : const Color(0xffCBD5E1),
       backgroundImage: !hasImage
           ? null
           : (isNetwork
-              ? NetworkImage('${ApiService().baseUrl}/$imagePath')
+              ? NetworkImage(resolvedUrl)
               : AssetImage(imagePath) as ImageProvider),
       child: !hasImage
           ? Icon(Icons.account_circle, color: isHighlighted ? Colors.white : Colors.white70, size: radius * 1.2)

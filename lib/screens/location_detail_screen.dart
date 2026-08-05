@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hidely_new/screens/nearby_locations_screen.dart';
 import 'package:hidely_new/screens/nearby_stays_screen.dart';
-import 'package:hidely_new/screens/location_swipe_view_screen.dart';
+import 'package:hidely_new/screens/single_post_view_screen.dart';
 import 'package:hidely_new/screens/map_discovery_screen.dart';
 import 'package:hidely_new/screens/main_wrapper.dart';
+import 'package:hidely_new/widgets/travel_squad_sheet.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
 
@@ -43,10 +44,47 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
       token: AuthService().token,
     );
     if (mounted) {
+      final List postsFromApi = (result.success && result.data != null && result.data!['posts'] is List)
+          ? result.data!['posts']
+          : [];
       setState(() {
         _isLoadingGrid = false;
-        if (result.success) {
-          _locationPosts = result.data?['posts'] ?? [];
+        if (postsFromApi.isNotEmpty) {
+          _locationPosts = postsFromApi;
+        } else {
+          // Provide default curated location images if backend has no user uploads yet
+          _locationPosts = [
+            {
+              "id": 101,
+              "title": widget.title,
+              "location": widget.location,
+              "image_url": widget.image,
+              "category": widget.category,
+              "author_username": "hidely_official",
+              "is_verified": true,
+              "likes_count": 482,
+            },
+            {
+              "id": 102,
+              "title": "${widget.title} Sunset Point",
+              "location": widget.location,
+              "image_url": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80",
+              "category": widget.category,
+              "author_username": "hidely_official",
+              "is_verified": true,
+              "likes_count": 312,
+            },
+            {
+              "id": 103,
+              "title": "${widget.title} Scenic Trail",
+              "location": widget.location,
+              "image_url": "https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=600&q=80",
+              "category": widget.category,
+              "author_username": "hidely_official",
+              "is_verified": true,
+              "likes_count": 289,
+            },
+          ];
         }
       });
     }
@@ -116,7 +154,6 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           ),
         ),
         child: SafeArea(
-          bottom: false,
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
@@ -166,10 +203,23 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                           ),
                           GestureDetector(
                             onTap: () {
-                              MapDiscoveryScreen.initialSearchQuery = widget.title;
+                              final cleanTitle = widget.title.trim();
+                              final cleanLoc = widget.location.trim();
+                              final isCaption = cleanTitle.length > 35 || cleanTitle.contains('#') || cleanTitle.contains('\n');
+
+                              String searchQuery;
+                              if (!isCaption && cleanTitle.isNotEmpty && cleanTitle != cleanLoc) {
+                                searchQuery = cleanLoc.isNotEmpty ? "$cleanTitle, $cleanLoc" : cleanTitle;
+                              } else {
+                                searchQuery = cleanLoc.isNotEmpty ? cleanLoc : cleanTitle;
+                              }
+
+                              MapDiscoveryScreen.initialSearchQuery = searchQuery;
                               MapDiscoveryScreen.startNavigationDirectly = true;
-                              Navigator.popUntil(context, (route) => route.isFirst);
-                              MainWrapperState.activeState?.setIndex(1);
+                              Navigator.popUntil(context, (route) => route.settings.name == '/main' || route.isFirst);
+                              Future.delayed(const Duration(milliseconds: 300), () {
+                                MainWrapperState.activeState?.setIndex(1);
+                              });
                             },
                             child: Container(
                               width: 44,
@@ -203,7 +253,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            widget.title,
+                            widget.location,
                             style: const TextStyle(
                               color: Color(0xff1C0D5A),
                               fontSize: 26,
@@ -213,7 +263,9 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            details["description"]!,
+                            (widget.title.isNotEmpty && widget.title != widget.location) 
+                                ? widget.title 
+                                : details["description"]!,
                             style: const TextStyle(
                               color: Color(0xff4A457A),
                               fontSize: 15,
@@ -302,64 +354,95 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                     // --- 1.5 ACTION BUTTONS ROW ---
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                      child: Row(
+                      child: Column(
                         children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xffE2DCF7), width: 1.2),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                backgroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const NearbyLocationsScreen(),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      backgroundColor: Colors.transparent,
+                                      isScrollControlled: true,
+                                      isDismissible: false,
+                                      enableDrag: false,
+                                      builder: (ctx) => TravelSquadSheet(locationName: widget.title.isNotEmpty ? widget.title : widget.location),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.groups_rounded, color: Color(0xff29A96A), size: 18),
+                                  label: const Text('Travel Squad', style: TextStyle(color: Color(0xff29A96A), fontWeight: FontWeight.bold, fontSize: 13)),
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: Color(0xff29A96A), width: 1.2),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    backgroundColor: const Color(0xffF0FDF4),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
-                                );
-                              },
-                              child: const Text(
-                                "Near By Locations",
-                                style: TextStyle(
-                                  color: Color(0xff1C0D5A),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xffE2DCF7), width: 1.2),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                backgroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const NearbyStaysScreen(),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: Color(0xffE2DCF7), width: 1.2),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    backgroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
-                                );
-                              },
-                              child: const Text(
-                                "Near By Stay Hotels",
-                                style: TextStyle(
-                                  color: Color(0xff1C0D5A),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const NearbyLocationsScreen(),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text(
+                                    "Nearby Spots",
+                                    style: TextStyle(
+                                      color: Color(0xff1C0D5A),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: Color(0xffE2DCF7), width: 1.2),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    backgroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const NearbyStaysScreen(),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text(
+                                    "Nearby Stays",
+                                    style: TextStyle(
+                                      color: Color(0xff1C0D5A),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -378,7 +461,6 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                         children: [
                           _buildTabItem(0, Icons.grid_view_rounded),
                           _buildTabItem(1, Icons.play_circle_outline_rounded),
-                          _buildTabItem(2, Icons.bookmark_border_rounded),
                         ],
                       ),
                     ),
@@ -445,14 +527,15 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
       }
       final postsOnly = locationPosts.where((p) => !_isVideo(p["image_url"] ?? "")).toList();
       if (postsOnly.isEmpty) {
-        return SliverToBoxAdapter(
+        return SliverFillRemaining(
+          hasScrollBody: false,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 40.0),
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.landscape_outlined, size: 48, color: const Color(0xff1C0D5A).withOpacity(0.3)),
+                  Icon(Icons.landscape_outlined, size: 36, color: const Color(0xff1C0D5A).withOpacity(0.3)),
                   const SizedBox(height: 12),
                   Text(
                     "No wonder captures yet",
@@ -480,14 +563,14 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           (context, index) {
             final post = postsOnly[index];
             final imagePath = post["image_url"]?.toString() ?? "";
-            final bool isNetwork = imagePath.startsWith("http") || imagePath.startsWith("uploads");
+            final bool isNetwork = imagePath.startsWith("http") || imagePath.startsWith("https") || imagePath.startsWith("uploads") || imagePath.startsWith("/uploads") || imagePath.contains("maps.googleapis.com");
             return GestureDetector(
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => LocationSwipeViewScreen(
-                      items: postsOnly,
+                    builder: (context) => SinglePostViewScreen(
+                      posts: postsOnly,
                       initialIndex: index,
                     ),
                   ),
@@ -518,7 +601,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           childCount: postsOnly.length,
         ),
       );
-    } else if (_activeTab == 1) {
+    } else {
       if (_isLoadingGrid) {
         return const SliverToBoxAdapter(
           child: Padding(
@@ -529,14 +612,15 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
       }
       final reelsOnly = locationPosts.where((p) => _isVideo(p["image_url"] ?? "")).toList();
       if (reelsOnly.isEmpty) {
-        return SliverToBoxAdapter(
+        return SliverFillRemaining(
+          hasScrollBody: false,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 40.0),
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.video_library_outlined, size: 48, color: const Color(0xff1C0D5A).withOpacity(0.3)),
+                  Icon(Icons.video_library_outlined, size: 36, color: const Color(0xff1C0D5A).withOpacity(0.3)),
                   const SizedBox(height: 12),
                   Text(
                     "No Reels Uploaded",
@@ -567,8 +651,8 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => LocationSwipeViewScreen(
-                      items: reelsOnly,
+                    builder: (context) => SinglePostViewScreen(
+                      posts: reelsOnly,
                       initialIndex: index,
                     ),
                   ),
@@ -587,31 +671,6 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
             );
           },
           childCount: reelsOnly.length,
-        ),
-      );
-    } else {
-      // Saved / Bookmarks view placeholder
-      return SliverFillRemaining(
-        hasScrollBody: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 40.0),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.bookmark_outline_rounded, size: 48, color: const Color(0xff1C0D5A).withOpacity(0.3)),
-                const SizedBox(height: 12),
-                Text(
-                  "No Saved Items",
-                  style: TextStyle(
-                    color: const Color(0xff1C0D5A).withOpacity(0.5),
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       );
     }
