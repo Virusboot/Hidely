@@ -322,7 +322,7 @@ packages:
     source: hosted
     version: "7.0.1"
   file_picker:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: file_picker
       sha256: cacfdc5abe93e64d418caa9256eef663499ad791bb688d9fd12c85a311968fba
@@ -1585,10 +1585,10 @@ packages:
     dependency: "direct overridden"
     description:
       name: zego_uikit
-      sha256: c366fbb3513ed0536664ac17b5c2aebe24c0b57adfd43db947dc2877bcb241e3
+      sha256: "81308fc660b37fbc3cffe02d544e9121b55277d4c3b2ba6026161411bb7cc34d"
       url: "https://pub.dev"
     source: hosted
-    version: "2.28.14"
+    version: "2.28.23"
   zego_uikit_prebuilt_call:
     dependency: "direct main"
     description:
