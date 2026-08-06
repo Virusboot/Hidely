@@ -18,6 +18,8 @@ import '../../data/models/route_data.dart';
 import '../widgets/armonia_map.dart';
 import '../widgets/route_info_card.dart';
 import '../widgets/map_sizes.dart';
+import '../widgets/map_header_bar.dart';
+import '../widgets/map_filter_chips.dart';
 
 class AppColors {
   static const Color primaryPurple = Color(0xff2B1564);
@@ -993,63 +995,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   Widget _buildSearchBar(AppLocalizations l10n) {
-    return _buildGlassContainer(
-      borderRadius: context.h(12),
-      child: SizedBox(
-        height: context.h(52),
-        child: Row(
-          children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: context.w(16)),
-              child: const Icon(Icons.location_on_rounded, color: _primaryDark, size: 24),
-            ),
-            Expanded(
-              child: TextField(
-                focusNode: _searchFocusNode,
-                controller: _searchController,
-                textInputAction: TextInputAction.search,
-                onSubmitted: (value) async {
-                  if (value.trim().isNotEmpty) {
-                    _performSearch(value);
-                  }
-                },
-                style: TextStyle(
-                  fontFamily: 'PublicSans',
-                  color: _primaryDark,
-                  fontSize: context.sp(14),
-                  fontWeight: FontWeight.w600,
-                ),
-                decoration: InputDecoration(
-                  hintText: l10n.searchPlaceholder,
-                  hintStyle: TextStyle(
-                    fontFamily: 'PublicSans',
-                    color: _textGray.withOpacity(0.8),
-                    fontSize: context.sp(14),
-                  ),
-                  border: InputBorder.none,
-                  isDense: true,
-                ),
-              ),
-            ),
-            Container(
-              margin: EdgeInsets.only(right: context.w(8)),
-              child: IconButton(
-                icon: Icon(
-                  _isListening ? Icons.mic : Icons.mic_none_rounded, 
-                  color: _isListening ? Colors.red : _primaryDark
-                ),
-                onPressed: () {
-                  if (_isListening) {
-                    _stopListening();
-                  } else {
-                    _startListening();
-                  }
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+    return MapHeaderBar(
+      searchController: _searchController,
+      isListening: _isListening,
+      searchPlaceholder: l10n.searchPlaceholder,
+      isPushed: widget.isPushed,
+      onBackPressed: () => Navigator.maybePop(context),
+      onSearchSubmitted: (val) => _performSearch(val),
+      onVoicePressed: () {
+        if (_isListening) {
+          _stopListening();
+        } else {
+          _startListening();
+        }
+      },
     );
   }
 
