@@ -19,7 +19,6 @@ import '../widgets/armonia_map.dart';
 import '../widgets/route_info_card.dart';
 import '../widgets/map_sizes.dart';
 import '../widgets/map_header_bar.dart';
-import '../widgets/map_filter_chips.dart';
 
 class AppColors {
   static const Color primaryPurple = Color(0xff2B1564);
@@ -109,7 +108,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   // Core Brand Colors extracted for easy modification
   static const Color _primaryDark = AppColors.primaryPurple;
-  static const Color _textGray = Color(0xFF6B657D);
 
   void _handleInitialSearchQuery(String query, bool startNav) {
     _isSelectingSuggestion = true;
@@ -681,35 +679,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   // --- UI Builders ---
-
-  // Refactored Glassmorphism wrapper to ensure shadows render outside the ClipRRect
-  Widget _buildGlassContainer({required Widget child, double borderRadius = 16.0}) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.85),
-              border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.0),
-            ),
-            child: child,
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildAlertsBanner(List<MapAlert> alerts) {
     final visibleAlerts = alerts.where((alert) => !_dismissedAlerts.contains(alert.title)).toList();

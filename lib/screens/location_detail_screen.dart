@@ -62,7 +62,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
               "category": widget.category,
               "author_username": "hidely_official",
               "is_verified": true,
-              "likes_count": 482,
+              "likes_count": 0,
             },
             {
               "id": 102,
@@ -72,7 +72,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
               "category": widget.category,
               "author_username": "hidely_official",
               "is_verified": true,
-              "likes_count": 312,
+              "likes_count": 0,
             },
             {
               "id": 103,
@@ -82,7 +82,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
               "category": widget.category,
               "author_username": "hidely_official",
               "is_verified": true,
-              "likes_count": 289,
+              "likes_count": 0,
             },
           ];
         }

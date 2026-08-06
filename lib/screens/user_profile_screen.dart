@@ -134,7 +134,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           "category": "Lakes & Hills",
           "author_username": "hidely_official",
           "is_verified": true,
-          "likes_count": 1840,
+          "likes_count": 0,
           "caption": "Emerald waters of Naini Lake surrounded by misty pine hills. Experience peaceful boating during golden hours.",
         },
         {
@@ -145,7 +145,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           "category": "Mountains",
           "author_username": "hidely_official",
           "is_verified": true,
-          "likes_count": 2150,
+          "likes_count": 0,
           "caption": "Snowy slopes and adventure sports in the heart of Solang Valley. Crisp mountain breeze & pine trees.",
         },
         {
@@ -156,7 +156,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           "category": "Beaches",
           "author_username": "hidely_official",
           "is_verified": true,
-          "likes_count": 1920,
+          "likes_count": 0,
           "caption": "Golden sun setting over the Arabian Sea at Vagator Cliff. Coconut palms and soothing tide waves.",
         },
         {
@@ -167,7 +167,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           "category": "Monuments",
           "author_username": "hidely_official",
           "is_verified": true,
-          "likes_count": 3410,
+          "likes_count": 0,
           "caption": "Pure white marble shining in early morning sunlight along the banks of Yamuna River.",
         },
         {
@@ -178,7 +178,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           "category": "Spiritual",
           "author_username": "hidely_official",
           "is_verified": true,
-          "likes_count": 2890,
+          "likes_count": 0,
           "caption": "Spiritual vibrations, oil lamps, and devotional chants at Dashashwamedh Ghat on River Ganga.",
         },
         {
@@ -189,7 +189,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           "category": "Adventure",
           "author_username": "hidely_official",
           "is_verified": true,
-          "likes_count": 1670,
+          "likes_count": 0,
           "caption": "Conquering 16 km whitewater rapids along the Ganges. Cliff jumping and riverside camping.",
         },
         {
@@ -200,7 +200,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           "category": "Heritage",
           "author_username": "hidely_official",
           "is_verified": true,
-          "likes_count": 2340,
+          "likes_count": 0,
           "caption": "953 intricate honeycomb lattice windows of Palace of Winds built with red and pink sandstone.",
         },
         {
@@ -211,7 +211,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           "category": "High Altitude Lakes",
           "author_username": "hidely_official",
           "is_verified": true,
-          "likes_count": 3100,
+          "likes_count": 0,
           "caption": "Crystal blue high-altitude salt lake changing colors under the clear Himalayan sky.",
         },
         {
@@ -222,7 +222,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           "category": "Nature",
           "author_username": "hidely_official",
           "is_verified": true,
-          "likes_count": 1980,
+          "likes_count": 0,
           "caption": "Gliding through palm-fringed tranquil lagoons and traditional wooden houseboats in Alleppey.",
         },
         {
@@ -233,7 +233,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           "category": "Ancient Wonders",
           "author_username": "hidely_official",
           "is_verified": true,
-          "likes_count": 2750,
+          "likes_count": 0,
           "caption": "Iconic 5th century BC temple standing atop Acropolis overlooking ancient Athens city.",
         },
         {
@@ -244,7 +244,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           "category": "Historical Wonders",
           "author_username": "hidely_official",
           "is_verified": true,
-          "likes_count": 3280,
+          "likes_count": 0,
           "caption": "Architectural masterpiece of Roman Empire. The world's largest ancient amphitheatre.",
         },
         {
@@ -255,7 +255,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           "category": "Islands",
           "author_username": "hidely_official",
           "is_verified": true,
-          "likes_count": 3690,
+          "likes_count": 0,
           "caption": "Breathtaking whitewashed houses and cobalt-blue church domes looking over Aegean sea.",
         },
       ];
@@ -355,7 +355,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             "category": "Lakes & Hills",
             "author_username": "hidely_official",
             "is_verified": true,
-            "likes_count": 1840,
+            "likes_count": 0,
             "caption": "Emerald waters of Naini Lake surrounded by misty pine hills. Experience peaceful boating during golden hours.",
           },
           {
@@ -432,7 +432,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             "category": "High Altitude Lakes",
             "author_username": "hidely_official",
             "is_verified": true,
-            "likes_count": 3100,
+            "likes_count": 0,
             "caption": "Crystal blue high-altitude salt lake changing colors under the clear Himalayan sky.",
           },
           {
@@ -443,7 +443,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             "category": "Nature",
             "author_username": "hidely_official",
             "is_verified": true,
-            "likes_count": 1980,
+            "likes_count": 0,
             "caption": "Gliding through palm-fringed tranquil lagoons and traditional wooden houseboats in Alleppey.",
           },
           {
@@ -454,7 +454,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             "category": "Ancient Wonders",
             "author_username": "hidely_official",
             "is_verified": true,
-            "likes_count": 2750,
+            "likes_count": 0,
             "caption": "Iconic 5th century BC temple standing atop Acropolis overlooking ancient Athens city.",
           },
           {
@@ -465,7 +465,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             "category": "Historical Wonders",
             "author_username": "hidely_official",
             "is_verified": true,
-            "likes_count": 3280,
+            "likes_count": 0,
             "caption": "Architectural masterpiece of Roman Empire. The world's largest ancient amphitheatre.",
           },
           {
