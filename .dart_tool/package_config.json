@@ -200,18 +200,6 @@
       "languageVersion": "2.17"
     },
     {
-      "name": "device_info_plus",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/device_info_plus-11.3.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.4"
-    },
-    {
-      "name": "device_info_plus_platform_interface",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/device_info_plus_platform_interface-7.0.2",
-      "packageUri": "lib/",
-      "languageVersion": "2.18"
-    },
-    {
       "name": "encrypt",
       "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/encrypt-5.0.3",
       "packageUri": "lib/",
@@ -453,7 +441,7 @@
     },
     {
       "name": "google_maps",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/google_maps-8.2.0",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/google_maps-8.3.0",
       "packageUri": "lib/",
       "languageVersion": "3.4"
     },
@@ -669,9 +657,9 @@
     },
     {
       "name": "native_device_orientation",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/native_device_orientation-2.1.0",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/native_device_orientation-1.2.1",
       "packageUri": "lib/",
-      "languageVersion": "3.0"
+      "languageVersion": "2.12"
     },
     {
       "name": "nm",
@@ -783,7 +771,7 @@
     },
     {
       "name": "photo_manager",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/photo_manager-3.9.0",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/photo_manager-3.11.0",
       "packageUri": "lib/",
       "languageVersion": "2.13"
     },
@@ -813,7 +801,7 @@
     },
     {
       "name": "posix",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/posix-6.5.0",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/posix-6.5.2",
       "packageUri": "lib/",
       "languageVersion": "3.0"
     },
@@ -1071,7 +1059,7 @@
     },
     {
       "name": "uuid",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/uuid-4.5.3",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/uuid-4.6.0",
       "packageUri": "lib/",
       "languageVersion": "3.0"
     },
@@ -1112,12 +1100,6 @@
       "languageVersion": "3.4"
     },
     {
-      "name": "visibility_detector",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/visibility_detector-0.4.0+2",
-      "packageUri": "lib/",
-      "languageVersion": "2.12"
-    },
-    {
       "name": "vm_service",
       "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/vm_service-14.2.1",
       "packageUri": "lib/",
@@ -1148,12 +1130,6 @@
       "languageVersion": "3.4"
     },
     {
-      "name": "win32_registry",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/win32_registry-1.1.5",
-      "packageUri": "lib/",
-      "languageVersion": "3.4"
-    },
-    {
       "name": "wkt_parser",
       "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/wkt_parser-2.0.0",
       "packageUri": "lib/",
@@ -1179,13 +1155,13 @@
     },
     {
       "name": "zego_callkit",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_callkit-1.0.0+4",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_callkit-1.0.0+2",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
     {
       "name": "zego_express_engine",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_express_engine-3.25.0",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_express_engine-3.17.0",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -1197,7 +1173,7 @@
     },
     {
       "name": "zego_uikit",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_uikit-2.28.23",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_uikit-2.22.3",
       "packageUri": "lib/",
       "languageVersion": "2.16"
     },
@@ -1221,7 +1197,7 @@
     },
     {
       "name": "zego_zpns",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_zpns-2.6.0+3",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_zpns-2.6.0+1",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -1232,7 +1208,7 @@
       "languageVersion": "3.4"
     }
   ],
-  "generated": "2026-08-06T12:02:06.664648Z",
+  "generated": "2026-08-06T12:39:45.313780Z",
   "generator": "pub",
   "generatorVersion": "3.4.0",
   "flutterRoot": "file:///Users/harshbhardwaj/development/flutter",
