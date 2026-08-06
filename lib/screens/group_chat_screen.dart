@@ -742,12 +742,60 @@ class _ChatRoomView extends StatefulWidget {
 
 class _ChatRoomViewState extends State<_ChatRoomView> {
   final TextEditingController _msgController = TextEditingController();
-  final List<ChatMessage> _messages = [];
+  late List<ChatMessage> _messages;
   bool _isRecording = false;
+
+  static final Map<String, List<ChatMessage>> _messagesHistory = {};
+
+  List<ChatMessage> _getDummyMessages(ChatItem chat) {
+    if (chat.isGroup) {
+      return [
+        ChatMessage(
+          id: '1',
+          senderName: 'Nomad Nate',
+          senderAvatar: 'assets/images/nomad_nate_avatar.png',
+          text: 'Hey group! Sab log Nainital trip ke liye excited ho? 🏔️',
+          time: '10:30 AM',
+          isMe: false,
+        ),
+        ChatMessage(
+          id: '2',
+          senderName: 'Solo Sara',
+          senderAvatar: 'assets/images/user2.jpg',
+          text: 'Haan packing start kar di hai! Pinned itinerary check kar li sabne?',
+          time: '10:32 AM',
+          isMe: false,
+        ),
+      ];
+    } else {
+      return [
+        ChatMessage(
+          id: '1',
+          senderName: chat.name,
+          senderAvatar: chat.avatar,
+          text: 'Hey! Kaise ho?',
+          time: 'Yesterday',
+          isMe: false,
+        ),
+        ChatMessage(
+          id: '2',
+          senderName: 'You',
+          senderAvatar: 'assets/images/user1.jpg',
+          text: 'Main theek hoon! Aap batao.',
+          time: 'Yesterday',
+          isMe: true,
+        ),
+      ];
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    if (!_messagesHistory.containsKey(widget.chat.id)) {
+      _messagesHistory[widget.chat.id] = _getDummyMessages(widget.chat);
+    }
+    _messages = _messagesHistory[widget.chat.id]!;
   }
 
   @override

@@ -9,49 +9,7 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2dc3ced4-2b7b-45da-bc69-e00bbfe604ea" name="Changes" comment="1st">
-      <change beforePath="$PROJECT_DIR$/.flutter-plugins-dependencies" beforeDir="false" afterPath="$PROJECT_DIR$/.flutter-plugins-dependencies" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.5/checksums/checksums.lock" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.5/checksums/md5-checksums.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.5/checksums/sha1-checksums.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.5/dependencies-accessors/dependencies-accessors.lock" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.5/dependencies-accessors/gc.properties" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.5/executionHistory/executionHistory.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.5/executionHistory/executionHistory.lock" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.5/fileChanges/last-build.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.5/fileHashes/fileHashes.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.5/fileHashes/fileHashes.lock" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.5/fileHashes/resourceHashesCache.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.5/gc.properties" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.9/executionHistory/executionHistory.bin" beforeDir="false" afterPath="$PROJECT_DIR$/android/.gradle/8.9/executionHistory/executionHistory.bin" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.9/executionHistory/executionHistory.lock" beforeDir="false" afterPath="$PROJECT_DIR$/android/.gradle/8.9/executionHistory/executionHistory.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.9/fileHashes/fileHashes.bin" beforeDir="false" afterPath="$PROJECT_DIR$/android/.gradle/8.9/fileHashes/fileHashes.bin" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/8.9/fileHashes/fileHashes.lock" beforeDir="false" afterPath="$PROJECT_DIR$/android/.gradle/8.9/fileHashes/fileHashes.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock" beforeDir="false" afterPath="$PROJECT_DIR$/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/presentation/state/map_providers.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/presentation/state/map_providers.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/create_media_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/create_media_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/create_post_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/create_post_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/create_reel_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/create_reel_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/creator_profile_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/creator_profile_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/edit_profile_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/edit_profile_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/explore_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/explore_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/feed_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/feed_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/follow_list_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/follow_list_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/group_chat_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/group_chat_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/leaderboard_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/leaderboard_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/location_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/location_detail_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/nearby_locations_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/nearby_locations_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/nearby_stays_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/nearby_stays_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/notification_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/notification_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/post_details_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/post_details_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/reels_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/reels_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/single_post_view_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/single_post_view_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/stay_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/stay_detail_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/user_profile_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/user_profile_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/services/api_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/services/api_service.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/widgets/user_avatar.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/widgets/user_avatar.dart" afterDir="false" />
-    </list>
+    <list default="true" id="2dc3ced4-2b7b-45da-bc69-e00bbfe604ea" name="Changes" comment="1st" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
