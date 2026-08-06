@@ -278,6 +278,8 @@ class _FollowListScreenState extends State<FollowListScreen> with SingleTickerPr
                     ),
                     child: TabBar(
                       controller: _tabController,
+                      dividerColor: Colors.transparent,
+                      dividerHeight: 0.0,
                       indicator: BoxDecoration(
                         color: const Color(0xff2B1564), // Solid purple capsule
                         borderRadius: BorderRadius.circular(20),

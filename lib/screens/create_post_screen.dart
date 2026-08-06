@@ -6,9 +6,12 @@ import 'package:permission_handler/permission_handler.dart';
 import 'post_details_screen.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import 'create_reel_screen.dart';
+
 class CreatePostScreen extends StatefulWidget {
   final File? selectedImage;
-  const CreatePostScreen({super.key, this.selectedImage});
+  final String initialMode;
+  const CreatePostScreen({super.key, this.selectedImage, this.initialMode = "POST"});
 
   @override
   State<CreatePostScreen> createState() => _CreatePostScreenState();
@@ -22,10 +25,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   bool _loadingAssets = true;
   bool _hasPermission = false;
   AssetEntity? _selectedAsset;
+  late String _selectedMode;
 
   @override
   void initState() {
     super.initState();
+    _selectedMode = widget.initialMode;
     _fetchRecentAssets();
     if (widget.selectedImage != null) {
       _selectedImage = widget.selectedImage;
@@ -152,6 +157,23 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
+  Future<void> _openCamera() async {
+    if (_selectedMode == "REEL") {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const CreateReelScreen()),
+      );
+      if (result != null && result is File && mounted) {
+        setState(() {
+          _selectedImage = result;
+          _selectedAsset = null;
+        });
+      }
+    } else {
+      _captureImageFromCamera();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -197,9 +219,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           child: Center(child: Image.asset('assets/images/back_icon.png', color: const Color(0xff1C0D5A), width: 18.0, height: 18.0)),
                         ),
                       ),
-                      const Text(
-                        "New Post",
-                        style: TextStyle(
+                      Text(
+                        _selectedMode == "REEL" ? "New Reel" : "New Post",
+                        style: const TextStyle(
                           color: Color(0xff1C0D5A),
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -256,7 +278,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   onTap: _pickImage,
                   child: Container(
                     width: double.infinity,
-                    height: MediaQuery.of(context).size.height * 0.44,
+                    height: _selectedMode == "REEL"
+                        ? MediaQuery.of(context).size.height * 0.46
+                        : MediaQuery.of(context).size.height * 0.38,
                     color: Colors.black.withOpacity(0.04),
                     child: Stack(
                       children: [
@@ -358,34 +382,101 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   ),
                 ),
 
-                // --- 3. GALLERY DROPDOWN NAV & LAYOUT TOGGLE BAR ---
+                // --- 3. MODE SELECTOR & GALLERY DROPDOWN BAR ---
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      // Mode Selector Pill Tabs: [ POST | REEL ]
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xffE2E8F0),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                if (_selectedMode != "POST") {
+                                  setState(() {
+                                    _selectedMode = "POST";
+                                  });
+                                }
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _selectedMode == "POST" ? const Color(0xff2B1564) : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Text(
+                                  "POST",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: _selectedMode == "POST" ? Colors.white : const Color(0xff64748B),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                if (_selectedMode != "REEL") {
+                                  setState(() {
+                                    _selectedMode = "REEL";
+                                  });
+                                }
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _selectedMode == "REEL" ? const Color(0xff2B1564) : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.movie_creation_outlined,
+                                      size: 14,
+                                      color: _selectedMode == "REEL" ? Colors.white : const Color(0xff64748B),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      "REEL",
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: _selectedMode == "REEL" ? Colors.white : const Color(0xff64748B),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       Row(
                         children: [
-                          const Text(
-                            "Device Gallery",
-                            style: TextStyle(
-                              color: Color(0xff1C0D5A),
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          IconButton(
+                            icon: const Icon(Icons.photo_camera_outlined, color: Color(0xff2B1564)),
+                            tooltip: "Open Camera",
+                            onPressed: _openCamera,
                           ),
-                          const SizedBox(width: 4),
-                          Icon(Icons.keyboard_arrow_down_rounded, color: const Color(0xff1C0D5A).withOpacity(0.7), size: 20),
+                          IconButton(
+                            icon: const Icon(Icons.refresh_rounded, color: Color(0xff2B1564)),
+                            onPressed: () {
+                              setState(() {
+                                _loadingAssets = true;
+                              });
+                              _fetchRecentAssets();
+                            },
+                          ),
                         ],
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.refresh_rounded, color: Color(0xff2B1564)),
-                        onPressed: () {
-                          setState(() {
-                            _loadingAssets = true;
-                          });
-                          _fetchRecentAssets();
-                        },
                       ),
                     ],
                   ),
@@ -427,28 +518,33 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             )
                           : GridView.builder(
                               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: 3,
                                 crossAxisSpacing: 4,
                                 mainAxisSpacing: 4,
+                                childAspectRatio: _selectedMode == "REEL" ? 9 / 16 : 1 / 1,
                               ),
                               itemCount: _recentAssets.length + 1,
                               itemBuilder: (context, index) {
                                 if (index == 0) {
                                   return GestureDetector(
-                                    onTap: _captureImageFromCamera,
+                                    onTap: _openCamera,
                                     child: Container(
                                       color: const Color(0xffCBD5E1).withOpacity(0.3),
-                                      child: const Column(
+                                      child: Column(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          Icon(Icons.photo_camera_outlined, color: Color(0xff1C0D5A), size: 28),
-                                          SizedBox(height: 6),
+                                          Icon(
+                                            _selectedMode == "REEL" ? Icons.videocam_outlined : Icons.photo_camera_outlined,
+                                            color: const Color(0xff1C0D5A),
+                                            size: 28,
+                                          ),
+                                          const SizedBox(height: 6),
                                           Text(
-                                            "Camera",
-                                            style: TextStyle(
+                                            _selectedMode == "REEL" ? "Live Camera" : "Camera",
+                                            style: const TextStyle(
                                               color: Color(0xff1C0D5A),
-                                              fontSize: 12,
+                                              fontSize: 11.5,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),

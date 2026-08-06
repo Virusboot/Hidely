@@ -303,9 +303,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 border: Border.all(color: const Color(0xff5D3EBC).withOpacity(0.8), width: 2),
                               ),
                               child: _selectedImagePath != null
-                                  ? CircleAvatar(
-                                      radius: 54,
-                                      backgroundImage: FileImage(File(_selectedImagePath!)),
+                                  ? ClipOval(
+                                      child: SizedBox(
+                                        width: 108,
+                                        height: 108,
+                                        child: Image.file(
+                                          File(_selectedImagePath!),
+                                          fit: BoxFit.cover,
+                                          alignment: Alignment.center,
+                                        ),
+                                      ),
                                     )
                                   : UserAvatar(
                                       avatarUrl: AuthService().userProfilePicture,

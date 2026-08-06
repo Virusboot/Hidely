@@ -959,6 +959,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                 color: Colors.white.withOpacity(0.4),
                 child: TabBar(
                   controller: _tabController,
+                  dividerColor: Colors.transparent,
+                  dividerHeight: 0.0,
                   indicatorColor: const Color(0xff2B1564),
                   labelColor: const Color(0xff2B1564),
                   unselectedLabelColor: Colors.black38,
@@ -1047,6 +1049,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         final bool isNetwork = imagePath.startsWith("http") || imagePath.startsWith("uploads");
         final bool hasImage = imagePath.isNotEmpty;
 
+        final String locationName = post["location"]?.toString() ?? post["location_name"]?.toString() ?? post["city"]?.toString() ?? "";
+
         return GestureDetector(
           onTap: () {
             final mappedPosts = _userPosts.map((p) {
@@ -1074,42 +1078,52 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           },
           child: Container(
             color: const Color(0xffCBD5E1),
-            child: !hasImage
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.image_not_supported_outlined, color: Colors.white70, size: 20),
-                        SizedBox(height: 4),
-                        Text(
-                          "No Image",
-                          style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  )
-                : isVideo
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                !hasImage
                     ? const Center(
-                        child: Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 40),
-                      )
-                    : isNetwork
-                    ? CachedNetworkImage(
-                        imageUrl: imagePath.startsWith("http") ? imagePath : '${ApiService().baseUrl}/$imagePath',
-                        fit: BoxFit.cover,
-                        memCacheWidth: 400,
-                        memCacheHeight: 400,
-                        placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
-                        errorWidget: (context, url, error) => const Center(
-                          child: Icon(Icons.broken_image_outlined, color: Colors.white54),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.image_not_supported_outlined, color: Colors.white70, size: 20),
+                            SizedBox(height: 4),
+                            Text(
+                              "No Image",
+                              style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ],
                         ),
                       )
-                    : Image.asset(
-                        imagePath,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const Center(
-                          child: Icon(Icons.broken_image_outlined, color: Colors.white54),
-                        ),
-                      ),
+                    : isVideo
+                        ? const Center(
+                            child: Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 40),
+                          )
+                        : isNetwork
+                            ? SizedBox.expand(
+                                child: CachedNetworkImage(
+                                  imageUrl: imagePath.startsWith("http") ? imagePath : '${ApiService().baseUrl}/$imagePath',
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.center,
+                                  memCacheWidth: 600,
+                                  placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
+                                  errorWidget: (context, url, error) => const Center(
+                                    child: Icon(Icons.broken_image_outlined, color: Colors.white54),
+                                  ),
+                                ),
+                              )
+                            : SizedBox.expand(
+                                child: Image.asset(
+                                  imagePath,
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.center,
+                                  errorBuilder: (context, error, stackTrace) => const Center(
+                                    child: Icon(Icons.broken_image_outlined, color: Colors.white54),
+                                  ),
+                                ),
+                              ),
+              ],
+            ),
           ),
         );
       },
@@ -1147,6 +1161,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         final bool isNetwork = imagePath.startsWith("http") || imagePath.startsWith("uploads");
         final bool hasImage = imagePath.isNotEmpty;
 
+        final String locationName = post["location"]?.toString() ?? post["location_name"]?.toString() ?? post["city"]?.toString() ?? "";
+
         return GestureDetector(
           onTap: () {
             final mappedPosts = _savedPosts.map((raw) {
@@ -1171,38 +1187,48 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             tag: 'saved_post_${post["id"]}',
             child: Container(
               color: const Color(0xffCBD5E1),
-              child: !hasImage
-                  ? const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.image_not_supported_outlined, color: Colors.white70, size: 20),
-                          SizedBox(height: 4),
-                          Text(
-                            "No Image",
-                            style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                    )
-                  : isNetwork
-                      ? CachedNetworkImage(
-                          imageUrl: imagePath.startsWith("http") ? imagePath : '${ApiService().baseUrl}/$imagePath',
-                          fit: BoxFit.cover,
-                          memCacheWidth: 400,
-                          memCacheHeight: 400,
-                          placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
-                          errorWidget: (context, url, error) => const Center(
-                            child: Icon(Icons.broken_image_outlined, color: Colors.white54),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  !hasImage
+                      ? const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.image_not_supported_outlined, color: Colors.white70, size: 20),
+                              SizedBox(height: 4),
+                              Text(
+                                "No Image",
+                                style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                            ],
                           ),
                         )
-                      : Image.asset(
-                          imagePath,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => const Center(
-                            child: Icon(Icons.broken_image_outlined, color: Colors.white54),
-                          ),
-                        ),
+                      : isNetwork
+                          ? SizedBox.expand(
+                              child: CachedNetworkImage(
+                                imageUrl: imagePath.startsWith("http") ? imagePath : '${ApiService().baseUrl}/$imagePath',
+                                fit: BoxFit.cover,
+                                alignment: Alignment.center,
+                                memCacheWidth: 600,
+                                placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
+                                errorWidget: (context, url, error) => const Center(
+                                  child: Icon(Icons.broken_image_outlined, color: Colors.white54),
+                                ),
+                              ),
+                            )
+                          : SizedBox.expand(
+                              child: Image.asset(
+                                imagePath,
+                                fit: BoxFit.cover,
+                                alignment: Alignment.center,
+                                errorBuilder: (context, error, stackTrace) => const Center(
+                                  child: Icon(Icons.broken_image_outlined, color: Colors.white54),
+                                ),
+                              ),
+                            ),
+                ],
+              ),
             ),
           ),
         );

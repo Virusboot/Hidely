@@ -822,6 +822,26 @@ class ApiService {
     }
   }
 
+  /// Get unread notification count
+  Future<ApiResult> getUnreadNotificationCount({required String token}) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/notifications/unread-count'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(success: true, message: 'Unread count loaded.', data: body);
+      } else {
+        return ApiResult(success: false, message: body['error'] ?? 'Failed to load unread count.', error: body['error']);
+      }
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
   /// Get a single post by ID
   Future<ApiResult> getPostById({required int postId, String? token}) async {
     try {

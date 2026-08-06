@@ -620,32 +620,38 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 ),
                               ).then((_) => _fetchExplorePosts());
                             },
-                            child: Container(
-                              color: Colors.black12,
-                              child: isVideo
-                                  ? const Center(
-                                      child: Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 40),
-                                    )
-                                  : isNetwork
-                                  ? CachedNetworkImage(
-                                      imageUrl: imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
-                                      fit: BoxFit.cover,
-                                      memCacheWidth: 450,
-                                      memCacheHeight: 560,
-                                      placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
-                                      errorWidget: (context, url, error) => Container(
-                                        color: const Color(0xffCBD5E1),
-                                        child: const Icon(Icons.landscape_outlined, color: Colors.white38),
+                            child: ClipRRect(
+                              child: SizedBox.expand(
+                                child: isVideo
+                                    ? Container(
+                                        color: Colors.black87,
+                                        child: const Center(
+                                          child: Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 40),
+                                        ),
+                                      )
+                                    : isNetwork
+                                    ? CachedNetworkImage(
+                                        imageUrl: imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
+                                        fit: BoxFit.cover,
+                                        alignment: Alignment.center,
+                                        memCacheWidth: 450,
+                                        memCacheHeight: 560,
+                                        placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
+                                        errorWidget: (context, url, error) => Container(
+                                          color: const Color(0xffCBD5E1),
+                                          child: const Icon(Icons.landscape_outlined, color: Colors.white38),
+                                        ),
+                                      )
+                                    : Image.asset(
+                                        imageUrl.isNotEmpty ? imageUrl : "assets/images/onboarding_bg.jpg",
+                                        fit: BoxFit.cover,
+                                        alignment: Alignment.center,
+                                        errorBuilder: (context, error, stackTrace) => Container(
+                                          color: const Color(0xffCBD5E1),
+                                          child: const Icon(Icons.landscape_outlined, color: Colors.white38),
+                                        ),
                                       ),
-                                    )
-                                  : Image.asset(
-                                      imageUrl.isNotEmpty ? imageUrl : "assets/images/onboarding_bg.jpg",
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) => Container(
-                                        color: const Color(0xffCBD5E1),
-                                        child: const Icon(Icons.landscape_outlined, color: Colors.white38),
-                                      ),
-                                    ),
+                              ),
                             ),
                           );
                         },

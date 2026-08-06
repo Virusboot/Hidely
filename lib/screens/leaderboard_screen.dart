@@ -599,17 +599,44 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       resolvedUrl = '${ApiService().baseUrl}/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}';
     }
 
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: isHighlighted ? const Color(0xff432C81) : const Color(0xffCBD5E1),
-      backgroundImage: !hasImage
-          ? null
-          : (isNetwork
-              ? NetworkImage(resolvedUrl)
-              : AssetImage(imagePath) as ImageProvider),
-      child: !hasImage
-          ? Icon(Icons.account_circle, color: isHighlighted ? Colors.white : Colors.white70, size: radius * 1.2)
-          : null,
+    final double diameter = radius * 2;
+    if (!hasImage) {
+      return ClipOval(
+        child: Container(
+          width: diameter,
+          height: diameter,
+          color: isHighlighted ? const Color(0xff432C81) : const Color(0xffCBD5E1),
+          alignment: Alignment.center,
+          child: Icon(Icons.account_circle, color: isHighlighted ? Colors.white : Colors.white70, size: radius * 1.2),
+        ),
+      );
+    }
+
+    return ClipOval(
+      child: SizedBox(
+        width: diameter,
+        height: diameter,
+        child: isNetwork
+            ? Image.network(
+                resolvedUrl,
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                width: diameter,
+                height: diameter,
+                errorBuilder: (ctx, err, stack) => Container(
+                  color: isHighlighted ? const Color(0xff432C81) : const Color(0xffCBD5E1),
+                  alignment: Alignment.center,
+                  child: Icon(Icons.account_circle, color: isHighlighted ? Colors.white : Colors.white70, size: radius * 1.2),
+                ),
+              )
+            : Image.asset(
+                imagePath,
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                width: diameter,
+                height: diameter,
+              ),
+      ),
     );
   }
 }

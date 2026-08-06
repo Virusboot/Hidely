@@ -71,7 +71,7 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
           return;
         }
         final pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.bestForNavigation),
         );
         lat = pos.latitude;
         lng = pos.longitude;

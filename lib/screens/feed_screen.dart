@@ -102,12 +102,26 @@ class FeedScreen extends StatefulWidget {
 class _FeedScreenState extends State<FeedScreen> {
   bool _isLoading = true;
   List<dynamic> _feedPosts = [];
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
     super.initState();
     FeedScreen.activeState = this;
     _loadFeed();
+    _loadUnreadCount();
+  }
+
+  Future<void> _loadUnreadCount() async {
+    if (AuthService().isGuest) return;
+    final token = AuthService().token ?? '';
+    if (token.isEmpty) return;
+    final result = await ApiService().getUnreadNotificationCount(token: token);
+    if (mounted && result.success) {
+      setState(() {
+        _unreadNotificationCount = result.data?['unread_count'] ?? 0;
+      });
+    }
   }
 
   void reload() {
@@ -323,18 +337,54 @@ class _FeedScreenState extends State<FeedScreen> {
                                           MaterialPageRoute(
                                               builder: (context) =>
                                                   const NotificationScreen()),
-                                        );
+                                        ).then((_) => _loadUnreadCount());
                                       },
-                                      child: Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.7),
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                              color: Colors.white.withOpacity(0.5)),
-                                        ),
-                                        child: const Icon(Icons.notifications_none_outlined,
-                                            color: Color(0xff1C0D5A), size: 22),
+                                      child: Stack(
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withOpacity(0.7),
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                  color: Colors.white.withOpacity(0.5)),
+                                            ),
+                                            child: const Icon(
+                                                Icons.notifications_none_outlined,
+                                                color: Color(0xff1C0D5A),
+                                                size: 22),
+                                          ),
+                                          if (_unreadNotificationCount > 0)
+                                            Positioned(
+                                              top: -2,
+                                              right: -2,
+                                              child: Container(
+                                                constraints: const BoxConstraints(
+                                                  minWidth: 17,
+                                                  minHeight: 17,
+                                                ),
+                                                padding: const EdgeInsets.symmetric(
+                                                    horizontal: 4),
+                                                decoration: const BoxDecoration(
+                                                  color: Color(0xFFE91E63),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: Center(
+                                                  child: Text(
+                                                    _unreadNotificationCount > 99
+                                                        ? '99+'
+                                                        : '$_unreadNotificationCount',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ),
                                   ],
@@ -420,8 +470,17 @@ class _FeedScreenState extends State<FeedScreen> {
                 padding: const EdgeInsets.all(2.0),
                 decoration: const BoxDecoration(
                     color: Colors.white, shape: BoxShape.circle),
-                child: CircleAvatar(
-                    radius: 30, backgroundImage: AssetImage(imgPath)),
+                child: ClipOval(
+                  child: SizedBox(
+                    width: 60,
+                    height: 60,
+                    child: Image.asset(
+                      imgPath,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.center,
+                    ),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 6),
@@ -1011,12 +1070,10 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  CircleAvatar(
+                                  UserAvatar(
+                                    avatarUrl: profilePic,
+                                    displayName: username,
                                     radius: 18,
-                                    backgroundColor: const Color(0xffCBD5E1),
-                                    backgroundImage: profilePic != null && profilePic.isNotEmpty
-                                        ? NetworkImage('${ApiService().baseUrl}/$profilePic') as ImageProvider
-                                        : const AssetImage("assets/images/nomad_nate_avatar.png"),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(

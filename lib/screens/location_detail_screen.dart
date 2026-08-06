@@ -582,6 +582,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                     ? Image.network(
                         imagePath.startsWith('http') ? imagePath : '${ApiService().baseUrl}/$imagePath',
                         fit: BoxFit.cover,
+                        alignment: Alignment.center,
                         errorBuilder: (context, error, stackTrace) => Container(
                           color: const Color(0xffCBD5E1),
                           child: const Icon(Icons.landscape_outlined, color: Colors.white38),
@@ -590,6 +591,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                     : Image.asset(
                         imagePath.isNotEmpty ? imagePath : "assets/images/onboarding_bg.jpg",
                         fit: BoxFit.cover,
+                        alignment: Alignment.center,
                         errorBuilder: (context, error, stackTrace) => Container(
                           color: const Color(0xffCBD5E1),
                           child: const Icon(Icons.landscape_outlined, color: Colors.white38),

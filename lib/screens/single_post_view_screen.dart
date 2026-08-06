@@ -9,7 +9,9 @@ import 'package:hidely_new/screens/feed_screen.dart'; // Contains CommentSheetWi
 import 'package:hidely_new/widgets/post_options_bottom_sheet.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/api_service.dart';
-
+import 'package:hidely_new/widgets/user_avatar.dart';
+import 'package:hidely_new/screens/main_wrapper.dart';
+import 'package:hidely_new/screens/map_discovery_screen.dart';
 class SinglePostViewScreen extends StatefulWidget {
   final List<dynamic> posts;
   final int initialIndex;
@@ -224,13 +226,11 @@ class _SinglePostViewScreenState extends State<SinglePostViewScreen> {
                                     );
                                   }
                                 },
-                                child: CircleAvatar(
-                                  radius: 18,
-                                  backgroundColor: const Color(0xffCBD5E1),
-                                  backgroundImage: authorPic != null && authorPic.isNotEmpty
-                                      ? NetworkImage(authorPic.startsWith('http') ? authorPic : '${ApiService().baseUrl}/$authorPic') as ImageProvider
-                                      : const AssetImage('assets/images/nomad_nate_avatar.png'),
-                                ),
+                                child: UserAvatar(
+                                avatarUrl: authorPic,
+                                displayName: authorUsername,
+                                radius: 18,
+                              ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -301,12 +301,20 @@ class _SinglePostViewScreenState extends State<SinglePostViewScreen> {
                                                 ),
                                               );
                                             },
-                                            child: Text(
-                                              "Suggested For You • $displayLocation ",
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(fontSize: 11, color: Colors.black54, fontWeight: FontWeight.w500),
-                                            ),
+                                            child: Row(
+                                               children: [
+                                                 const Icon(Icons.location_on_rounded, color: Color(0xff5D3EBC), size: 12),
+                                                 const SizedBox(width: 3),
+                                                 Expanded(
+                                                   child: Text(
+                                                     displayLocation,
+                                                     maxLines: 1,
+                                                     overflow: TextOverflow.ellipsis,
+                                                     style: const TextStyle(fontSize: 11.5, color: Colors.black87, fontWeight: FontWeight.w600),
+                                                   ),
+                                                 ),
+                                               ],
+                                             ),
                                           ),
                                         ),
                                         const SizedBox(width: 4),
@@ -356,31 +364,67 @@ class _SinglePostViewScreenState extends State<SinglePostViewScreen> {
                               });
                             }
                           },
-                          child: InteractiveViewer(
-                            clipBehavior: Clip.none,
-                            minScale: 1.0,
-                            maxScale: 4.0,
-                            child: AspectRatio(
-                              aspectRatio: 4 / 5,
-                              child: Container(
-                                width: double.infinity,
-                                color: Colors.black12,
-                              child: post["image"] is File
-                                  ? Image.file(post["image"] as File, fit: BoxFit.cover)
-                                  : (isAsset
-                                      ? Image.asset(imageUrl, fit: BoxFit.cover)
-                                      : CachedNetworkImage(
-                                          imageUrl: imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
-                                          fit: BoxFit.cover,
-                                          memCacheWidth: 1080,
-                                          placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
-                                          errorWidget: (context, url, error) => Container(
-                                            color: const Color(0xffCBD5E1),
-                                            child: const Icon(Icons.image, color: Colors.white24, size: 40),
-                                          ),
-                                        )),
+                          child: Stack(
+                            children: [
+                              InteractiveViewer(
+                                clipBehavior: Clip.none,
+                                minScale: 1.0,
+                                maxScale: 4.0,
+                                child: AspectRatio(
+                                  aspectRatio: 4 / 5,
+                                  child: Container(
+                                    width: double.infinity,
+                                    color: Colors.black12,
+                                    child: post["image"] is File
+                                        ? Image.file(post["image"] as File, fit: BoxFit.cover)
+                                        : (isAsset
+                                            ? Image.asset(imageUrl, fit: BoxFit.cover)
+                                            : CachedNetworkImage(
+                                                imageUrl: imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
+                                                fit: BoxFit.cover,
+                                                memCacheWidth: 1080,
+                                                placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
+                                                errorWidget: (context, url, error) => Container(
+                                                  color: const Color(0xffCBD5E1),
+                                                  child: const Icon(Icons.image, color: Colors.white24, size: 40),
+                                                ),
+                                              )),
+                                  ),
+                                ),
                               ),
-                            ),
+                              if (location.isNotEmpty)
+                                Positioned(
+                                  bottom: 16,
+                                  left: 16,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      MapDiscoveryScreen.initialSearchQuery = location;
+                                      MapDiscoveryScreen.startNavigationDirectly = false;
+                                      final state = context.findAncestorStateOfType<MainWrapperState>();
+                                      if (state != null) {
+                                        state.setIndex(1);
+                                      } else {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => const MainWrapper(initialIndex: 1)),
+                                        );
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.5),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.location_on,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
 

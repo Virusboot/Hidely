@@ -270,12 +270,32 @@ class _StayDetailScreenState extends State<StayDetailScreen> {
                         },
                         child: Row(
                           children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: const Color(0xffE2E8F0),
-                              backgroundImage: hidelyAvatar != null && hidelyAvatar.startsWith('http')
-                                  ? NetworkImage(hidelyAvatar) as ImageProvider
-                                  : AssetImage(hidelyAvatar ?? "assets/images/nomad_nate_avatar.png"),
+                            ClipOval(
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                color: const Color(0xffE2E8F0),
+                                child: hidelyAvatar != null && hidelyAvatar.startsWith('http')
+                                    ? Image.network(
+                                        hidelyAvatar,
+                                        fit: BoxFit.cover,
+                                        alignment: Alignment.center,
+                                        width: 40,
+                                        height: 40,
+                                        errorBuilder: (ctx, err, stack) => Image.asset(
+                                          "assets/images/nomad_nate_avatar.png",
+                                          fit: BoxFit.cover,
+                                          width: 40,
+                                          height: 40,
+                                        ),
+                                      )
+                                    : Image.asset(
+                                        hidelyAvatar ?? "assets/images/nomad_nate_avatar.png",
+                                        fit: BoxFit.cover,
+                                        width: 40,
+                                        height: 40,
+                                      ),
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Column(

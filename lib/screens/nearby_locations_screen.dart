@@ -41,7 +41,7 @@ class _NearbyLocationsScreenState extends State<NearbyLocationsScreen> {
       }
       if (permission != LocationPermission.denied && permission != LocationPermission.deniedForever) {
         _currentPosition = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.bestForNavigation),
         );
       }
 

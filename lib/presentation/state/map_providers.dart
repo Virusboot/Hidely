@@ -1,5 +1,5 @@
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
@@ -174,9 +174,23 @@ final nearbyPlacesProvider = FutureProvider<List<NearbyPlace>>((ref) async {
 
 // Location State Settings and Stream Providers
 final locationSettingsProvider = Provider<LocationSettings>((ref) {
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    return AndroidSettings(
+      accuracy: LocationAccuracy.bestForNavigation,
+      distanceFilter: 1, // 1 meter high precision filter
+      intervalDuration: const Duration(seconds: 1), // 1 second update rate
+    );
+  } else if (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS) {
+    return AppleSettings(
+      accuracy: LocationAccuracy.bestForNavigation,
+      distanceFilter: 1, // 1 meter high precision filter
+      activityType: ActivityType.fitness,
+      pauseLocationUpdatesAutomatically: false,
+    );
+  }
   return const LocationSettings(
-    accuracy: LocationAccuracy.high,
-    distanceFilter: 10, // 10 meters distance filter for responsive rerouting
+    accuracy: LocationAccuracy.bestForNavigation,
+    distanceFilter: 1,
   );
 });
 

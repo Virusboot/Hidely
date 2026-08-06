@@ -107,13 +107,13 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
             if (bestPos == null || pos.accuracy < bestPos.accuracy) {
               bestPos = pos;
             }
-            // Accept as soon as we get <= 100m accuracy
-            if (pos.accuracy <= 100.0) {
+            // Lock position as soon as we get sub-15 meter pinpoint accuracy
+            if (pos.accuracy <= 15.0) {
               break;
             }
           }
         } catch (_) {
-          // Timeout or stream error — use whatever we got
+          // Timeout or stream error — use best position captured
         }
 
         // Fallback: if stream gave nothing, try a direct single fix
@@ -130,7 +130,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
 
         _latitude = bestPos.latitude;
         _longitude = bestPos.longitude;
-        debugPrint('[Location] Accuracy: ${bestPos.accuracy.toStringAsFixed(1)}m');
+        debugPrint('[Location] Pinpoint Accuracy: ${bestPos.accuracy.toStringAsFixed(1)}m');
 
         List<Placemark> marks = await placemarkFromCoordinates(bestPos.latitude, bestPos.longitude);
         if (marks.isNotEmpty && mounted) {
@@ -146,44 +146,47 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
 
   void _updateLocationState(Placemark mark) {
     final name = mark.name ?? '';
+    final subLocality = mark.subLocality ?? '';
+    final thoroughfare = mark.thoroughfare ?? '';
+    final subThoroughfare = mark.subThoroughfare ?? '';
     final locality = mark.locality ?? '';
     final subAdministrativeArea = mark.subAdministrativeArea ?? '';
     final country = mark.country ?? '';
     
-    String formattedLoc = "";
+    List<String> parts = [];
 
-    // Build the base generic location (City, State / Country)
-    if (locality.isNotEmpty) {
-      formattedLoc = locality;
-    }
-    if (subAdministrativeArea.isNotEmpty && subAdministrativeArea != locality) {
-      formattedLoc = formattedLoc.isNotEmpty ? "$formattedLoc, $subAdministrativeArea" : subAdministrativeArea;
-    } else if (country.isNotEmpty && formattedLoc.isEmpty) {
-      formattedLoc = country;
-    }
-
-    // Check if there is a specific POI / famous name
-    bool isPOI = false;
-    if (name.isNotEmpty) {
-      // It's a POI if it's not just a number, not a plus code, and not a duplicate
-      final isNumber = double.tryParse(name) != null;
-      final isPlusCode = name.contains('+');
-      final isDuplicate = name.toLowerCase() == locality.toLowerCase() || 
-                          name.toLowerCase() == subAdministrativeArea.toLowerCase();
-                          
-      if (!isNumber && !isPlusCode && !isDuplicate && name.length > 2) {
-        isPOI = true;
-      }
-    }
-
-    if (isPOI) {
-      if (formattedLoc.isNotEmpty) {
-        formattedLoc = "$name, $formattedLoc";
+    // 1. Street or Building Name / Number
+    if (thoroughfare.isNotEmpty && !thoroughfare.contains('+')) {
+      if (subThoroughfare.isNotEmpty && !thoroughfare.contains(subThoroughfare)) {
+        parts.add("$subThoroughfare $thoroughfare");
       } else {
-        formattedLoc = name;
+        parts.add(thoroughfare);
       }
+    } else if (name.isNotEmpty &&
+        !name.contains('+') &&
+        double.tryParse(name) == null &&
+        name.toLowerCase() != locality.toLowerCase() &&
+        name.toLowerCase() != subLocality.toLowerCase()) {
+      parts.add(name);
     }
-    
+
+    // 2. SubLocality / Sector / Block / Neighborhood
+    if (subLocality.isNotEmpty && !parts.contains(subLocality) && subLocality.toLowerCase() != locality.toLowerCase()) {
+      parts.add(subLocality);
+    }
+
+    // 3. Locality / City
+    if (locality.isNotEmpty && !parts.contains(locality)) {
+      parts.add(locality);
+    } else if (subAdministrativeArea.isNotEmpty && !parts.contains(subAdministrativeArea)) {
+      parts.add(subAdministrativeArea);
+    }
+
+    if (parts.isEmpty && country.isNotEmpty) {
+      parts.add(country);
+    }
+
+    String formattedLoc = parts.join(", ");
     if (formattedLoc.isEmpty) {
       formattedLoc = "Unknown Location";
     }

@@ -4,6 +4,7 @@ import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/screens/feed_video_player.dart';
 import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/screens/user_profile_screen.dart';
+import 'package:hidely_new/widgets/user_avatar.dart';
 
 class ReelsScreen extends StatefulWidget {
   const ReelsScreen({super.key});
@@ -209,12 +210,10 @@ class _ReelsScreenState extends State<ReelsScreen> {
                         );
                       }
                     },
-                    child: CircleAvatar(
+                    child: UserAvatar(
+                      avatarUrl: authorPic,
+                      displayName: authorUsername,
                       radius: 16,
-                      backgroundColor: const Color(0xffCBD5E1),
-                      backgroundImage: authorPic != null && authorPic.isNotEmpty
-                          ? NetworkImage('${ApiService().baseUrl}/$authorPic') as ImageProvider
-                          : const AssetImage('assets/images/nomad_nate_avatar.png'),
                     ),
                   ),
                   const SizedBox(width: 10),

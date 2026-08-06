@@ -28,7 +28,6 @@ class UserAvatar extends StatelessWidget {
     
     final double diameter = radius * 2;
     final double iconSize = fontSize ?? (radius * 1.2);
-    final int pixelSize = (diameter * 2.5).round();
 
     Widget fallbackChild = Container(
       width: diameter,
@@ -71,8 +70,7 @@ class UserAvatar extends StatelessWidget {
         child: CachedNetworkImage(
           imageUrl: resolvedUrl,
           fit: BoxFit.cover,
-          memCacheWidth: pixelSize,
-          memCacheHeight: pixelSize,
+          alignment: Alignment.center,
           placeholder: (context, url) => Container(color: const Color(0xffE2E8F0)),
           errorWidget: (context, url, error) => fallbackChild,
         ),

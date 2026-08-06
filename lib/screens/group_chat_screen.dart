@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/widgets/empty_state.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:hidely_new/screens/voice_call_screen.dart';
+import 'package:hidely_new/screens/video_call_screen.dart';
 
 /// Trip Itinerary Details Model for Groups
 class TripItineraryData {
@@ -144,7 +148,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   // Real-time Chat List Stream (Clean & Production Ready)
-  final List<ChatItem> _allChats = [];
+  static final List<ChatItem> _allChats = [];
 
   @override
   void dispose() {
@@ -619,10 +623,21 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 // Avatar with online status dot
                 Stack(
                   children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundColor: Colors.grey[200],
-                      backgroundImage: NetworkImage(chat.avatar),
+                    ClipOval(
+                      child: SizedBox(
+                        width: 52,
+                        height: 52,
+                        child: Image.network(
+                          chat.avatar,
+                          fit: BoxFit.cover,
+                          alignment: Alignment.center,
+                          errorBuilder: (ctx, err, stack) => Container(
+                            color: Colors.grey[200],
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.person, color: Colors.grey),
+                          ),
+                        ),
+                      ),
                     ),
                     if (chat.isOnline)
                       Positioned(
@@ -728,6 +743,7 @@ class _ChatRoomView extends StatefulWidget {
 class _ChatRoomViewState extends State<_ChatRoomView> {
   final TextEditingController _msgController = TextEditingController();
   final List<ChatMessage> _messages = [];
+  bool _isRecording = false;
 
   @override
   void initState() {
@@ -937,81 +953,51 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
   }
 
   void _showCallingDialog(bool isVideo) {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircleAvatar(
-                  radius: 36,
-                  backgroundImage: NetworkImage(widget.chat.avatar),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  widget.chat.name,
-                  style: const TextStyle(
-                    fontFamily: 'PublicSans',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xff1C0D5A),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  isVideo ? 'Starting Video Call... 📹' : 'Ringing... 📞',
-                  style: const TextStyle(
-                    fontFamily: 'PublicSans',
-                    fontSize: 13,
-                    color: Colors.black54,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundColor: Colors.red[600],
-                      child: IconButton(
-                        icon: const Icon(Icons.call_end_rounded, color: Colors.white),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+    if (isVideo) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VideoCallScreen(
+            callerName: widget.chat.name,
+            callerAvatar: widget.chat.avatar,
           ),
-        );
-      },
-    );
-  }
-
-  void _sendPhotoAttachment() {
-    setState(() {
-      _messages.add(
-        ChatMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          senderName: 'You',
-          senderAvatar:
-              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-          text: 'Shared a photo from Nainital lake view 🏞️',
-          time: 'Just now',
-          isMe: true,
-          attachmentType: 'image',
-          attachmentData: {
-            'imageUrl': 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=600&q=80',
-          },
         ),
       );
-    });
-    HapticFeedback.lightImpact();
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VoiceCallScreen(
+            callerName: widget.chat.name,
+            callerAvatar: widget.chat.avatar,
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _pickAndSendImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: source);
+    if (pickedFile != null) {
+      setState(() {
+        _messages.add(
+          ChatMessage(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            senderName: AuthService().userName.isNotEmpty ? AuthService().userName : 'You',
+            senderAvatar: AuthService().userProfilePicture ?? 'assets/images/user1.jpg',
+            text: 'Sent an image 🏞️',
+            time: 'Just now',
+            isMe: true,
+            attachmentType: 'image',
+            attachmentData: {
+              'imageFile': pickedFile.path,
+            },
+          ),
+        );
+      });
+      HapticFeedback.lightImpact();
+    }
   }
 
   void _sendVoiceNote() {
@@ -1112,9 +1098,21 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
         ),
         title: Row(
           children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundImage: NetworkImage(widget.chat.avatar),
+            ClipOval(
+              child: SizedBox(
+                width: 36,
+                height: 36,
+                child: Image.network(
+                  widget.chat.avatar,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  errorBuilder: (ctx, err, stack) => Container(
+                    color: Colors.grey[200],
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.person, color: Colors.grey, size: 18),
+                  ),
+                ),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -1243,11 +1241,11 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.camera_alt_outlined, color: Color(0xff2B1564), size: 23),
-                      onPressed: _sendPhotoAttachment,
+                      onPressed: () => _pickAndSendImage(ImageSource.camera),
                     ),
                     IconButton(
                       icon: const Icon(Icons.photo_library_outlined, color: Color(0xff2B1564), size: 22),
-                      onPressed: _sendPhotoAttachment,
+                      onPressed: () => _pickAndSendImage(ImageSource.gallery),
                     ),
                     if (widget.chat.isGroup && widget.chat.itinerary != null)
                       IconButton(
@@ -1266,9 +1264,9 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                           controller: _msgController,
                           onChanged: (_) => setState(() {}),
                           style: const TextStyle(fontFamily: 'PublicSans', fontSize: 13.5),
-                          decoration: const InputDecoration(
-                            hintText: 'Message...',
-                            hintStyle: TextStyle(color: Colors.black38, fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText: _isRecording ? 'Recording voice note...' : 'Message...',
+                            hintStyle: TextStyle(color: _isRecording ? Colors.red : Colors.black38, fontSize: 13),
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           ),
@@ -1293,9 +1291,32 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                         ),
                       )
                     else
-                      IconButton(
-                        icon: const Icon(Icons.mic_none_outlined, color: Color(0xff2B1564), size: 23),
-                        onPressed: _sendVoiceNote,
+                      GestureDetector(
+                        onLongPressStart: (_) {
+                          HapticFeedback.lightImpact();
+                          setState(() {
+                            _isRecording = true;
+                          });
+                        },
+                        onLongPressEnd: (_) {
+                          HapticFeedback.lightImpact();
+                          setState(() {
+                            _isRecording = false;
+                          });
+                          _sendVoiceNote();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _isRecording ? Colors.red.withOpacity(0.1) : Colors.transparent,
+                          ),
+                          child: Icon(
+                            Icons.mic_none_outlined,
+                            color: _isRecording ? Colors.red : const Color(0xff2B1564),
+                            size: 23,
+                          ),
+                        ),
                       ),
                   ],
                 ),
@@ -1332,15 +1353,22 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    if (msg.attachmentType == 'image' && msg.attachmentData?['imageUrl'] != null) ...[
+                    if (msg.attachmentType == 'image' && (msg.attachmentData?['imageUrl'] != null || msg.attachmentData?['imageFile'] != null)) ...[
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          msg.attachmentData!['imageUrl'],
-                          height: 150,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
+                        child: msg.attachmentData?['imageFile'] != null 
+                        ? Image.file(
+                            File(msg.attachmentData!['imageFile']),
+                            height: 150,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          )
+                        : Image.network(
+                            msg.attachmentData!['imageUrl'],
+                            height: 150,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
                       ),
                       const SizedBox(height: 6),
                     ],
@@ -1393,9 +1421,21 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(
-                      radius: 16,
-                      backgroundImage: NetworkImage(msg.senderAvatar),
+                    ClipOval(
+                      child: SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: Image.network(
+                          msg.senderAvatar,
+                          fit: BoxFit.cover,
+                          alignment: Alignment.center,
+                          errorBuilder: (ctx, err, stack) => Container(
+                            color: Colors.grey[200],
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.person, color: Colors.grey, size: 16),
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Flexible(
