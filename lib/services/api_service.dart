@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'image_compression_service.dart';
 
+import '../config/config.dart';
+
 class ApiResult {
   final bool success;
   final String message;
@@ -24,11 +26,9 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  static String get defaultBaseUrl {
-    return 'https://hidely-backend.onrender.com';
-  }
+  static String get defaultBaseUrl => AppEnv.apiBaseUrl;
 
-  static String _resolvedBaseUrl = defaultBaseUrl;
+  static String _resolvedBaseUrl = AppEnv.apiBaseUrl;
 
   String get baseUrl => _resolvedBaseUrl;
 
@@ -38,10 +38,7 @@ class ApiService {
 
   Future<void> autoDiscoverBaseUrl() async {
     // 1. Try to connect to local server first (Emulator / Simulator)
-    final localUrls = [
-      'http://10.0.2.2:3000', // Android emulator
-      'http://localhost:3000', // iOS simulator / Web
-    ];
+    final localUrls = AppEnv.localDiscoveryUrls;
 
     for (final url in localUrls) {
       try {
