@@ -59,109 +59,85 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
   static const String _mapStyleJson = '''
   [
     {
-      "featureType": "water",
       "elementType": "geometry",
-      "stylers": [
-        { "color": "#e1e4e6" }
-      ]
+      "stylers": [{ "color": "#f5f5f7" }]
     },
     {
-      "featureType": "landscape.natural",
-      "elementType": "geometry",
-      "stylers": [
-        { "color": "#f1f3f5" }
-      ]
+      "elementType": "labels.icon",
+      "stylers": [{ "visibility": "off" }]
     },
     {
-      "featureType": "landscape.natural.terrain",
-      "elementType": "geometry",
-      "stylers": [
-        { "visibility": "off" }
-      ]
+      "elementType": "labels.text.fill",
+      "stylers": [{ "color": "#616161" }]
     },
     {
-      "featureType": "poi.park",
-      "elementType": "geometry",
-      "stylers": [
-        { "color": "#e8ebed" }
-      ]
+      "elementType": "labels.text.stroke",
+      "stylers": [{ "color": "#f5f5f7" }]
     },
     {
-      "featureType": "poi.park",
-      "elementType": "labels.text",
-      "stylers": [
-        { "visibility": "on" }
-      ]
-    },
-    {
-      "featureType": "road.highway",
-      "elementType": "geometry.fill",
-      "stylers": [
-        { "color": "#ffffff" }
-      ]
-    },
-    {
-      "featureType": "road.highway",
-      "elementType": "geometry.stroke",
-      "stylers": [
-        { "color": "#e2e5e8" }
-      ]
-    },
-    {
-      "featureType": "road.arterial",
-      "elementType": "geometry.fill",
-      "stylers": [
-        { "color": "#ffffff" }
-      ]
-    },
-    {
-      "featureType": "road.arterial",
-      "elementType": "geometry.stroke",
-      "stylers": [
-        { "color": "#e2e5e8" }
-      ]
-    },
-    {
-      "featureType": "road.local",
-      "elementType": "geometry.fill",
-      "stylers": [
-        { "color": "#ffffff" }
-      ]
-    },
-    {
-      "featureType": "road.local",
-      "elementType": "geometry.stroke",
-      "stylers": [
-        { "color": "#e8ebed" }
-      ]
+      "featureType": "administrative.land_parcel",
+      "elementType": "labels.text.fill",
+      "stylers": [{ "color": "#bdbdbd" }]
     },
     {
       "featureType": "poi",
-      "elementType": "labels.icon",
-      "stylers": [
-        { "visibility": "off" }
-      ]
+      "elementType": "geometry",
+      "stylers": [{ "color": "#eeeeee" }]
     },
     {
-      "featureType": "poi.medical",
-      "elementType": "all",
-      "stylers": [
-        { "visibility": "off" }
-      ]
+      "featureType": "poi",
+      "elementType": "labels.text.fill",
+      "stylers": [{ "color": "#757575" }]
     },
     {
-      "featureType": "poi.business",
-      "elementType": "all",
-      "stylers": [
-        { "visibility": "off" }
-      ]
+      "featureType": "poi.park",
+      "elementType": "geometry",
+      "stylers": [{ "color": "#e2e8f0" }]
     },
     {
-      "featureType": "transit",
-      "elementType": "all",
-      "stylers": [
-        { "visibility": "off" }
-      ]
+      "featureType": "road",
+      "elementType": "geometry",
+      "stylers": [{ "color": "#ffffff" }]
+    },
+    {
+      "featureType": "road.arterial",
+      "elementType": "labels.text.fill",
+      "stylers": [{ "color": "#757575" }]
+    },
+    {
+      "featureType": "road.highway",
+      "elementType": "geometry",
+      "stylers": [{ "color": "#cbd5e1" }]
+    },
+    {
+      "featureType": "road.highway",
+      "elementType": "labels.text.fill",
+      "stylers": [{ "color": "#616161" }]
+    },
+    {
+      "featureType": "road.local",
+      "elementType": "labels.text.fill",
+      "stylers": [{ "color": "#9e9e9e" }]
+    },
+    {
+      "featureType": "transit.line",
+      "elementType": "geometry",
+      "stylers": [{ "color": "#e5e5e5" }]
+    },
+    {
+      "featureType": "transit.station",
+      "elementType": "geometry",
+      "stylers": [{ "color": "#eeeeee" }]
+    },
+    {
+      "featureType": "water",
+      "elementType": "geometry",
+      "stylers": [{ "color": "#d1d5db" }]
+    },
+    {
+      "featureType": "water",
+      "elementType": "labels.text.fill",
+      "stylers": [{ "color": "#9e9e9e" }]
     }
   ]
   ''';
@@ -848,8 +824,8 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
             gmaps.Polyline(
               polylineId: const gmaps.PolylineId('routing_line'),
               points: widget.activeRoute!.coordinates.map(_toGoogleLatLng).toList(),
-              color: const Color(0xFF007AFF), // Vibrant iOS blue
-              width: 6,
+              color: const Color(0xFF2563EB), // Vibrant Electric Blue navigation route
+              width: 7,
               jointType: gmaps.JointType.round,
               startCap: gmaps.Cap.roundCap,
               endCap: gmaps.Cap.roundCap,
@@ -861,8 +837,8 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
             gmaps.Polyline(
               polylineId: const gmaps.PolylineId('routing_line'),
               points: [_toGoogleLatLng(currentLocation), _toGoogleLatLng(destinationTarget)],
-              color: const Color(0xFF007AFF), // Vibrant iOS blue
-              width: 6,
+              color: const Color(0xFF2563EB), // Vibrant Electric Blue navigation route
+              width: 7,
               jointType: gmaps.JointType.round,
               startCap: gmaps.Cap.roundCap,
               endCap: gmaps.Cap.roundCap,
@@ -893,7 +869,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
           if (isOnline || _offlineTilesPath.isNotEmpty)
             fm.TileLayer(
               urlTemplate: isOnline 
-                  ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png' 
+                  ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png' 
                   : '$_offlineTilesPath/{z}/{x}/{y}.png',
               subdomains: const ['a', 'b', 'c', 'd'],
               tileProvider: isOnline 
@@ -903,7 +879,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
                       },
                     ) 
                   : fm.FileTileProvider(),
-              fallbackUrl: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+              fallbackUrl: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
             ),
           if (ref.watch(showHeatmapProvider))
             fm.CircleLayer(
@@ -934,8 +910,8 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     return [
       fm.Polyline(
         points: coordinates,
-        color: const Color(0xFF007AFF), // Vibrant iOS blue
-        strokeWidth: 6.0,
+        color: const Color(0xFF2563EB), // Vibrant Electric Blue navigation route
+        strokeWidth: 7.0,
         isDotted: travelMode == 'walking',
       ),
     ];
