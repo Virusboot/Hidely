@@ -347,7 +347,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                               "RANK 1",
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 9,
+                                fontSize: 10.5,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.4,
                               ),
@@ -370,7 +370,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                 rank,
                                 style: const TextStyle(
                                   color: Color(0xff432C81),
-                                  fontSize: 10,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -565,7 +565,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       "RISING",
                       style: TextStyle(
                         color: Color(0xffB25E00),
-                        fontSize: 8,
+                        fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
                     ),

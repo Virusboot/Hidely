@@ -647,7 +647,7 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                                             filter["name"] as String,
                                             style: TextStyle(
                                               color: Colors.white, 
-                                              fontSize: 10, 
+                                              fontSize: 11, 
                                               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                               shadows: const [Shadow(color: Colors.black, blurRadius: 4)],
                                             ),

@@ -698,7 +698,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                               _rankBadge,
                               style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 9,
+                                  fontSize: 10.5,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 0.4),
                             ),
@@ -1083,7 +1083,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                         SizedBox(height: 4),
                         Text(
                           "No Image",
-                          style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -1180,7 +1180,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                           SizedBox(height: 4),
                           Text(
                             "No Image",
-                            style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),

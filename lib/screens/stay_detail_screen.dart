@@ -197,7 +197,7 @@ class _StayDetailScreenState extends State<StayDetailScreen> {
                           tag,
                           style: const TextStyle(
                             color: Color(0xff2B1564),
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.5,
                           ),

@@ -47,6 +47,8 @@ backend/
 backend_repo/
 Hidely_backend_backup.zip
 test_localhost.dart
+test_project/
+.local_tools/
 android/.kotlin/
 
 

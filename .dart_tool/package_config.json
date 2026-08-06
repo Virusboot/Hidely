@@ -284,6 +284,12 @@
       "languageVersion": "3.3"
     },
     {
+      "name": "flutter_tts",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/flutter_tts-4.2.5",
+      "packageUri": "lib/",
+      "languageVersion": "3.4"
+    },
+    {
       "name": "flutter_web_plugins",
       "rootUri": "file:///Users/harshbhardwaj/development/flutter/packages/flutter_web_plugins",
       "packageUri": "lib/",
@@ -1022,7 +1028,7 @@
       "languageVersion": "3.4"
     }
   ],
-  "generated": "2026-07-30T04:32:16.567448Z",
+  "generated": "2026-08-05T09:42:33.168779Z",
   "generator": "pub",
   "generatorVersion": "3.4.0",
   "flutterRoot": "file:///Users/harshbhardwaj/development/flutter",

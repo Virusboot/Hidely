@@ -100,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   "Welcome\nBack!",
                   style: TextStyle(
                     color: Color(0xff1C0D5A),
-                    fontSize: 40,
+                    fontSize: 32,
                     fontWeight: FontWeight.bold,
                     height: 1.2,
                     letterSpacing: -1.0,

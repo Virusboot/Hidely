@@ -308,7 +308,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                                     widget.rank.toLowerCase().contains('rank')
                                         ? widget.rank.toUpperCase()
                                         : (widget.rank.toLowerCase() == 'novice' ? 'NOVICE' : 'RANK ${widget.rank.toUpperCase()}'),
-                                    style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.4),
+                                    style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold, letterSpacing: 0.4),
                                   ),
                                 ),
                               ),
@@ -735,7 +735,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                         SizedBox(height: 4),
                         Text(
                           "No Image",
-                          style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),

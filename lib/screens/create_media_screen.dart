@@ -490,7 +490,7 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
             child: Icon(icon, color: Colors.white, size: 20),
           ),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, shadows: [Shadow(color: Colors.black, blurRadius: 4)])),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, shadows: [Shadow(color: Colors.black, blurRadius: 4)])),
         ],
       ),
     );
@@ -511,7 +511,7 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
             child: Center(child: child),
           ),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, shadows: [Shadow(color: Colors.black, blurRadius: 4)])),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, shadows: [Shadow(color: Colors.black, blurRadius: 4)])),
         ],
       ),
     );
@@ -566,7 +566,7 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, shadows: [
+            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, shadows: [
               Shadow(color: Colors.black54, offset: Offset(0, 1), blurRadius: 2),
             ]),
           ),
@@ -1097,7 +1097,7 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
                                         filter["name"] as String,
                                         style: TextStyle(
                                           color: Colors.white,
-                                          fontSize: 10,
+                                          fontSize: 11,
                                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                           shadows: const [Shadow(color: Colors.black, blurRadius: 4)],
                                         ),

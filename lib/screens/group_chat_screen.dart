@@ -1359,7 +1359,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Text('0:14', style: TextStyle(fontSize: 10, color: Colors.white70)),
+                          const Text('0:14', style: TextStyle(fontSize: 11, color: Colors.white70)),
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -1377,7 +1377,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                       msg.time,
                       style: TextStyle(
                         fontFamily: 'PublicSans',
-                        fontSize: 10,
+                        fontSize: 11,
                         color: Colors.white.withOpacity(0.7),
                       ),
                     ),
@@ -1442,7 +1442,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                                       msg.isHost!,
                                       style: const TextStyle(
                                         fontFamily: 'PublicSans',
-                                        fontSize: 9,
+                                        fontSize: 10.5,
                                         fontWeight: FontWeight.bold,
                                         color: Color(0xff2563EB),
                                       ),
@@ -1530,7 +1530,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                               msg.time,
                               style: const TextStyle(
                                 fontFamily: 'PublicSans',
-                                fontSize: 10,
+                                fontSize: 11,
                                 color: Colors.black38,
                               ),
                             ),

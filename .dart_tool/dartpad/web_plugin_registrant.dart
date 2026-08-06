@@ -8,6 +8,7 @@
 
 import 'package:camera_web/camera_web.dart';
 import 'package:connectivity_plus/src/connectivity_plus_web.dart';
+import 'package:flutter_tts/flutter_tts_web.dart';
 import 'package:geolocator_web/geolocator_web.dart';
 import 'package:google_maps_flutter_web/google_maps_flutter_web.dart';
 import 'package:image_picker_for_web/image_picker_for_web.dart';
@@ -23,6 +24,7 @@ void registerPlugins([final Registrar? pluginRegistrar]) {
   final Registrar registrar = pluginRegistrar ?? webPluginRegistrar;
   CameraPlugin.registerWith(registrar);
   ConnectivityPlusWebPlugin.registerWith(registrar);
+  FlutterTtsPlugin.registerWith(registrar);
   GeolocatorPlugin.registerWith(registrar);
   GoogleMapsPlugin.registerWith(registrar);
   ImagePickerPlugin.registerWith(registrar);

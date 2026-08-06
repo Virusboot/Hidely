@@ -1508,7 +1508,7 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 10,
+                                fontSize: 11.5,
                                 color: Colors.black38,
                               ),
                             ),

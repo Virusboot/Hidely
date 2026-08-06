@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hidely_new/screens/splash_screen.dart';
-import 'package:hidely_new/screens/edit_profile_screen.dart';
+import 'package:hidely_new/config/config.dart';
 import 'package:hidely_new/services/notification_polling_service.dart';
 
 Future<void> main() async {
@@ -33,30 +32,23 @@ class HidelyApp extends StatelessWidget {
       navigatorKey: navigatorKey,
       title: 'Hidely',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        fontFamily: 'Inter',
-        primaryColor: const Color(0xff2B1564),
-        scaffoldBackgroundColor: const Color(0xffF6F9FC),
-        useMaterial3: true,
-        pageTransitionsTheme: const PageTransitionsTheme(
-          builders: {
-            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-          },
-        ),
-      ),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const SplashScreen(),
-        '/edit-profile': (context) => const EditProfileScreen(),
-      },
+      theme: AppTheme.lightTheme,
+      initialRoute: AppRoutes.splash,
+      routes: AppRoutes.routes,
       builder: (context, child) {
-        return GestureDetector(
-          onTap: () {
-            FocusManager.instance.primaryFocus?.unfocus();
-          },
-          child: child,
+        final mediaQueryData = MediaQuery.of(context);
+        final constrainedTextScaler = mediaQueryData.textScaler.clamp(
+          minScaleFactor: 0.85,
+          maxScaleFactor: 1.25,
+        );
+        return MediaQuery(
+          data: mediaQueryData.copyWith(textScaler: constrainedTextScaler),
+          child: GestureDetector(
+            onTap: () {
+              FocusManager.instance.primaryFocus?.unfocus();
+            },
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
     );
