@@ -4,12 +4,16 @@ class EmptyStateWidget extends StatelessWidget {
   final IconData icon;
   final String title;
   final String description;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   const EmptyStateWidget({
     super.key,
     required this.icon,
     required this.title,
     required this.description,
+    this.actionLabel,
+    this.onAction,
   });
 
   @override
@@ -57,6 +61,24 @@ class EmptyStateWidget extends StatelessWidget {
                 height: 1.3,
               ),
             ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: onAction,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff2B1564),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: Text(
+                  actionLabel!,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+            ],
           ],
         ),
       ),
