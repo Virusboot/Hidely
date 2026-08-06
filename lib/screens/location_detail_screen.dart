@@ -557,7 +557,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           crossAxisCount: 3,
           mainAxisSpacing: 2,
           crossAxisSpacing: 2,
-          childAspectRatio: 1.0,
+          childAspectRatio: 4 / 5,
         ),
         delegate: SliverChildBuilderDelegate(
           (context, index) {
@@ -642,7 +642,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           crossAxisCount: 3,
           mainAxisSpacing: 2,
           crossAxisSpacing: 2,
-          childAspectRatio: 1.0,
+          childAspectRatio: 4 / 5,
         ),
         delegate: SliverChildBuilderDelegate(
           (context, index) {

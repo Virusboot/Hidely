@@ -690,7 +690,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
         crossAxisCount: 3,
         mainAxisSpacing: 2,
         crossAxisSpacing: 2,
-        childAspectRatio: 1.0,
+        childAspectRatio: 4 / 5,
       ),
       itemCount: _creatorPosts.length,
       itemBuilder: (context, index) {

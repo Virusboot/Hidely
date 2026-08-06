@@ -1036,7 +1036,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         crossAxisCount: 3,
         mainAxisSpacing: 2,
         crossAxisSpacing: 2,
-        childAspectRatio: 1.0,
+        childAspectRatio: 4 / 5,
       ),
       itemCount: _userPosts.length,
       itemBuilder: (context, index) {
@@ -1133,7 +1133,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         crossAxisCount: 3,
         mainAxisSpacing: 2,
         crossAxisSpacing: 2,
-        childAspectRatio: 1.0,
+        childAspectRatio: 4 / 5,
       ),
       itemCount: _savedPosts.length,
       itemBuilder: (context, index) {

@@ -439,7 +439,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                               crossAxisCount: 3,
                               mainAxisSpacing: 4,
                               crossAxisSpacing: 4,
-                              childAspectRatio: 1.0,
+                              childAspectRatio: 4 / 5,
                             ),
                             itemCount: _realPosts.length,
                             itemBuilder: (context, index) {
