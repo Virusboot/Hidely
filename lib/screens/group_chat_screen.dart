@@ -1035,7 +1035,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
           ChatMessage(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             senderName: AuthService().userName.isNotEmpty ? AuthService().userName : 'You',
-            senderAvatar: AuthService().userProfilePicture ?? 'assets/images/user1.jpg',
+            senderAvatar: AuthService().userProfilePicture.isNotEmpty ? AuthService().userProfilePicture : 'assets/images/user1.jpg',
             text: 'Sent an image 🏞️',
             time: 'Just now',
             isMe: true,

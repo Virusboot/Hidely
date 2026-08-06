@@ -703,8 +703,6 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
         final bool isNetwork = imagePath.startsWith("http") || imagePath.startsWith("uploads");
         final bool hasImage = imagePath.isNotEmpty;
 
-        final String locationName = post["location"]?.toString() ?? post["location_name"]?.toString() ?? post["city"]?.toString() ?? "";
-
         return GestureDetector(
           onTap: () {
             final mappedPosts = _creatorPosts.map((p) {

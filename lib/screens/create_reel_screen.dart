@@ -210,7 +210,6 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                                 }
                                 
                                 final isSelected = index == _selectedLutIndex;
-                                final scale = isSelected ? 1.0 : 0.8;
                                 
                                 return GestureDetector(
                                   onTap: () {
@@ -317,13 +316,4 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
     );
   }
 
-  Widget _buildFilterCircle(String imagePath, {bool small = false}) {
-    final size = small ? 50.0 : 64.0;
-    return Container(
-      width: size,
-      height: size,
-      decoration: const BoxDecoration(shape: BoxShape.circle),
-      child: ClipOval(child: Image.asset(imagePath, fit: BoxFit.cover)),
-    );
-  }
 }

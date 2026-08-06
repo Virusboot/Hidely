@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -109,10 +108,7 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
     if (f != null) setState(() { _selectedFile = File(f.path); _selectedAsset = null; });
   }
 
-  Future<void> _pickVideoFromGallery() async {
-    final v = await _picker.pickVideo(source: ImageSource.gallery);
-    if (v != null) setState(() { _selectedFile = File(v.path); _selectedAsset = null; });
-  }
+
 
   void _snack(String msg, {required bool error}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
