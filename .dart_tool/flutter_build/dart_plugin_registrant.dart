@@ -7,7 +7,6 @@
 
 import 'dart:io'; // flutter_ignore: dart_io_import.
 import 'package:camera_android_camerax/camera_android_camerax.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geocoding_android/geocoding_android.dart';
 import 'package:geolocator_android/geolocator_android.dart';
@@ -19,7 +18,6 @@ import 'package:sqflite/sqflite.dart';
 import 'package:url_launcher_android/url_launcher_android.dart';
 import 'package:video_player_android/video_player_android.dart';
 import 'package:camera_avfoundation/camera_avfoundation.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geocoding_ios/geocoding_ios.dart';
 import 'package:geolocator_apple/geolocator_apple.dart';
@@ -31,8 +29,6 @@ import 'package:sqflite/sqflite.dart';
 import 'package:url_launcher_ios/url_launcher_ios.dart';
 import 'package:video_player_avfoundation/video_player_avfoundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:file_selector_linux/file_selector_linux.dart';
 import 'package:flutter_local_notifications_linux/flutter_local_notifications_linux.dart';
 import 'package:image_picker_linux/image_picker_linux.dart';
@@ -42,7 +38,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences_linux/shared_preferences_linux.dart';
 import 'package:url_launcher_linux/url_launcher_linux.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:file_selector_macos/file_selector_macos.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator_apple/geolocator_apple.dart';
@@ -53,8 +48,6 @@ import 'package:sqflite/sqflite.dart';
 import 'package:url_launcher_macos/url_launcher_macos.dart';
 import 'package:video_player_avfoundation/video_player_avfoundation.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:file_selector_windows/file_selector_windows.dart';
 import 'package:flutter_local_notifications_windows/flutter_local_notifications_windows.dart';
 import 'package:image_picker_windows/image_picker_windows.dart';
@@ -77,15 +70,6 @@ class _PluginRegistrant {
       } catch (err) {
         print(
           '`camera_android_camerax` threw an error: $err. '
-          'The app may not function as expected until you remove this plugin from pubspec.yaml'
-        );
-      }
-
-      try {
-        FilePickerIO.registerWith();
-      } catch (err) {
-        print(
-          '`file_picker` threw an error: $err. '
           'The app may not function as expected until you remove this plugin from pubspec.yaml'
         );
       }
@@ -191,15 +175,6 @@ class _PluginRegistrant {
       }
 
       try {
-        FilePickerIO.registerWith();
-      } catch (err) {
-        print(
-          '`file_picker` threw an error: $err. '
-          'The app may not function as expected until you remove this plugin from pubspec.yaml'
-        );
-      }
-
-      try {
         IOSFlutterLocalNotificationsPlugin.registerWith();
       } catch (err) {
         print(
@@ -300,24 +275,6 @@ class _PluginRegistrant {
       }
 
       try {
-        DeviceInfoPlusLinuxPlugin.registerWith();
-      } catch (err) {
-        print(
-          '`device_info_plus` threw an error: $err. '
-          'The app may not function as expected until you remove this plugin from pubspec.yaml'
-        );
-      }
-
-      try {
-        FilePickerLinux.registerWith();
-      } catch (err) {
-        print(
-          '`file_picker` threw an error: $err. '
-          'The app may not function as expected until you remove this plugin from pubspec.yaml'
-        );
-      }
-
-      try {
         FileSelectorLinux.registerWith();
       } catch (err) {
         print(
@@ -399,15 +356,6 @@ class _PluginRegistrant {
       }
 
     } else if (Platform.isMacOS) {
-      try {
-        FilePickerMacOS.registerWith();
-      } catch (err) {
-        print(
-          '`file_picker` threw an error: $err. '
-          'The app may not function as expected until you remove this plugin from pubspec.yaml'
-        );
-      }
-
       try {
         FileSelectorMacOS.registerWith();
       } catch (err) {
@@ -499,24 +447,6 @@ class _PluginRegistrant {
       }
 
     } else if (Platform.isWindows) {
-      try {
-        DeviceInfoPlusWindowsPlugin.registerWith();
-      } catch (err) {
-        print(
-          '`device_info_plus` threw an error: $err. '
-          'The app may not function as expected until you remove this plugin from pubspec.yaml'
-        );
-      }
-
-      try {
-        FilePickerWindows.registerWith();
-      } catch (err) {
-        print(
-          '`file_picker` threw an error: $err. '
-          'The app may not function as expected until you remove this plugin from pubspec.yaml'
-        );
-      }
-
       try {
         FileSelectorWindows.registerWith();
       } catch (err) {

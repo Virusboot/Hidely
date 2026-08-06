@@ -69,6 +69,9 @@ dependencies:
 dependency_overrides:
   camera_android_camerax: 0.6.7
   zego_plugin_adapter: 2.11.2
+  zego_uikit: ^2.25.0
+  zego_zpns: 2.6.0+3
+  zego_callkit: 1.0.0+4
 
 dev_dependencies:
   flutter_test:
