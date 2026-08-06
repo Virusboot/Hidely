@@ -6,6 +6,12 @@
 
 #import "GeneratedPluginRegistrant.h"
 
+#if __has_include(<audioplayers_darwin/AudioplayersDarwinPlugin.h>)
+#import <audioplayers_darwin/AudioplayersDarwinPlugin.h>
+#else
+@import audioplayers_darwin;
+#endif
+
 #if __has_include(<camera_avfoundation/CameraPlugin.h>)
 #import <camera_avfoundation/CameraPlugin.h>
 #else
@@ -18,16 +24,52 @@
 @import connectivity_plus;
 #endif
 
+#if __has_include(<device_info_plus/FPPDeviceInfoPlusPlugin.h>)
+#import <device_info_plus/FPPDeviceInfoPlusPlugin.h>
+#else
+@import device_info_plus;
+#endif
+
+#if __has_include(<file_picker/FilePickerPlugin.h>)
+#import <file_picker/FilePickerPlugin.h>
+#else
+@import file_picker;
+#endif
+
+#if __has_include(<flutter_callkit_incoming_yoer/FlutterCallkitIncomingPlugin.h>)
+#import <flutter_callkit_incoming_yoer/FlutterCallkitIncomingPlugin.h>
+#else
+@import flutter_callkit_incoming_yoer;
+#endif
+
 #if __has_include(<flutter_local_notifications/FlutterLocalNotificationsPlugin.h>)
 #import <flutter_local_notifications/FlutterLocalNotificationsPlugin.h>
 #else
 @import flutter_local_notifications;
 #endif
 
+#if __has_include(<flutter_logs/FlutterLogsPlugin.h>)
+#import <flutter_logs/FlutterLogsPlugin.h>
+#else
+@import flutter_logs;
+#endif
+
+#if __has_include(<flutter_logs_yoer/FlutterLogsYoerPlugin.h>)
+#import <flutter_logs_yoer/FlutterLogsYoerPlugin.h>
+#else
+@import flutter_logs_yoer;
+#endif
+
 #if __has_include(<flutter_tts/FlutterTtsPlugin.h>)
 #import <flutter_tts/FlutterTtsPlugin.h>
 #else
 @import flutter_tts;
+#endif
+
+#if __has_include(<flutter_vibrate/VibratePlugin.h>)
+#import <flutter_vibrate/VibratePlugin.h>
+#else
+@import flutter_vibrate;
 #endif
 
 #if __has_include(<geocoding_ios/GeocodingPlugin.h>)
@@ -54,10 +96,28 @@
 @import image_picker_ios;
 #endif
 
+#if __has_include(<is_lock_screen2/SwiftIsLockScreenPlugin.h>)
+#import <is_lock_screen2/SwiftIsLockScreenPlugin.h>
+#else
+@import is_lock_screen2;
+#endif
+
 #if __has_include(<isar_flutter_libs/IsarFlutterLibsPlugin.h>)
 #import <isar_flutter_libs/IsarFlutterLibsPlugin.h>
 #else
 @import isar_flutter_libs;
+#endif
+
+#if __has_include(<native_device_orientation/NativeDeviceOrientationPlugin.h>)
+#import <native_device_orientation/NativeDeviceOrientationPlugin.h>
+#else
+@import native_device_orientation;
+#endif
+
+#if __has_include(<package_info_plus/FPPPackageInfoPlusPlugin.h>)
+#import <package_info_plus/FPPPackageInfoPlusPlugin.h>
+#else
+@import package_info_plus;
 #endif
 
 #if __has_include(<path_provider_foundation/PathProviderPlugin.h>)
@@ -114,18 +174,76 @@
 @import video_player_avfoundation;
 #endif
 
+#if __has_include(<wakelock_plus/WakelockPlusPlugin.h>)
+#import <wakelock_plus/WakelockPlusPlugin.h>
+#else
+@import wakelock_plus;
+#endif
+
+#if __has_include(<zego_callkit/ZegoCallkitPlugin.h>)
+#import <zego_callkit/ZegoCallkitPlugin.h>
+#else
+@import zego_callkit;
+#endif
+
+#if __has_include(<zego_express_engine/ZegoExpressEnginePlugin.h>)
+#import <zego_express_engine/ZegoExpressEnginePlugin.h>
+#else
+@import zego_express_engine;
+#endif
+
+#if __has_include(<zego_uikit/ZegoUikitPlugin.h>)
+#import <zego_uikit/ZegoUikitPlugin.h>
+#else
+@import zego_uikit;
+#endif
+
+#if __has_include(<zego_uikit_prebuilt_call/ZegoUIKitCallPlugin.h>)
+#import <zego_uikit_prebuilt_call/ZegoUIKitCallPlugin.h>
+#else
+@import zego_uikit_prebuilt_call;
+#endif
+
+#if __has_include(<zego_uikit_signaling_plugin/ZegoUikitSignalingPlugin.h>)
+#import <zego_uikit_signaling_plugin/ZegoUikitSignalingPlugin.h>
+#else
+@import zego_uikit_signaling_plugin;
+#endif
+
+#if __has_include(<zego_zim/ZegoZimPlugin.h>)
+#import <zego_zim/ZegoZimPlugin.h>
+#else
+@import zego_zim;
+#endif
+
+#if __has_include(<zego_zpns/ZegoZpnsPlugin.h>)
+#import <zego_zpns/ZegoZpnsPlugin.h>
+#else
+@import zego_zpns;
+#endif
+
 @implementation GeneratedPluginRegistrant
 
 + (void)registerWithRegistry:(NSObject<FlutterPluginRegistry>*)registry {
+  [AudioplayersDarwinPlugin registerWithRegistrar:[registry registrarForPlugin:@"AudioplayersDarwinPlugin"]];
   [CameraPlugin registerWithRegistrar:[registry registrarForPlugin:@"CameraPlugin"]];
   [ConnectivityPlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"ConnectivityPlusPlugin"]];
+  [FPPDeviceInfoPlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"FPPDeviceInfoPlusPlugin"]];
+  [FilePickerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FilePickerPlugin"]];
+  [FlutterCallkitIncomingPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterCallkitIncomingPlugin"]];
   [FlutterLocalNotificationsPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterLocalNotificationsPlugin"]];
+  [FlutterLogsPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterLogsPlugin"]];
+  [FlutterLogsYoerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterLogsYoerPlugin"]];
   [FlutterTtsPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterTtsPlugin"]];
+  [VibratePlugin registerWithRegistrar:[registry registrarForPlugin:@"VibratePlugin"]];
   [GeocodingPlugin registerWithRegistrar:[registry registrarForPlugin:@"GeocodingPlugin"]];
   [GeolocatorPlugin registerWithRegistrar:[registry registrarForPlugin:@"GeolocatorPlugin"]];
   [FLTGoogleMapsPlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTGoogleMapsPlugin"]];
   [FLTImagePickerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTImagePickerPlugin"]];
+  [SwiftIsLockScreenPlugin registerWithRegistrar:[registry registrarForPlugin:@"SwiftIsLockScreenPlugin"]];
   [IsarFlutterLibsPlugin registerWithRegistrar:[registry registrarForPlugin:@"IsarFlutterLibsPlugin"]];
+  [NativeDeviceOrientationPlugin registerWithRegistrar:[registry registrarForPlugin:@"NativeDeviceOrientationPlugin"]];
+  [FPPPackageInfoPlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"FPPPackageInfoPlusPlugin"]];
   [PathProviderPlugin registerWithRegistrar:[registry registrarForPlugin:@"PathProviderPlugin"]];
   [PermissionHandlerPlugin registerWithRegistrar:[registry registrarForPlugin:@"PermissionHandlerPlugin"]];
   [PhotoManagerPlugin registerWithRegistrar:[registry registrarForPlugin:@"PhotoManagerPlugin"]];
@@ -135,6 +253,14 @@
   [SqflitePlugin registerWithRegistrar:[registry registrarForPlugin:@"SqflitePlugin"]];
   [URLLauncherPlugin registerWithRegistrar:[registry registrarForPlugin:@"URLLauncherPlugin"]];
   [FVPVideoPlayerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FVPVideoPlayerPlugin"]];
+  [WakelockPlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"WakelockPlusPlugin"]];
+  [ZegoCallkitPlugin registerWithRegistrar:[registry registrarForPlugin:@"ZegoCallkitPlugin"]];
+  [ZegoExpressEnginePlugin registerWithRegistrar:[registry registrarForPlugin:@"ZegoExpressEnginePlugin"]];
+  [ZegoUikitPlugin registerWithRegistrar:[registry registrarForPlugin:@"ZegoUikitPlugin"]];
+  [ZegoUIKitCallPlugin registerWithRegistrar:[registry registrarForPlugin:@"ZegoUIKitCallPlugin"]];
+  [ZegoUikitSignalingPlugin registerWithRegistrar:[registry registrarForPlugin:@"ZegoUikitSignalingPlugin"]];
+  [ZegoZimPlugin registerWithRegistrar:[registry registrarForPlugin:@"ZegoZimPlugin"]];
+  [ZegoZpnsPlugin registerWithRegistrar:[registry registrarForPlugin:@"ZegoZpnsPlugin"]];
 }
 
 @end

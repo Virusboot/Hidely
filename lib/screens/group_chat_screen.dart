@@ -1008,6 +1008,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
           builder: (context) => VideoCallScreen(
             callerName: widget.chat.name,
             callerAvatar: widget.chat.avatar,
+            callID: widget.chat.id,
           ),
         ),
       );
@@ -1018,6 +1019,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
           builder: (context) => VoiceCallScreen(
             callerName: widget.chat.name,
             callerAvatar: widget.chat.avatar,
+            callID: widget.chat.id,
           ),
         ),
       );
