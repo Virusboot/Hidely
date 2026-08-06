@@ -200,18 +200,6 @@
       "languageVersion": "2.17"
     },
     {
-      "name": "device_info_plus",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/device_info_plus-11.3.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.4"
-    },
-    {
-      "name": "device_info_plus_platform_interface",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/device_info_plus_platform_interface-7.0.2",
-      "packageUri": "lib/",
-      "languageVersion": "2.18"
-    },
-    {
       "name": "encrypt",
       "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/encrypt-5.0.3",
       "packageUri": "lib/",
@@ -243,9 +231,9 @@
     },
     {
       "name": "file_picker",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/file_picker-8.3.2",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/file_picker-6.2.1",
       "packageUri": "lib/",
-      "languageVersion": "3.4"
+      "languageVersion": "2.19"
     },
     {
       "name": "file_selector_linux",
@@ -334,12 +322,6 @@
     {
       "name": "flutter_logs",
       "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/flutter_logs-2.2.7",
-      "packageUri": "lib/",
-      "languageVersion": "3.3"
-    },
-    {
-      "name": "flutter_logs_yoer",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/flutter_logs_yoer-2.2.1",
       "packageUri": "lib/",
       "languageVersion": "3.3"
     },
@@ -675,9 +657,9 @@
     },
     {
       "name": "native_device_orientation",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/native_device_orientation-2.1.0",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/native_device_orientation-1.2.1",
       "packageUri": "lib/",
-      "languageVersion": "3.0"
+      "languageVersion": "2.12"
     },
     {
       "name": "nm",
@@ -1118,12 +1100,6 @@
       "languageVersion": "3.4"
     },
     {
-      "name": "visibility_detector",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/visibility_detector-0.4.0+2",
-      "packageUri": "lib/",
-      "languageVersion": "2.12"
-    },
-    {
       "name": "vm_service",
       "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/vm_service-14.2.1",
       "packageUri": "lib/",
@@ -1154,12 +1130,6 @@
       "languageVersion": "3.4"
     },
     {
-      "name": "win32_registry",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/win32_registry-1.1.5",
-      "packageUri": "lib/",
-      "languageVersion": "3.4"
-    },
-    {
       "name": "wkt_parser",
       "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/wkt_parser-2.0.0",
       "packageUri": "lib/",
@@ -1185,7 +1155,7 @@
     },
     {
       "name": "zego_callkit",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_callkit-1.0.0+6",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_callkit-1.0.0+2",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -1197,13 +1167,13 @@
     },
     {
       "name": "zego_plugin_adapter",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_plugin_adapter-2.14.2",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_plugin_adapter-2.11.2",
       "packageUri": "lib/",
-      "languageVersion": "3.0"
+      "languageVersion": "2.16"
     },
     {
       "name": "zego_uikit",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_uikit-2.28.14",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_uikit-2.22.3",
       "packageUri": "lib/",
       "languageVersion": "2.16"
     },
@@ -1215,19 +1185,19 @@
     },
     {
       "name": "zego_uikit_signaling_plugin",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_uikit_signaling_plugin-2.8.21",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_uikit_signaling_plugin-2.7.6",
       "packageUri": "lib/",
-      "languageVersion": "3.0"
+      "languageVersion": "2.16"
     },
     {
       "name": "zego_zim",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_zim-2.29.0+1",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_zim-2.13.1",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
     {
       "name": "zego_zpns",
-      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_zpns-2.8.1",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/zego_zpns-2.6.0+1",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -1238,7 +1208,7 @@
       "languageVersion": "3.4"
     }
   ],
-  "generated": "2026-08-06T11:34:19.793788Z",
+  "generated": "2026-08-06T11:55:59.881764Z",
   "generator": "pub",
   "generatorVersion": "3.4.0",
   "flutterRoot": "file:///Users/harshbhardwaj/development/flutter",

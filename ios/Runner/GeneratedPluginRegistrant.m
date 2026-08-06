@@ -24,12 +24,6 @@
 @import connectivity_plus;
 #endif
 
-#if __has_include(<device_info_plus/FPPDeviceInfoPlusPlugin.h>)
-#import <device_info_plus/FPPDeviceInfoPlusPlugin.h>
-#else
-@import device_info_plus;
-#endif
-
 #if __has_include(<file_picker/FilePickerPlugin.h>)
 #import <file_picker/FilePickerPlugin.h>
 #else
@@ -52,12 +46,6 @@
 #import <flutter_logs/FlutterLogsPlugin.h>
 #else
 @import flutter_logs;
-#endif
-
-#if __has_include(<flutter_logs_yoer/FlutterLogsYoerPlugin.h>)
-#import <flutter_logs_yoer/FlutterLogsYoerPlugin.h>
-#else
-@import flutter_logs_yoer;
 #endif
 
 #if __has_include(<flutter_tts/FlutterTtsPlugin.h>)
@@ -228,12 +216,10 @@
   [AudioplayersDarwinPlugin registerWithRegistrar:[registry registrarForPlugin:@"AudioplayersDarwinPlugin"]];
   [CameraPlugin registerWithRegistrar:[registry registrarForPlugin:@"CameraPlugin"]];
   [ConnectivityPlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"ConnectivityPlusPlugin"]];
-  [FPPDeviceInfoPlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"FPPDeviceInfoPlusPlugin"]];
   [FilePickerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FilePickerPlugin"]];
   [FlutterCallkitIncomingPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterCallkitIncomingPlugin"]];
   [FlutterLocalNotificationsPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterLocalNotificationsPlugin"]];
   [FlutterLogsPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterLogsPlugin"]];
-  [FlutterLogsYoerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterLogsYoerPlugin"]];
   [FlutterTtsPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterTtsPlugin"]];
   [VibratePlugin registerWithRegistrar:[registry registrarForPlugin:@"VibratePlugin"]];
   [GeocodingPlugin registerWithRegistrar:[registry registrarForPlugin:@"GeocodingPlugin"]];
