@@ -8,6 +8,8 @@ import 'package:hidely_new/screens/main_wrapper.dart';
 import 'package:hidely_new/widgets/travel_squad_sheet.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/widgets/report_bottom_sheet.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LocationDetailScreen extends StatefulWidget {
   final String title;
@@ -31,6 +33,97 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   int _activeTab = 0; // 0: Grid, 1: Reels, 2: Bookmarks
   List<dynamic> _locationPosts = [];
   bool _isLoadingGrid = true;
+  bool _isSaved = false;
+
+  void _toggleSave() {
+    setState(() => _isSaved = !_isSaved);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_isSaved ? "Saved to your bookmarks!" : "Removed from bookmarks"),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _shareLocation() {
+    final title = widget.title.isNotEmpty ? widget.title : widget.location;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Sharing link for $title (https://hidely.app/place/2001)"),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _openExternalGoogleMaps() async {
+    final title = widget.title.isNotEmpty ? widget.title : widget.location;
+    final url = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${Uri.encodeComponent(title)}");
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Could not launch Google Maps")),
+        );
+      }
+    }
+  }
+
+  Widget _buildHighlightBubble({
+    required IconData icon,
+    required String label,
+    required List<Color> gradientColors,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: gradientColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: gradientColors.first.withOpacity(0.35),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Icon(icon, size: 22, color: gradientColors.first),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xff1C0D5A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -201,6 +294,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                               ),
                             ),
                           ),
+                          // Only Navigation button in top right
                           GestureDetector(
                             onTap: () {
                               final cleanTitle = widget.title.trim();
@@ -225,20 +319,24 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                               width: 44,
                               height: 44,
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF7C3AED), Color(0xFF2563EB)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.04),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
+                                    color: const Color(0xFF7C3AED).withOpacity(0.3),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
                                   ),
                                 ],
                               ),
                               child: const Icon(
                                 Icons.near_me_rounded,
-                                color: Color(0xff1C0D5A),
-                                size: 18,
+                                color: Colors.white,
+                                size: 20,
                               ),
                             ),
                           ),
@@ -287,6 +385,70 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
+
+                    // --- INSTAGRAM HIGHLIGHT STYLE ACTION BUBBLES ---
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _buildHighlightBubble(
+                              icon: Icons.directions_outlined,
+                              label: 'Directions',
+                              gradientColors: const [Color(0xFF0288D1), Color(0xFF00BCD4)],
+                              onTap: _openExternalGoogleMaps,
+                            ),
+                            const SizedBox(width: 16),
+                            _buildHighlightBubble(
+                              icon: _isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                              label: _isSaved ? 'Saved' : 'Save',
+                              gradientColors: _isSaved
+                                  ? const [Color(0xFF7C3AED), Color(0xFF9F67FF)]
+                                  : const [Color(0xFF4A457A), Color(0xFF6366F1)],
+                              onTap: _toggleSave,
+                            ),
+                            const SizedBox(width: 16),
+                            _buildHighlightBubble(
+                              icon: Icons.share_rounded,
+                              label: 'Share',
+                              gradientColors: const [Color(0xFF059669), Color(0xFF10B981)],
+                              onTap: _shareLocation,
+                            ),
+                            const SizedBox(width: 16),
+                            _buildHighlightBubble(
+                              icon: Icons.hotel_rounded,
+                              label: 'Stays',
+                              gradientColors: const [Color(0xFFF59E0B), Color(0xFFEF4444)],
+                              onTap: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Nearby stays coming soon!'), behavior: SnackBarBehavior.floating),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 16),
+                            _buildHighlightBubble(
+                              icon: Icons.flag_outlined,
+                              label: 'Report',
+                              gradientColors: const [Color(0xFFEF4444), Color(0xFFB91C1C)],
+                              onTap: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) => ReportBottomSheet(
+                                    targetType: 'Hidden Place',
+                                    targetName: widget.title,
+                                    onSubmitSuccess: () {},
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
 
                     // --- 1.4 BADGES INFORMATION SECTION ---
                     Padding(
@@ -342,6 +504,24 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                                   fontSize: 15,
                                   color: Color(0xff1C0D5A),
                                   fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xffFFF7ED),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xffFDBA74).withOpacity(0.5)),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.star_rounded, size: 16, color: Color(0xffF59E0B)),
+                                    SizedBox(width: 4),
+                                    Text('4.8', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xff9A3412))),
+                                    SizedBox(width: 4),
+                                    Text('(128 Reviews)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xffC2410C))),
+                                  ],
                                 ),
                               ),
                             ],

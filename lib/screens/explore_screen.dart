@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:hidely_new/screens/location_detail_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/widgets/itinerary_planner_sheet.dart';
+import 'package:hidely_new/widgets/empty_state.dart';
 import 'package:hidely_new/data/official_posts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -29,17 +32,34 @@ class _ExploreScreenState extends State<ExploreScreen> {
   List<String> _userPreferredCategories = [];
   bool _isPersonalizationLoaded = false;
 
+  final FocusNode _searchFocusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
+    _searchFocusNode.addListener(() {
+      if (mounted) setState(() {});
+    });
     _fetchExplorePosts();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     _debounceTimer?.cancel();
     super.dispose();
+  }
+
+
+  Future<void> _saveSearchQuery(String query) async {
+    if (query.trim().isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    List<String> searches = prefs.getStringList('recent_searches') ?? [];
+    searches.remove(query.trim());
+    searches.insert(0, query.trim());
+    if (searches.length > 10) searches = searches.sublist(0, 10);
+    await prefs.setStringList('recent_searches', searches);
   }
 
   Future<void> _fetchUserPreferences() async {
@@ -497,7 +517,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             children: [
               const SizedBox(height: 12),
 
-              // --- 1. SEARCH BAR & FILTER ICON IN A ROW ---
+              // --- 1. SEARCH BAR & AI TOOLS IN A ROW ---
               Padding(
                 padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 6.0, bottom: 6.0),
                 child: Row(
@@ -518,6 +538,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         ),
                         child: TextField(
                           controller: _searchController,
+                          focusNode: _searchFocusNode,
                           onChanged: (val) {
                             setState(() {
                               _searchQuery = val;
@@ -527,18 +548,33 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               _fetchExplorePosts();
                             });
                           },
-                          decoration: const InputDecoration(
-                            hintText: "Search hidden places...",
-                            hintStyle: TextStyle(color: Colors.black38, fontSize: 14),
-                            prefixIcon: Icon(Icons.search, color: Color(0xff1C0D5A), size: 20),
+                          onSubmitted: (val) {
+                            _saveSearchQuery(val);
+                            _fetchExplorePosts();
+                          },
+                          decoration: InputDecoration(
+                            hintText: "Ask AI e.g. Delhi ke paas hidden waterfall...",
+                            hintStyle: const TextStyle(color: Colors.black38, fontSize: 13),
+                            prefixIcon: const Icon(Icons.search, color: Color(0xff1C0D5A), size: 20),
+                             suffixIcon: IconButton(
+                              icon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF7C3AED), size: 20),
+                              onPressed: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) => const ItineraryPlannerSheet(locationName: "Trip Destinations"),
+                                );
+                              },
+                            ),
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(vertical: 13),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 13),
                           ),
-                          style: const TextStyle(fontSize: 15, color: Colors.black87),
+                          style: const TextStyle(fontSize: 14, color: Colors.black87),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () => _showFilterSheet(context),
                       child: Container(
@@ -563,22 +599,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ),
 
 
-
               // --- 3. STAGGERED PINTEREST-STYLE GRID DISPLAY ---
               Expanded(
                 child: _filteredPosts.isEmpty
-                    ? const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.landscape_outlined, size: 36, color: Colors.black26),
-                            SizedBox(height: 12),
-                            Text(
-                              "No matching wonders found",
-                              style: TextStyle(color: Colors.black38, fontSize: 15, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
+                    ? EmptyStateWidget(
+                        icon: Icons.landscape_outlined,
+                        title: "No Hidden Places Found",
+                        description: "No matching destinations found. Try resetting your search or filters.",
+                        actionLabel: "Reset Search & Retry",
+                        onAction: () {
+                          setState(() {
+                            _searchController.clear();
+                            _searchQuery = "";
+                            _selectedCategories = ["All"];
+                            _selectedCities = ["All"];
+                          });
+                          _fetchExplorePosts();
+                        },
                       )
                     : GridView.builder(
                         cacheExtent: 1000,
@@ -591,9 +628,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         physics: const BouncingScrollPhysics(),
                         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 3,
-                          mainAxisSpacing: 2,
-                          crossAxisSpacing: 2,
-                          childAspectRatio: 4 / 5,
+                          mainAxisSpacing: 3,
+                          crossAxisSpacing: 3,
+                          childAspectRatio: 0.85,
                         ),
                         itemCount: _filteredPosts.length,
                         itemBuilder: (context, index) {
@@ -620,38 +657,42 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 ),
                               ).then((_) => _fetchExplorePosts());
                             },
-                            child: ClipRRect(
-                              child: SizedBox.expand(
-                                child: isVideo
-                                    ? Container(
-                                        color: Colors.black87,
-                                        child: const Center(
-                                          child: Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 40),
-                                        ),
-                                      )
-                                    : isNetwork
-                                    ? CachedNetworkImage(
-                                        imageUrl: imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
-                                        fit: BoxFit.cover,
-                                        alignment: Alignment.center,
-                                        memCacheWidth: 450,
-                                        memCacheHeight: 560,
-                                        placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
-                                        errorWidget: (context, url, error) => Container(
-                                          color: const Color(0xffCBD5E1),
-                                          child: const Icon(Icons.landscape_outlined, color: Colors.white38),
-                                        ),
-                                      )
-                                    : Image.asset(
-                                        imageUrl.isNotEmpty ? imageUrl : "assets/images/onboarding_bg.jpg",
-                                        fit: BoxFit.cover,
-                                        alignment: Alignment.center,
-                                        errorBuilder: (context, error, stackTrace) => Container(
-                                          color: const Color(0xffCBD5E1),
-                                          child: const Icon(Icons.landscape_outlined, color: Colors.white38),
-                                        ),
-                                      ),
+                            child: Container(
+                              clipBehavior: Clip.antiAlias,
+                              decoration: const BoxDecoration(
+                                color: Color(0xffF1F5F9),
                               ),
+                              child: isVideo
+                                  ? Container(
+                                      color: Colors.black87,
+                                      child: const Center(
+                                        child: Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 40),
+                                      ),
+                                    )
+                                  : isNetwork
+                                  ? CachedNetworkImage(
+                                      imageUrl: imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      alignment: Alignment.center,
+                                      placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
+                                      errorWidget: (context, url, error) => Container(
+                                        color: const Color(0xffCBD5E1),
+                                        child: const Icon(Icons.landscape_outlined, color: Colors.white38),
+                                      ),
+                                    )
+                                  : Image.asset(
+                                      imageUrl.isNotEmpty ? imageUrl : "assets/images/onboarding_bg.jpg",
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      alignment: Alignment.center,
+                                      errorBuilder: (context, error, stackTrace) => Container(
+                                        color: const Color(0xffCBD5E1),
+                                        child: const Icon(Icons.landscape_outlined, color: Colors.white38),
+                                      ),
+                                    ),
                             ),
                           );
                         },

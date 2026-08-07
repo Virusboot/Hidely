@@ -1,22 +1,62 @@
 import 'package:flutter/material.dart';
+import 'package:hidely_new/services/ai_service.dart';
 
-class ItineraryPlannerSheet extends StatelessWidget {
+class ItineraryPlannerSheet extends StatefulWidget {
   final String locationName;
 
   const ItineraryPlannerSheet({super.key, required this.locationName});
 
   @override
+  State<ItineraryPlannerSheet> createState() => _ItineraryPlannerSheetState();
+}
+
+class _ItineraryPlannerSheetState extends State<ItineraryPlannerSheet> {
+  late TextEditingController _locationController;
+  double _budget = 5000;
+  int _days = 3;
+  bool _isGenerating = false;
+  AiItineraryResult? _generatedItinerary;
+
+  @override
+  void initState() {
+    super.initState();
+    _locationController = TextEditingController(text: widget.locationName);
+    _generateItinerary();
+  }
+
+  @override
+  void dispose() {
+    _locationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _generateItinerary() async {
+    setState(() => _isGenerating = true);
+    final result = await AiService().generateCustomItinerary(
+      location: _locationController.text.trim().isEmpty ? 'Destination' : _locationController.text.trim(),
+      budget: _budget,
+      days: _days,
+    );
+
+    if (mounted) {
+      setState(() {
+        _generatedItinerary = result;
+        _isGenerating = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
+      height: MediaQuery.of(context).size.height * 0.88,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const SizedBox(height: 12),
           Center(
             child: Container(
               width: 36,
@@ -27,80 +67,258 @@ class ItineraryPlannerSheet extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xff5B3EC8).withOpacity(0.1),
-                  shape: BoxShape.circle,
+          const SizedBox(height: 12),
+
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff5B3EC8).withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.auto_awesome_rounded, color: Color(0xff5B3EC8), size: 20),
                 ),
-                child: const Icon(Icons.auto_awesome_rounded, color: Color(0xff5B3EC8), size: 20),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '1-Day Itinerary • $locationName',
-                  style: const TextStyle(
-                    fontFamily: 'PublicSans',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xff1C0D5A),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'AI Trip Planner',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xff1C0D5A),
+                        ),
+                      ),
+                      Text(
+                        'Customized Budget & Duration Itinerary',
+                        style: TextStyle(fontSize: 11.5, color: Colors.black54),
+                      ),
+                    ],
                   ),
                 ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, color: Colors.black54, size: 22),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // Input Controls: Location, Budget, Days
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded, color: Colors.black54, size: 22),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildTimelineSlot(
-            time: '08:30 AM',
-            title: 'Morning Exploration & Sunrise View',
-            desc: 'Arrive early at $locationName to catch soft lighting and minimal crowd.',
-            icon: Icons.wb_twilight_rounded,
-            color: const Color(0xffF57C00),
-          ),
-          _buildTimelineSlot(
-            time: '01:00 PM',
-            title: 'Local Heritage Lunch & Relaxation',
-            desc: 'Enjoy authentic regional cuisine at top-rated nearby heritage dining.',
-            icon: Icons.restaurant_rounded,
-            color: const Color(0xff0288D1),
-          ),
-          _buildTimelineSlot(
-            time: '04:30 PM',
-            title: 'Secret Spot Sunset & Photography',
-            desc: 'Head to the panoramic viewpoint for sunset vistas and travel captures.',
-            icon: Icons.photo_camera_rounded,
-            color: const Color(0xff7C3AED),
-            isLast: true,
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Itinerary saved for $locationName!'),
-                    backgroundColor: const Color(0xff2B1564),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Column(
+                children: [
+                  // Location Input
+                  TextField(
+                    controller: _locationController,
+                    onSubmitted: (_) => _generateItinerary(),
+                    decoration: InputDecoration(
+                      labelText: 'Destination Location',
+                      prefixIcon: const Icon(Icons.location_on_rounded, color: Color(0xff5B3EC8), size: 20),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
                   ),
-                );
-              },
-              icon: const Icon(Icons.bookmark_add_rounded, color: Colors.white, size: 18),
-              label: const Text('Save Itinerary to Trip List', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xff2B1564),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                elevation: 0,
+                  const SizedBox(height: 12),
+
+                  // Budget & Days Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Budget: ₹${_budget.toStringAsFixed(0)}',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A)),
+                            ),
+                            Slider(
+                              value: _budget,
+                              min: 1000,
+                              max: 25000,
+                              divisions: 24,
+                              activeColor: const Color(0xff5B3EC8),
+                              onChanged: (val) {
+                                setState(() => _budget = val);
+                              },
+                              onChangeEnd: (_) => _generateItinerary(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Days:',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A)),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.remove_rounded, size: 16),
+                                  onPressed: _days > 1
+                                      ? () {
+                                          setState(() => _days--);
+                                          _generateItinerary();
+                                        }
+                                      : null,
+                                ),
+                                Text(
+                                  '$_days',
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.add_rounded, size: 16),
+                                  onPressed: _days < 7
+                                      ? () {
+                                          setState(() => _days++);
+                                          _generateItinerary();
+                                        }
+                                      : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Generated Itinerary Display
+          Expanded(
+            child: _isGenerating
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xff5B3EC8)),
+                  )
+                : _generatedItinerary == null
+                    ? const SizedBox()
+                    : ListView(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        children: [
+                          // Summary Banner
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xff5B3EC8).withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.lightbulb_rounded, color: Color(0xff5B3EC8), size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _generatedItinerary!.summaryTip,
+                                    style: const TextStyle(fontSize: 11.5, color: Color(0xff1C0D5A), fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Days Loop
+                          ..._generatedItinerary!.itineraryDays.map((day) {
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              elevation: 1.5,
+                              child: Padding(
+                                padding: const EdgeInsets.all(14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Day ${day.dayNumber}: ${day.title}',
+                                          style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A)),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.withOpacity(0.12),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            '~₹${day.estimatedCost.toStringAsFixed(0)}',
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const Divider(height: 16),
+                                    _buildSlotRow(Icons.wb_twilight_rounded, 'Morning', day.morning, const Color(0xffF57C00)),
+                                    const SizedBox(height: 8),
+                                    _buildSlotRow(Icons.wb_sunny_rounded, 'Afternoon', day.afternoon, const Color(0xff0288D1)),
+                                    const SizedBox(height: 8),
+                                    _buildSlotRow(Icons.nightlife_rounded, 'Evening', day.evening, const Color(0xff7C3AED)),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+          ),
+
+          // Save CTA
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+            child: SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('AI Itinerary for ${_locationController.text} saved to Trip List!'),
+                      backgroundColor: const Color(0xff2B1564),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.bookmark_add_rounded, color: Colors.white, size: 18),
+                label: const Text('Save Itinerary to Trip List', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff2B1564),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 0,
+                ),
               ),
             ),
           ),
@@ -109,72 +327,19 @@ class ItineraryPlannerSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildTimelineSlot({
-    required String time,
-    required String title,
-    required String desc,
-    required IconData icon,
-    required Color color,
-    bool isLast = false,
-  }) {
+  Widget _buildSlotRow(IconData icon, String label, String desc, Color color) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 16, color: color),
-            ),
-            if (!isLast)
-              Container(
-                width: 2,
-                height: 44,
-                color: Colors.grey[200],
-              ),
-          ],
-        ),
-        const SizedBox(width: 12),
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 8),
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: RichText(
+            text: TextSpan(
+              style: const TextStyle(fontSize: 12, color: Colors.black87, fontFamily: 'PublicSans'),
               children: [
-                Text(
-                  time,
-                  style: TextStyle(
-                    fontFamily: 'PublicSans',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: color,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontFamily: 'PublicSans',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xff1C0D5A),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  desc,
-                  style: const TextStyle(
-                    fontFamily: 'PublicSans',
-                    fontSize: 12,
-                    color: Colors.black54,
-                    height: 1.3,
-                  ),
-                ),
+                TextSpan(text: '$label: ', style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+                TextSpan(text: desc),
               ],
             ),
           ),

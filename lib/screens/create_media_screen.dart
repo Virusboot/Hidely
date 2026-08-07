@@ -254,7 +254,7 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
                                               child: Column(
                                                 mainAxisAlignment: MainAxisAlignment.center,
                                                 children: [
-                                                  Icon(Icons.video_camera_back_outlined, color: const Color(0xff2B1564), size: 28),
+                                                  const Icon(Icons.video_camera_back_outlined, color: Color(0xff2B1564), size: 28),
                                                   const SizedBox(height: 4),
                                                   Text('Camera', style: TextStyle(color: const Color(0xff1C0D5A).withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.bold)),
                                                 ],

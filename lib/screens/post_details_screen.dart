@@ -229,7 +229,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text("Sharing post..."),
+        content: Text("Running AI Place Verification..."),
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 1),
       ),
@@ -243,6 +243,29 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
       } else {
         finalCaption = '$finalCaption\n\nwith $tagsText';
       }
+    }
+
+    // Run AI Verification Flow (Duplicate, Wrong Location, Spam Checks)
+    final verifyResult = await AiService().verifyPlaceSubmission(
+      title: finalCaption,
+      location: _location,
+      latitude: _latitude,
+      longitude: _longitude,
+      imageFile: widget.selectedImage,
+    );
+
+    if (verifyResult.isSpam) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Submission Rejected: ${verifyResult.reason}"),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
     }
 
     final result = await ApiService().createPost(
@@ -265,16 +288,19 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     });
 
     if (result.success) {
+      final String verificationMsg = verifyResult.isApproved
+          ? "Place submitted! AI verified & queued for Admin Review ('Verified Hidden Place' Badge)."
+          : "Place submitted. Status: ${verifyResult.reason}";
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Post shared successfully!"),
+        SnackBar(
+          content: Text(verificationMsg),
           behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 2),
+          duration: const Duration(seconds: 3),
         ),
       );
       
       final navigator = Navigator.of(context);
-      // Simulate pushing a notification to everyone that a new place was found
       await _showNewPlaceNotification();
       
       navigator.pushAndRemoveUntil(

@@ -24,9 +24,30 @@ subprojects {
     project.plugins.whenPluginAdded { plugin ->
         if (plugin.class.name.startsWith("com.android.build.gradle.LibraryPlugin") || 
             plugin.class.name.startsWith("com.android.build.gradle.AppPlugin")) {
-            project.android {
-                if (namespace == null) {
-                    namespace = "dev.isar." + project.name.replaceAll("-", "_")
+            def manifestFile = project.file("src/main/AndroidManifest.xml")
+            if (manifestFile.exists()) {
+                def content = manifestFile.text
+                def matcher = (content =~ /package="([^"]+)"/)
+                if (matcher.find()) {
+                    def pkgName = matcher.group(1)
+                    project.android {
+                        if (namespace == null) {
+                            namespace = pkgName
+                        }
+                    }
+                    manifestFile.text = content.replaceAll(/package="[^"]*"/, '')
+                } else {
+                    project.android {
+                        if (namespace == null) {
+                            namespace = "dev.isar." + project.name.replaceAll("-", "_")
+                        }
+                    }
+                }
+            } else {
+                project.android {
+                    if (namespace == null) {
+                        namespace = "dev.isar." + project.name.replaceAll("-", "_")
+                    }
                 }
             }
         }

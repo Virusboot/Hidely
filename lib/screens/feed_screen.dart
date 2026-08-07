@@ -13,6 +13,7 @@ import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:hidely_new/widgets/post_options_bottom_sheet.dart';
 import 'package:hidely_new/data/official_posts.dart';
+import 'package:hidely_new/widgets/skeleton_loader.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 
@@ -179,74 +180,121 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   List<dynamic> _mixFeedAlgorithm(List<dynamic> serverPosts, List<dynamic> officialPosts) {
-    // 1. Sort all server posts by date (latest first)
-    final List<dynamic> sortedServerPosts = List.from(serverPosts);
-    sortedServerPosts.sort((a, b) {
-      final aDateStr = a['created_at'] ?? a['createdAt'];
-      final bDateStr = b['created_at'] ?? b['createdAt'];
-      if (aDateStr != null && bDateStr != null) {
-        try {
-          final DateTime aDate = DateTime.parse(aDateStr.toString());
-          final DateTime bDate = DateTime.parse(bDateStr.toString());
-          return bDate.compareTo(aDate); // descending
-        } catch (_) {}
-      }
-      // Fallback to ID sorting
-      final aId = int.tryParse(a['id']?.toString() ?? '') ?? 0;
-      final bId = int.tryParse(b['id']?.toString() ?? '') ?? 0;
-      return bId.compareTo(aId); // descending
-    });
+    // 1. Combine all available server posts and official posts without duplicates
+    final Set<String> seenIds = {};
+    final List<dynamic> allPosts = [];
 
-    // 2. Interleave server posts to prevent consecutive posts from same author
-    final List<dynamic> interleavedServer = [];
-    final Map<String, List<dynamic>> userBuckets = {};
-    
-    for (final post in sortedServerPosts) {
-      final author = (post['author_username'] ?? post['username'] ?? '').toString();
-      userBuckets.putIfAbsent(author, () => []).add(post);
-    }
-
-    // Pick posts sequentially, trying to avoid matching the author of the last post
-    String lastAuthor = '';
-    while (userBuckets.isNotEmpty) {
-      String? bestUser;
-      
-      // Find a user who has posts and is NOT the last author
-      for (final user in userBuckets.keys) {
-        if (user != lastAuthor) {
-          bestUser = user;
-          break;
-        }
-      }
-      
-      // If all remaining posts are from the last author, just pick the first available
-      if (bestUser == null && userBuckets.isNotEmpty) {
-        bestUser = userBuckets.keys.first;
-      }
-      
-      if (bestUser != null) {
-        final userPostsList = userBuckets[bestUser]!;
-        interleavedServer.add(userPostsList.removeAt(0));
-        if (userPostsList.isEmpty) {
-          userBuckets.remove(bestUser);
-        }
-        lastAuthor = bestUser;
+    for (final post in serverPosts) {
+      final id = (post['id'] ?? '').toString();
+      if (id.isNotEmpty && !seenIds.contains(id)) {
+        seenIds.add(id);
+        allPosts.add(post);
       }
     }
 
-    // 3. Intersperse official/fallback posts (e.g. 1 official post after every 3 server posts)
+    for (final post in officialPosts) {
+      final id = (post['id'] ?? '').toString();
+      if (id.isNotEmpty && !seenIds.contains(id)) {
+        seenIds.add(id);
+        allPosts.add(post);
+      }
+    }
+
+    // 2. Assign Priority Tier (1 = Highest Quality Priority, 5 = General/New)
+    // Hierarchy:
+    // Priority 1: Official Hidely Posts
+    // Priority 2: Verified Creators
+    // Priority 3: Nearby Places
+    // Priority 4: Friends / Following
+    // Priority 5: New Creators
+    int getPriorityTier(dynamic post) {
+      final username = (post['author_username'] ?? post['username'] ?? post['author'] ?? '').toString().toLowerCase();
+      final isOfficial = post['is_official'] == true ||
+          post['isOfficial'] == true ||
+          username == 'hidely_official' ||
+          username == 'hidely';
+      if (isOfficial) return 1;
+
+      final isVerified = post['is_verified'] == true ||
+          post['isVerified'] == true ||
+          post['author_is_verified'] == true ||
+          (post['user'] is Map && post['user']['is_verified'] == true);
+      if (isVerified) return 2;
+
+      final isNearby = post['is_nearby'] == true ||
+          post['isNearby'] == true ||
+          (post['distance'] != null && (post['distance'] as num) < 50000);
+      if (isNearby) return 3;
+
+      final isFollowing = post['is_following'] == true || post['isFollowing'] == true;
+      if (isFollowing) return 4;
+
+      return 5; // New Creators / General posts
+    }
+
+    // 3. Bucket posts into their respective priority levels
+    final Map<int, List<dynamic>> priorityBuckets = {1: [], 2: [], 3: [], 4: [], 5: []};
+    for (final post in allPosts) {
+      final tier = getPriorityTier(post);
+      priorityBuckets[tier]!.add(post);
+    }
+
+    // 4. Sort posts within each priority tier by date (newest first)
+    for (final tier in priorityBuckets.keys) {
+      priorityBuckets[tier]!.sort((a, b) {
+        final aDateStr = a['created_at'] ?? a['createdAt'];
+        final bDateStr = b['created_at'] ?? b['createdAt'];
+        if (aDateStr != null && bDateStr != null) {
+          try {
+            final DateTime aDate = DateTime.parse(aDateStr.toString());
+            final DateTime bDate = DateTime.parse(bDateStr.toString());
+            return bDate.compareTo(aDate);
+          } catch (_) {}
+        }
+        final aId = int.tryParse(a['id']?.toString() ?? '') ?? 0;
+        final bId = int.tryParse(b['id']?.toString() ?? '') ?? 0;
+        return bId.compareTo(aId);
+      });
+    }
+
+    // 5. Construct final feed following Priority Tiers with author-interleaving
     final List<dynamic> finalFeed = [];
-    final List<dynamic> localOfficial = List.from(officialPosts);
-    
-    int serverIndex = 0;
-    while (serverIndex < interleavedServer.length || localOfficial.isNotEmpty) {
-      // Add up to 3 server posts
-      for (int i = 0; i < 3 && serverIndex < interleavedServer.length; i++) {
-        finalFeed.add(interleavedServer[serverIndex++]);
+
+    for (int tier = 1; tier <= 5; tier++) {
+      final tierPosts = priorityBuckets[tier]!;
+      if (tierPosts.isEmpty) continue;
+
+      // Interleave author posts within each tier to prevent back-to-back same creator posts
+      final Map<String, List<dynamic>> authorBuckets = {};
+      for (final p in tierPosts) {
+        final author = (p['author_username'] ?? p['username'] ?? '').toString();
+        authorBuckets.putIfAbsent(author, () => []).add(p);
       }
-      // Add 1 official post if available
-      if (localOfficial.isNotEmpty) {
-        finalFeed.add(localOfficial.removeAt(0));
+
+      String lastAuthor = finalFeed.isNotEmpty
+          ? (finalFeed.last['author_username'] ?? finalFeed.last['username'] ?? '').toString()
+          : '';
+
+      while (authorBuckets.isNotEmpty) {
+        String? nextAuthor;
+        for (final author in authorBuckets.keys) {
+          if (author != lastAuthor) {
+            nextAuthor = author;
+            break;
+          }
+        }
+        if (nextAuthor == null && authorBuckets.isNotEmpty) {
+          nextAuthor = authorBuckets.keys.first;
+        }
+
+        if (nextAuthor != null) {
+          final authorPosts = authorBuckets[nextAuthor]!;
+          finalFeed.add(authorPosts.removeAt(0));
+          if (authorPosts.isEmpty) {
+            authorBuckets.remove(nextAuthor);
+          }
+          lastAuthor = nextAuthor;
+        }
       }
     }
 
@@ -280,7 +328,10 @@ class _FeedScreenState extends State<FeedScreen> {
             child: Stack(
               children: [
                 _feedPosts.isEmpty && _isLoading
-                    ? const SizedBox.shrink()
+                    ? ListView.builder(
+                        itemCount: 4,
+                        itemBuilder: (context, index) => const SkeletonFeedCard(),
+                      )
                     : RefreshIndicator(
                         onRefresh: _loadFeed,
                         color: const Color(0xff2B1564),

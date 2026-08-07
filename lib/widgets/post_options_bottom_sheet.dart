@@ -101,6 +101,54 @@ class PostOptionsBottomSheet extends StatelessWidget {
     }
   }
 
+  void _editPost(BuildContext context) {
+    Navigator.pop(context);
+    final TextEditingController captionController = TextEditingController(text: post['caption']?.toString() ?? '');
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Edit Post Caption", style: TextStyle(color: Color(0xff1C0D5A), fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: captionController,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: "Update caption...",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff2B1564)),
+            onPressed: () {
+              post['caption'] = captionController.text;
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Post caption updated!"), behavior: SnackBarBehavior.floating),
+              );
+            },
+            child: const Text("Save", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleHideComments(BuildContext context) {
+    Navigator.pop(context);
+    final bool currentHidden = post['comments_hidden'] == true;
+    post['comments_hidden'] = !currentHidden;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(!currentHidden ? "Comments turned off for this post." : "Comments enabled for this post."),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
@@ -130,40 +178,63 @@ class PostOptionsBottomSheet extends StatelessWidget {
               // Horizontal Quick Actions
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildQuickAction(
-                      icon: Icons.ios_share_rounded,
-                      label: "Share",
-                      color: const Color(0xff1C0D5A),
-                      bgColor: const Color(0xffF1F5F9),
-                      onTap: () => _sharePost(context),
-                    ),
-                    _buildQuickAction(
-                      icon: Icons.copy_rounded,
-                      label: "Copy Link",
-                      color: const Color(0xff1C0D5A),
-                      bgColor: const Color(0xffF1F5F9),
-                      onTap: () => _copyLink(context),
-                    ),
-                    if (_isMyPost)
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
                       _buildQuickAction(
-                        icon: Icons.delete_outline_rounded,
-                        label: "Delete Post",
-                        color: Colors.redAccent,
-                        bgColor: Colors.red.shade50,
-                        onTap: () => _deletePost(context),
-                      )
-                    else
-                      _buildQuickAction(
-                        icon: Icons.report_gmailerrorred_rounded,
-                        label: "Report",
-                        color: Colors.redAccent,
-                        bgColor: Colors.red.shade50,
-                        onTap: () => _reportPost(context),
+                        icon: Icons.ios_share_rounded,
+                        label: "Share",
+                        color: const Color(0xff1C0D5A),
+                        bgColor: const Color(0xffF1F5F9),
+                        onTap: () => _sharePost(context),
                       ),
-                  ],
+                      const SizedBox(width: 16),
+                      _buildQuickAction(
+                        icon: Icons.copy_rounded,
+                        label: "Copy Link",
+                        color: const Color(0xff1C0D5A),
+                        bgColor: const Color(0xffF1F5F9),
+                        onTap: () => _copyLink(context),
+                      ),
+                      if (_isMyPost) ...[
+                        const SizedBox(width: 16),
+                        _buildQuickAction(
+                          icon: Icons.edit_note_rounded,
+                          label: "Edit Post",
+                          color: const Color(0xff1C0D5A),
+                          bgColor: const Color(0xffF1F5F9),
+                          onTap: () => _editPost(context),
+                        ),
+                        const SizedBox(width: 16),
+                        _buildQuickAction(
+                          icon: Icons.comments_disabled_outlined,
+                          label: post['comments_hidden'] == true ? "Enable Comments" : "Hide Comments",
+                          color: const Color(0xff1C0D5A),
+                          bgColor: const Color(0xffF1F5F9),
+                          onTap: () => _toggleHideComments(context),
+                        ),
+                        const SizedBox(width: 16),
+                        _buildQuickAction(
+                          icon: Icons.delete_outline_rounded,
+                          label: "Delete Post",
+                          color: Colors.redAccent,
+                          bgColor: Colors.red.shade50,
+                          onTap: () => _deletePost(context),
+                        ),
+                      ] else ...[
+                        const SizedBox(width: 16),
+                        _buildQuickAction(
+                          icon: Icons.report_gmailerrorred_rounded,
+                          label: "Report",
+                          color: Colors.redAccent,
+                          bgColor: Colors.red.shade50,
+                          onTap: () => _reportPost(context),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 10),

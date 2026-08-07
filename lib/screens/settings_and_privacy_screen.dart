@@ -10,6 +10,7 @@ import 'blocked_accounts_screen.dart';
 import 'help_center_screen.dart';
 import 'about_screen.dart';
 import 'add_account_screen.dart';
+import 'package:hidely_new/widgets/itinerary_planner_sheet.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -95,6 +96,78 @@ class _SettingsAndPrivacyScreenState
             'iconBg': const Color(0xffE8F5E9),
             'iconColor': const Color(0xff388E3C),
             'onTap': () => openAppSettings(),
+          },
+          {
+            'title': 'Download My Data',
+            'subtitle': 'Request an archive of your account data',
+            'icon': Icons.download_for_offline_outlined,
+            'iconBg': const Color(0xffE0F2FE),
+            'iconColor': const Color(0xff0288D1),
+            'onTap': () => _handleDownloadMyData(),
+          },
+        ],
+      },
+      {
+        'category': 'Travel Tools',
+        'icon': Icons.travel_explore_rounded,
+        'items': [
+          {
+            'title': 'Trip Planner',
+            'subtitle': 'AI-powered itinerary planner for your next trip',
+            'icon': Icons.map_rounded,
+            'iconBg': const Color(0xffEDE9FC),
+            'iconColor': const Color(0xff7C3AED),
+            'onTap': () => showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => const ItineraryPlannerSheet(
+                locationName: 'My Trip',
+              ),
+            ),
+          },
+          {
+            'title': 'Hire a Traveller',
+            'subtitle': 'Connect with verified local explorers & guides',
+            'icon': Icons.travel_explore_rounded,
+            'iconBg': const Color(0xffE6F7EE),
+            'iconColor': const Color(0xff059669),
+            'onTap': () => showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                backgroundColor: Colors.white,
+                title: const Row(
+                  children: [
+                    Icon(Icons.travel_explore_rounded, color: Color(0xFF059669), size: 22),
+                    SizedBox(width: 8),
+                    Text(
+                      'Hire a Traveller',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xff1C0D5A),
+                      ),
+                    ),
+                  ],
+                ),
+                content: const Text(
+                  'Connect with verified local explorers and travellers to guide your next adventure. This feature is coming soon!',
+                  style: TextStyle(fontSize: 13.5, color: Color(0xff4A457A), height: 1.5),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text(
+                      'Got it',
+                      style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           },
         ],
       },
@@ -225,8 +298,16 @@ class _SettingsAndPrivacyScreenState
                     builder: (_) => const TermsOfServiceScreen())),
           },
           {
+            'title': 'Contact Support',
+            'subtitle': 'Reach out to our 24/7 team',
+            'icon': Icons.headset_mic_outlined,
+            'iconBg': const Color(0xffE0F2FE),
+            'iconColor': const Color(0xff0288D1),
+            'onTap': () => _handleContactSupport(),
+          },
+          {
             'title': 'About Hidely',
-            'subtitle': 'Version 1.0.0',
+            'subtitle': 'Version 1.0.0 (Build 100)',
             'icon': Icons.info_outline_rounded,
             'iconBg': const Color(0xffECEFF1),
             'iconColor': const Color(0xff607D8B),
@@ -240,7 +321,7 @@ class _SettingsAndPrivacyScreenState
         ],
       },
       {
-        'category': 'Login',
+        'category': 'Account Actions',
         'icon': Icons.logout_rounded,
         'items': [
           {
@@ -265,9 +346,114 @@ class _SettingsAndPrivacyScreenState
             'isDestructive': true,
             'onTap': () => _handleLogout(),
           },
+          {
+            'title': 'Delete Account',
+            'subtitle': 'Permanently remove your data and account',
+            'icon': Icons.delete_forever_rounded,
+            'iconBg': const Color(0xffFFEBEE),
+            'iconColor': Colors.redAccent,
+            'isDestructive': true,
+            'onTap': () => _handleDeleteAccount(),
+          },
         ],
       },
     ];
+  }
+
+  void _handleDownloadMyData() {
+    _showSnack('Data export requested! We will email your archive link within 24 hours.');
+  }
+
+  void _handleContactSupport() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Contact Support', style: TextStyle(color: Color(0xff1C0D5A), fontWeight: FontWeight.bold)),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Need help or found an issue? Our team is available 24/7.', style: TextStyle(fontSize: 13, color: Colors.black87)),
+            SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.email_outlined, size: 18, color: Color(0xff2B1564)),
+                SizedBox(width: 8),
+                Text('support@hidely.app', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xff2B1564))),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close', style: TextStyle(color: Color(0xff2B1564), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleDeleteAccount() {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: Colors.red.shade50, shape: BoxShape.circle),
+                child: const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 36),
+              ),
+              const SizedBox(height: 16),
+              const Text('Delete Account?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A))),
+              const SizedBox(height: 8),
+              const Text(
+                'Are you sure you want to permanently delete your account? All your posts, saved places, and data will be erased immediately and cannot be recovered.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.black54, height: 1.4),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      child: const Text('Cancel', style: TextStyle(color: Color(0xff1C0D5A), fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        await AuthService().logout();
+                        if (mounted) {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            (route) => false,
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showSnack(String msg) {

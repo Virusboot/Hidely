@@ -27,9 +27,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   final List<TextEditingController> _controllers = List.generate(4, (_) => TextEditingController(text: " "));
   final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
 
-  // Countdown timer state
+  // Countdown timer & OTP limit state
   Timer? _timer;
   int _secondsRemaining = 30;
+  int _resendAttempts = 0;
   bool _isLoading = false;
 
   @override
@@ -261,7 +262,12 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                             )
                           : GestureDetector(
                               onTap: () async {
-                                _showCustomSnackBar(context, "Resending OTP...", isError: false);
+                                if (_resendAttempts >= 3) {
+                                  _showCustomSnackBar(context, "Maximum OTP resend attempts reached. Please try again later.", isError: true);
+                                  return;
+                                }
+                                _resendAttempts++;
+                                _showCustomSnackBar(context, "Resending OTP (Attempt $_resendAttempts of 3)...", isError: false);
                                 final result = await ApiService().forgotPassword(email: widget.email);
                                 if (!context.mounted) return;
                                 if (result.success) {
@@ -271,10 +277,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                   _showCustomSnackBar(context, result.message, isError: true);
                                 }
                               },
-                              child: const Text(
-                                "Resend",
+                              child: Text(
+                                _resendAttempts >= 3 ? "Limit Reached" : "Resend",
                                 style: TextStyle(
-                                  color: Color(0xff2B1564),
+                                  color: _resendAttempts >= 3 ? Colors.grey : const Color(0xff2B1564),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
                                 ),

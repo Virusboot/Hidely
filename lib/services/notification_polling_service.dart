@@ -120,23 +120,32 @@ class NotificationPollingService {
     final actorName = notif['actor_name'] ?? notif['actor_username'] ?? 'Someone';
     
     String title = 'Hidely';
-    String body = '$actorName interacted with your profile.';
+    String body = notif['body'] ?? '$actorName interacted with your profile.';
 
-    if (type == 'like') {
+    if (type == 'like' || type == 'new_like') {
       title = 'New Like ❤️';
       body = '$actorName liked your post.';
-    } else if (type == 'comment') {
+    } else if (type == 'comment' || type == 'new_comment') {
       title = 'New Comment 💬';
       body = '$actorName commented on your post.';
-    } else if (type == 'follow') {
+    } else if (type == 'follow' || type == 'new_follower') {
       title = 'New Follower 👤';
       body = '$actorName started following you.';
+    } else if (type == 'message' || type == 'new_message') {
+      title = 'New Message 📩';
+      body = '$actorName sent you a message.';
+    } else if (type == 'official_hidely_post') {
+      title = 'Official Hidely Spot 🌟';
+      body = notif['body'] ?? 'Discover our newly featured secret location in India!';
+    } else if (type == 'weekly_travel_suggestions') {
+      title = 'Weekly Travel Suggestions 🏕️';
+      body = notif['body'] ?? 'Explore 3 top hidden weekend getaways handpicked for you!';
     }
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
       'hidely_notifications', 
       'Hidely Notifications',
-      channelDescription: 'Notifications for likes, comments, and follows',
+      channelDescription: 'Notifications for likes, comments, followers, messages, official posts, and travel digests',
       importance: Importance.max,
       priority: Priority.high,
       showWhen: true,
@@ -165,8 +174,7 @@ class NotificationPollingService {
       final context = navigatorKey.currentContext;
       if (context == null) return;
 
-      if ((type == 'like' || type == 'comment') && postId != null && postId.isNotEmpty) {
-        // Show loading dialog
+      if ((type == 'like' || type == 'new_like' || type == 'comment' || type == 'new_comment') && postId != null && postId.isNotEmpty) {
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -178,7 +186,6 @@ class NotificationPollingService {
         final token = AuthService().token ?? '';
         final result = await ApiService().getPostById(postId: int.parse(postId), token: token.isNotEmpty ? token : null);
         
-        // Dismiss loading
         if (context.mounted) Navigator.pop(context);
 
         if (result.success && result.data != null) {
@@ -195,7 +202,7 @@ class NotificationPollingService {
             );
           }
         }
-      } else if (type == 'follow' && actorUsername.isNotEmpty) {
+      } else if ((type == 'follow' || type == 'new_follower') && actorUsername.isNotEmpty) {
         Navigator.push(
           context,
           MaterialPageRoute(

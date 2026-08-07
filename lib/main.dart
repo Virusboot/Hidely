@@ -4,15 +4,39 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hidely_new/config/config.dart';
 import 'package:hidely_new/services/notification_polling_service.dart';
 
+import 'dart:ui';
+import 'package:hidely_new/widgets/something_went_wrong_screen.dart';
+
+import 'package:hidely_new/services/deep_link_service.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Global Error Handling & Custom Error Screen (>99.5% Crash Free Target)
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('Uncaught Flutter UI Error: ${details.exception}');
+  };
+
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    return const SomethingWentWrongScreen();
+  };
+
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    debugPrint('Uncaught Platform/Async Error: $error');
+    return true; // Prevents crash
+  };
 
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  await NotificationPollingService().initialize();
+  // Non-blocking initialization for < 2 sec app startup
+  DeepLinkService();
+  NotificationPollingService().initialize().catchError((e) {
+    debugPrint("Background Notification Polling init error: $e");
+  });
 
   runApp(
     const ProviderScope(

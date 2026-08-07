@@ -10,6 +10,7 @@ import 'package:audioplayers_web/audioplayers_web.dart';
 import 'package:camera_web/camera_web.dart';
 import 'package:connectivity_plus/src/connectivity_plus_web.dart';
 import 'package:file_picker/_internal/file_picker_web.dart';
+import 'package:flutter_native_splash/flutter_native_splash_web.dart';
 import 'package:flutter_tts/flutter_tts_web.dart';
 import 'package:geolocator_web/geolocator_web.dart';
 import 'package:google_maps_flutter_web/google_maps_flutter_web.dart';
@@ -33,6 +34,7 @@ void registerPlugins([final Registrar? pluginRegistrar]) {
   CameraPlugin.registerWith(registrar);
   ConnectivityPlusWebPlugin.registerWith(registrar);
   FilePickerWeb.registerWith(registrar);
+  FlutterNativeSplashWeb.registerWith(registrar);
   FlutterTtsPlugin.registerWith(registrar);
   GeolocatorPlugin.registerWith(registrar);
   GoogleMapsPlugin.registerWith(registrar);

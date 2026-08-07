@@ -6,6 +6,7 @@ class EmptyStateWidget extends StatelessWidget {
   final String description;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final bool isError;
 
   const EmptyStateWidget({
     super.key,
@@ -14,10 +15,45 @@ class EmptyStateWidget extends StatelessWidget {
     required this.description,
     this.actionLabel,
     this.onAction,
+    this.isError = false,
   });
+
+  /// Factory for Error State with Retry Button
+  factory EmptyStateWidget.error({
+    Key? key,
+    String title = "Connection Error",
+    String description = "Failed to load content. Please check your connection and try again.",
+    required VoidCallback onRetry,
+  }) {
+    return EmptyStateWidget(
+      key: key,
+      icon: Icons.wifi_off_rounded,
+      title: title,
+      description: description,
+      actionLabel: "Tap to Retry",
+      onAction: onRetry,
+      isError: true,
+    );
+  }
+
+  /// Factory for Centered Loading UI
+  factory EmptyStateWidget.loading({
+    Key? key,
+    String message = "Loading...",
+  }) {
+    return EmptyStateWidget(
+      key: key,
+      icon: Icons.sync_rounded,
+      title: message,
+      description: "Please wait a moment while we fetch your content.",
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = isError ? Colors.redAccent : const Color(0xff1C0D5A);
+    final buttonBg = isError ? const Color(0xFFDC2626) : const Color(0xff2B1564);
+
     return Align(
       alignment: Alignment.center,
       child: Container(
@@ -31,21 +67,21 @@ class EmptyStateWidget extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xff1C0D5A).withOpacity(0.04),
+                color: isError ? Colors.red.shade50 : primaryColor.withOpacity(0.04),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
-                size: 32,
-                color: const Color(0xff1C0D5A).withOpacity(0.6),
+                size: 36,
+                color: isError ? Colors.redAccent : primaryColor.withOpacity(0.6),
               ),
             ),
             const SizedBox(height: 16),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xff1C0D5A),
+              style: TextStyle(
+                color: primaryColor,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 letterSpacing: -0.2,
@@ -56,26 +92,32 @@ class EmptyStateWidget extends StatelessWidget {
               description,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: const Color(0xff1C0D5A).withOpacity(0.5),
+                color: primaryColor.withOpacity(0.6),
                 fontSize: 13,
                 height: 1.3,
               ),
             ),
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 16),
-              ElevatedButton(
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
                 onPressed: onAction,
+                icon: Icon(
+                  isError ? Icons.refresh_rounded : Icons.arrow_forward_rounded,
+                  size: 16,
+                  color: Colors.white,
+                ),
+                label: Text(
+                  actionLabel!,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xff2B1564),
+                  backgroundColor: buttonBg,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                ),
-                child: Text(
-                  actionLabel!,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  elevation: 0,
                 ),
               ),
             ],

@@ -13,7 +13,7 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
   CameraController? _cameraController;
   List<CameraDescription>? _cameras;
   bool _isCameraInitialized = false;
-  int _selectedLength = 30;
+  final int _selectedLength = 30;
   
   int _selectedLutIndex = 0;
   late PageController _pageController;
@@ -116,13 +116,13 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                             onTap: () => Navigator.pop(context),
                             child: const Icon(Icons.close_rounded, color: Colors.white, size: 32),
                           ),
-                          Row(
+                          const Row(
                             children: [
-                              const Icon(Icons.flash_off_rounded, color: Colors.white, size: 24),
-                              const SizedBox(width: 24),
-                              const Text("1x", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                              const SizedBox(width: 24),
-                              const Icon(Icons.access_time_rounded, color: Colors.white, size: 24),
+                              Icon(Icons.flash_off_rounded, color: Colors.white, size: 24),
+                              SizedBox(width: 24),
+                              Text("1x", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                              SizedBox(width: 24),
+                              Icon(Icons.access_time_rounded, color: Colors.white, size: 24),
                             ],
                           ),
                           const Icon(Icons.flip_camera_ios_rounded, color: Colors.white, size: 28),

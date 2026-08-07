@@ -4,8 +4,7 @@ import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/widgets/empty_state.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:hidely_new/screens/voice_call_screen.dart';
-import 'package:hidely_new/screens/video_call_screen.dart';
+import 'package:hidely_new/screens/outgoing_call_screen.dart';
 
 /// Trip Itinerary Details Model for Groups
 class TripItineraryData {
@@ -1001,29 +1000,30 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
   }
 
   void _showCallingDialog(bool isVideo) {
-    if (isVideo) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => VideoCallScreen(
-            callerName: widget.chat.name,
-            callerAvatar: widget.chat.avatar,
-            callID: widget.chat.id,
-          ),
+    setState(() {
+      _messages.add(
+        ChatMessage(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          senderName: AuthService().userName.isNotEmpty ? AuthService().userName : 'You',
+          senderAvatar: AuthService().userProfilePicture.isNotEmpty ? AuthService().userProfilePicture : 'assets/images/user1.jpg',
+          text: isVideo ? '📹 Started a video call' : '📞 Started a voice call',
+          time: 'Just now',
+          isMe: true,
         ),
       );
-    } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => VoiceCallScreen(
-            callerName: widget.chat.name,
-            callerAvatar: widget.chat.avatar,
-            callID: widget.chat.id,
-          ),
+    });
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OutgoingCallScreen(
+          callerName: widget.chat.name,
+          callerAvatar: widget.chat.avatar,
+          callID: widget.chat.id,
+          isVideo: isVideo,
         ),
-      );
-    }
+      ),
+    );
   }
 
   Future<void> _pickAndSendImage(ImageSource source) async {
@@ -1318,7 +1318,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                             hintText: _isRecording ? 'Recording voice note...' : 'Message...',
                             hintStyle: TextStyle(color: _isRecording ? Colors.red : Colors.black38, fontSize: 13),
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           ),
                         ),
                       ),

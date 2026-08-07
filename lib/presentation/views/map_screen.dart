@@ -74,7 +74,7 @@ class MapScreen extends ConsumerStatefulWidget {
   ConsumerState<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends ConsumerState<MapScreen> {
+class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserver {
   Timer? _navigationTimer;
   Timer? _debounceTimer;
   final TextEditingController _searchController = TextEditingController();
@@ -93,6 +93,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   final Set<String> _dismissedAlerts = {};
   bool _isNavPanelCollapsed = false;
   final FlutterTts _flutterTts = FlutterTts();
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      final navStatus = ref.read(navigationStatusProvider);
+      if (navStatus == NavigationStatus.navigating) {
+        debugPrint('[MapScreen] App unlocked/resumed - Navigating session seamlessly continuing...');
+      }
+    }
+  }
 
   Future<void> _speakInstruction(String text) async {
     final cleanText = text.replaceAll(RegExp(r'<[^>]*>'), '');
@@ -141,6 +152,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkMapDownloadStatus();
     _initSpeech();
     _searchFocusNode.addListener(() {
@@ -560,6 +572,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _navigationTimer?.cancel();
     _debounceTimer?.cancel();
     _searchController.dispose();

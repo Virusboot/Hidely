@@ -57,90 +57,14 @@ class ArmoniaMap extends ConsumerStatefulWidget {
 
 class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
   static const String _mapStyleJson = '''
-  [
-    {
-      "elementType": "geometry",
-      "stylers": [{ "color": "#f5f5f7" }]
-    },
-    {
-      "elementType": "labels.icon",
-      "stylers": [{ "visibility": "off" }]
-    },
-    {
-      "elementType": "labels.text.fill",
-      "stylers": [{ "color": "#616161" }]
-    },
-    {
-      "elementType": "labels.text.stroke",
-      "stylers": [{ "color": "#f5f5f7" }]
-    },
-    {
-      "featureType": "administrative.land_parcel",
-      "elementType": "labels.text.fill",
-      "stylers": [{ "color": "#bdbdbd" }]
-    },
-    {
-      "featureType": "poi",
-      "elementType": "geometry",
-      "stylers": [{ "color": "#eeeeee" }]
-    },
-    {
-      "featureType": "poi",
-      "elementType": "labels.text.fill",
-      "stylers": [{ "color": "#757575" }]
-    },
-    {
-      "featureType": "poi.park",
-      "elementType": "geometry",
-      "stylers": [{ "color": "#e2e8f0" }]
-    },
-    {
-      "featureType": "road",
-      "elementType": "geometry",
-      "stylers": [{ "color": "#ffffff" }]
-    },
-    {
-      "featureType": "road.arterial",
-      "elementType": "labels.text.fill",
-      "stylers": [{ "color": "#757575" }]
-    },
-    {
-      "featureType": "road.highway",
-      "elementType": "geometry",
-      "stylers": [{ "color": "#cbd5e1" }]
-    },
-    {
-      "featureType": "road.highway",
-      "elementType": "labels.text.fill",
-      "stylers": [{ "color": "#616161" }]
-    },
-    {
-      "featureType": "road.local",
-      "elementType": "labels.text.fill",
-      "stylers": [{ "color": "#9e9e9e" }]
-    },
-    {
-      "featureType": "transit.line",
-      "elementType": "geometry",
-      "stylers": [{ "color": "#e5e5e5" }]
-    },
-    {
-      "featureType": "transit.station",
-      "elementType": "geometry",
-      "stylers": [{ "color": "#eeeeee" }]
-    },
-    {
-      "featureType": "water",
-      "elementType": "geometry",
-      "stylers": [{ "color": "#d1d5db" }]
-    },
-    {
-      "featureType": "water",
-      "elementType": "labels.text.fill",
-      "stylers": [{ "color": "#9e9e9e" }]
-    }
-  ]
-  ''';
+[
+  {
+    "featureType": "poi",
+    "elementType": "all",
+    "stylers": [ { "visibility": "off" } ]
+  }
+]
+''';
 
   gmaps.GoogleMapController? _googleMapController;
   final fm.MapController _osmMapController = fm.MapController();
@@ -796,7 +720,8 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     if (mapEngine == MapEngine.googleMaps) {
       // --- Online Mode: Google Maps ---
       final googleMapType = ref.watch(googleMapTypeProvider);
-      return gmaps.GoogleMap(
+      return RepaintBoundary(
+        child: gmaps.GoogleMap(
         mapType: googleMapType == 'satellite' ? gmaps.MapType.satellite : gmaps.MapType.normal,
         style: googleMapType == 'satellite' ? null : _mapStyleJson,
         initialCameraPosition: gmaps.CameraPosition(
@@ -849,7 +774,8 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
         },
         markers: _buildGoogleMarkers(currentLocation, widget.activeDestination),
         circles: _buildGoogleCircles(widget.places),
-      );
+      ),
+    );
     } else {
       // --- Offline/OSM Mode: Interactive Tile Map via flutter_map ---
       return fm.FlutterMap(

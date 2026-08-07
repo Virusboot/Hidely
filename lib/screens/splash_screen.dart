@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:hidely_new/screens/onboarding_controller.dart';
 import 'package:hidely_new/screens/main_wrapper.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/local_storage_service.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -53,25 +53,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     super.dispose();
   }
 
-  Future<void> _requestAllPermissions() async {
-    // Request all required permissions together in a single native prompt batch
-    await [
-      Permission.location,
-      Permission.camera,
-      Permission.microphone,
-      Permission.photos,
-      Permission.videos,
-      Permission.audio,
-      Permission.notification,
-    ].request();
-  }
-
   Future<void> _initializeApp() async {
     try {
-      // 1. Initialize all services and request permissions concurrently
       setState(() => _statusMessage = "Loading Hidely...");
+
+      // Initialize core services concurrently
       await Future.wait([
-        _requestAllPermissions(),
         AuthService().init().timeout(const Duration(seconds: 4), onTimeout: () {
           debugPrint('[Splash] AuthService init timed out');
         }),
@@ -83,8 +70,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         }),
       ]);
 
-      // Wait a fraction of a second to show loaded state for smooth transition
-      await Future.delayed(const Duration(milliseconds: 300));
+      // Ensure splash logo animation displays smoothly for at least 1.4 seconds
+      await Future.delayed(const Duration(milliseconds: 1400));
 
       if (!mounted) return;
 
@@ -96,20 +83,32 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           pageBuilder: (context, animation, secondaryAnimation) =>
               isLoggedIn ? const MainWrapper() : const OnboardingController(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
+            final curvedAnimation = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeInOut,
+            );
+            return FadeTransition(opacity: curvedAnimation, child: child);
           },
-          transitionDuration: const Duration(milliseconds: 800),
+          transitionDuration: const Duration(milliseconds: 450),
         ),
       );
     } catch (e) {
       debugPrint('[Splash] Initialization error: $e');
-      // If error occurs, fallback immediately to prevent app blocking
       if (mounted) {
         final bool isLoggedIn = AuthService().isLoggedIn;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) => isLoggedIn ? const MainWrapper() : const OnboardingController(),
+          PageRouteBuilder(
+            settings: const RouteSettings(name: "/main"),
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                isLoggedIn ? const MainWrapper() : const OnboardingController(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+                child: child,
+              );
+            },
+            transitionDuration: const Duration(milliseconds: 450),
           ),
         );
       }

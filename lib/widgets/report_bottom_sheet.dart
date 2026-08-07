@@ -37,23 +37,23 @@ class _ReportBottomSheetState extends State<ReportBottomSheet> {
   final List<ReportReason> _reasons = const [
     ReportReason(
       title: "Spam",
-      description: "Misleading, repetitive, or scam content",
+      description: "Scam, advertising, or repetitive promotional content",
       icon: Icons.alternate_email_rounded,
     ),
     ReportReason(
-      title: "Inappropriate Content",
-      description: "Sensitive, explicit, or outdoor-unrelated media",
-      icon: Icons.image_not_supported_outlined,
+      title: "Fake",
+      description: "Impersonation, fabricated place, or deceptive information",
+      icon: Icons.face_retouching_off_rounded,
     ),
     ReportReason(
-      title: "Harassment or Abuse",
-      description: "Abusive comments or hate speech",
+      title: "Abuse",
+      description: "Abusive comments, harassment, or hate speech",
       icon: Icons.gavel_rounded,
     ),
     ReportReason(
-      title: "Intellectual Property",
-      description: "Copied work or plagiarism",
-      icon: Icons.copyright_rounded,
+      title: "Wrong Location",
+      description: "Inaccurate GPS coordinates, wrong pin, or false address",
+      icon: Icons.wrong_location_rounded,
     ),
     ReportReason(
       title: "Other",

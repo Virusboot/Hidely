@@ -2,6 +2,12 @@
   "configVersion": 2,
   "packages": [
     {
+      "name": "ansicolor",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/ansicolor-2.0.3",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
       "name": "archive",
       "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/archive-4.0.9",
       "packageUri": "lib/",
@@ -328,6 +334,12 @@
     {
       "name": "flutter_map",
       "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/flutter_map-6.2.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
+      "name": "flutter_native_splash",
+      "rootUri": "file:///Users/harshbhardwaj/.pub-cache/hosted/pub.dev/flutter_native_splash-2.4.1",
       "packageUri": "lib/",
       "languageVersion": "3.0"
     },
@@ -1208,7 +1220,7 @@
       "languageVersion": "3.4"
     }
   ],
-  "generated": "2026-08-06T12:39:45.313780Z",
+  "generated": "2026-08-07T09:32:19.839364Z",
   "generator": "pub",
   "generatorVersion": "3.4.0",
   "flutterRoot": "file:///Users/harshbhardwaj/development/flutter",

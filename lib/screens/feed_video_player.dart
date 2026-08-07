@@ -54,8 +54,12 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   @override
   void dispose() {
-    _controller?.pause();
-    _controller?.dispose();
+    try {
+      _controller?.pause();
+      _controller?.dispose();
+    } catch (e) {
+      debugPrint("Error disposing video controller: $e");
+    }
     super.dispose();
   }
 

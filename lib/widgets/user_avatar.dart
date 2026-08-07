@@ -63,12 +63,16 @@ class UserAvatar extends StatelessWidget {
       resolvedUrl = '${ApiService().baseUrl}/${trimmedUrl.startsWith('/') ? trimmedUrl.substring(1) : trimmedUrl}';
     }
 
+    final int cachePx = (diameter * 2).toInt().clamp(64, 400);
+
     return ClipOval(
       child: SizedBox(
         width: diameter,
         height: diameter,
         child: CachedNetworkImage(
           imageUrl: resolvedUrl,
+          memCacheWidth: cachePx,
+          memCacheHeight: cachePx,
           fit: BoxFit.cover,
           alignment: Alignment.center,
           placeholder: (context, url) => Container(color: const Color(0xffE2E8F0)),

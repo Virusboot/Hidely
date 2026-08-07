@@ -5,6 +5,8 @@ import 'package:hidely_new/screens/feed_video_player.dart';
 import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/screens/user_profile_screen.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
+import 'package:hidely_new/widgets/report_bottom_sheet.dart';
+import 'package:hidely_new/widgets/empty_state.dart';
 
 class ReelsScreen extends StatefulWidget {
   const ReelsScreen({super.key});
@@ -98,18 +100,12 @@ class _ReelsScreenState extends State<ReelsScreen> {
               _isLoading
                   ? const Center(child: CircularProgressIndicator(color: Colors.white))
                   : _videoReels.isEmpty
-                      ? const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.video_library_outlined, size: 40, color: Colors.white24),
-                              SizedBox(height: 12),
-                              Text(
-                                "No Reels Published Yet",
-                                style: TextStyle(color: Colors.white60, fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
+                      ? EmptyStateWidget(
+                          icon: Icons.video_library_outlined,
+                          title: "No Video Reels Available",
+                          description: "Be the first creator to upload a reel for this hidden spot!",
+                          actionLabel: "Tap to Retry / Refresh",
+                          onAction: _fetchReels,
                         )
                       : PageView.builder(
                           controller: _pageController,
@@ -370,7 +366,27 @@ class _ReelsScreenState extends State<ReelsScreen> {
                   size: 26,
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 22),
+              GestureDetector(
+                onTap: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => ReportBottomSheet(
+                      targetType: 'Reel',
+                      targetName: caption.isNotEmpty ? caption : 'Reel #$id',
+                      onSubmitSuccess: () {},
+                    ),
+                  );
+                },
+                child: const Icon(
+                  Icons.report_gmailerrorred_rounded,
+                  color: Colors.white70,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(height: 24),
               Container(
                 width: 32,
                 height: 32,

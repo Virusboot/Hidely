@@ -77,6 +77,8 @@ dev_dependencies:
     sdk: flutter
   flutter_launcher_icons: ^0.13.1
 
+  flutter_native_splash: ^2.4.1
+
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
@@ -152,10 +154,15 @@ flutter:
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
 
-flutter_launcher_icons:
-  android: "ic_launcher_new"
+flutter_native_splash:
+  color: "#ffffff"
+  image: "assets/images/Logo.png"
+  android: true
   ios: true
-  image_path: "assets/images/app_icon.png"
+
+  android_12:
+    color: "#ffffff"
+    image: "assets/images/app_icon.png"
 
 
 
