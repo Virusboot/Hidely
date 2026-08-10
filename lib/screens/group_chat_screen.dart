@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hidely_new/services/auth_service.dart';
-import 'package:hidely_new/widgets/empty_state.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:hidely_new/screens/outgoing_call_screen.dart';
@@ -591,10 +590,49 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           _buildSearchAndFilterBar(),
           Expanded(
             child: Center(
-              child: EmptyStateWidget(
-                icon: Icons.send_rounded,
-                title: 'No Messages Yet',
-                description: emptyMessage,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: const Color(0xff1C0D5A).withOpacity(0.05),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.forum_rounded,
+                        size: 44,
+                        color: Color(0xff1C0D5A),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No Messages Yet',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'PublicSans',
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xff1C0D5A),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      emptyMessage,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'PublicSans',
+                        fontSize: 13,
+                        color: Colors.black54,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -767,24 +805,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
         ),
       ];
     } else {
-      return [
-        ChatMessage(
-          id: '1',
-          senderName: chat.name,
-          senderAvatar: chat.avatar,
-          text: 'Hey! Kaise ho?',
-          time: 'Yesterday',
-          isMe: false,
-        ),
-        ChatMessage(
-          id: '2',
-          senderName: 'You',
-          senderAvatar: 'assets/images/user1.jpg',
-          text: 'Main theek hoon! Aap batao.',
-          time: 'Yesterday',
-          isMe: true,
-        ),
-      ];
+      return [];
     }
   }
 
@@ -1231,14 +1252,101 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
         children: [
           // Chat Messages List
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final msg = _messages[index];
-                return _buildMessageBubble(msg);
-              },
-            ),
+            child: _messages.isEmpty
+                ? Center(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: widget.chat.themeColor.withOpacity(0.08),
+                                border: Border.all(color: widget.chat.themeColor.withOpacity(0.2), width: 2),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(40),
+                                child: Image.network(
+                                  widget.chat.avatar,
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.center,
+                                  errorBuilder: (ctx, err, stack) => Icon(
+                                    widget.chat.isGroup ? Icons.groups_rounded : Icons.person_rounded,
+                                    size: 40,
+                                    color: widget.chat.themeColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              widget.chat.name,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontFamily: 'PublicSans',
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xff1C0D5A),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.chat.isGroup
+                                  ? 'Group Trip Squad • ${widget.chat.memberCount ?? 1} Members'
+                                  : 'You\'re connected on Hidely',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontFamily: 'PublicSans',
+                                fontSize: 13,
+                                color: Colors.black54,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: widget.chat.themeColor.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.waving_hand_rounded, color: Colors.amber.shade700, size: 16),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    'Say hi to start the conversation!',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontFamily: 'PublicSans',
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xff1C0D5A),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final msg = _messages[index];
+                      return _buildMessageBubble(msg);
+                    },
+                  ),
           ),
 
           // Pinned Trip Details Banner at Bottom (Group Chats)

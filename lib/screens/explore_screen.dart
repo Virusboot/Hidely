@@ -562,6 +562,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 showModalBottomSheet(
                                   context: context,
                                   isScrollControlled: true,
+                                  useSafeArea: true,
                                   backgroundColor: Colors.transparent,
                                   builder: (_) => const ItineraryPlannerSheet(locationName: "Trip Destinations"),
                                 );

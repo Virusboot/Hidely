@@ -140,6 +140,7 @@ class _FeedScreenState extends State<FeedScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (context) => PostOptionsBottomSheet(post: post),
     );
   }
@@ -964,6 +965,7 @@ class _FeedScreenState extends State<FeedScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const ShareSheetWidget(),
     );

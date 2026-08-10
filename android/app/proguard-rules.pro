@@ -11,6 +11,13 @@
 -keep interface com.google.android.gms.maps.** { *; }
 -keep class com.google.android.gms.location.** { *; }
 
+# Google Play Core & Deferred Components Rules
+-dontwarn com.google.android.play.core.**
+-dontwarn io.flutter.embedding.engine.deferredcomponents.**
+-keep class com.google.android.play.core.** { *; }
+-keep class io.flutter.app.FlutterPlayStoreSplitApplication { *; }
+-keep class io.flutter.embedding.engine.deferredcomponents.** { *; }
+
 # Zego Cloud Rules
 -keep class im.zego.** { *; }
 -dontwarn im.zego.**

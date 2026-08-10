@@ -739,11 +739,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                                 ),
                               ).then((_) => _loadProfileData());
                             },
-                            child: _buildMetaStatColumn(
-                                _followingsCount >= 1000 
-                                    ? '${(_followingsCount/1000).toStringAsFixed(1)}k' 
-                                    : '$_followingsCount', 
-                                "following"),
+                            child: _buildMetaStatColumn("$_followingsCount", "following"),
                           ),
                         ],
                       ),
@@ -1002,11 +998,40 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   }
 
 
+  String _formatCompactCount(dynamic number) {
+    if (number == null) return '0';
+    if (number is String) {
+      final parsed = num.tryParse(number);
+      if (parsed == null) return number;
+      number = parsed;
+    }
+    final num val = number as num;
+    if (val >= 1000000000) {
+      double res = val / 1000000000;
+      String str = res.toStringAsFixed(1);
+      if (str.endsWith('.0')) str = str.substring(0, str.length - 2);
+      return '${str}B';
+    } else if (val >= 1000000) {
+      double res = val / 1000000;
+      String str = res.toStringAsFixed(1);
+      if (str.endsWith('.0')) str = str.substring(0, str.length - 2);
+      return '${str}M';
+    } else if (val >= 1000) {
+      double res = val / 1000;
+      String str = res.toStringAsFixed(1);
+      if (str.endsWith('.0')) str = str.substring(0, str.length - 2);
+      return '${str}k';
+    } else {
+      return val.toInt().toString();
+    }
+  }
+
   Widget _buildMetaStatColumn(String count, String label) {
+    final formattedCount = _formatCompactCount(count);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(count,
+        Text(formattedCount,
             style: const TextStyle(
                 color: Color(0xff1C0D5A),
                 fontSize: 20,

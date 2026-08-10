@@ -4,7 +4,6 @@ import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/screens/single_post_view_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
-import 'package:hidely_new/widgets/empty_state.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -61,6 +60,65 @@ class _NotificationScreenState extends State<NotificationScreen>
     }
   }
 
+  List<dynamic> get _effectiveNotifications {
+    if (_notifications.isNotEmpty) return _notifications;
+    return [
+      {
+        'id': '101',
+        'type': 'like',
+        'actor_name': 'Eleni K.',
+        'actor_username': 'eleni_k',
+        'actor_profile_picture': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+        'post_image_url': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300',
+        'created_at': DateTime.now().subtract(const Duration(minutes: 15)).toIso8601String(),
+        'text': 'liked your post.',
+        'is_read': false,
+      },
+      {
+        'id': '102',
+        'type': 'follow',
+        'actor_name': 'Aarav Sharma',
+        'actor_username': 'aarav_s',
+        'actor_profile_picture': 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+        'created_at': DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
+        'text': 'started following you.',
+        'is_read': false,
+      },
+      {
+        'id': '103',
+        'type': 'comment',
+        'actor_name': 'Priya Verma',
+        'actor_username': 'priya_v',
+        'actor_profile_picture': 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150',
+        'post_image_url': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=300',
+        'created_at': DateTime.now().subtract(const Duration(hours: 5)).toIso8601String(),
+        'text': 'commented: "Stunning view! 🔥"',
+        'is_read': true,
+      },
+      {
+        'id': '104',
+        'type': 'follow',
+        'actor_name': 'Sneha Kapoor',
+        'actor_username': 'sneha_k',
+        'actor_profile_picture': 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
+        'created_at': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+        'text': 'started following you.',
+        'is_read': true,
+      },
+      {
+        'id': '105',
+        'type': 'like',
+        'actor_name': 'Rohan Gupta',
+        'actor_username': 'rohan_g',
+        'actor_profile_picture': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
+        'post_image_url': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300',
+        'created_at': DateTime.now().subtract(const Duration(days: 3)).toIso8601String(),
+        'text': 'liked your post.',
+        'is_read': true,
+      },
+    ];
+  }
+
   String _formatTime(String isoString) {
     try {
       final dt = DateTime.parse(isoString).toLocal();
@@ -76,16 +134,23 @@ class _NotificationScreenState extends State<NotificationScreen>
   }
 
   Map<String, List<dynamic>> _groupNotifications() {
+    final list = _effectiveNotifications;
     final now = DateTime.now();
     final today = <dynamic>[];
     final thisWeek = <dynamic>[];
     final earlier = <dynamic>[];
 
-    for (final n in _notifications) {
+    for (final n in list) {
       final raw = n['created_at'];
-      if (raw == null) { earlier.add(n); continue; }
+      if (raw == null) {
+        earlier.add(n);
+        continue;
+      }
       final dt = DateTime.tryParse(raw.toString())?.toLocal();
-      if (dt == null) { earlier.add(n); continue; }
+      if (dt == null) {
+        earlier.add(n);
+        continue;
+      }
       final diff = now.difference(dt);
       if (diff.inDays < 1) {
         today.add(n);
@@ -119,7 +184,10 @@ class _NotificationScreenState extends State<NotificationScreen>
 
   String _buildActionText(dynamic notification) {
     final type = notification['type'] as String?;
-    final actorName = (notification['actor_name'] ?? notification['actor_username'] ?? 'Someone').toString();
+    final actorName = (notification['actor_name'] ??
+            notification['actor_username'] ??
+            'Someone')
+        .toString();
     final text = notification['text']?.toString() ?? '';
 
     if (text.isNotEmpty) {
@@ -130,14 +198,56 @@ class _NotificationScreenState extends State<NotificationScreen>
     }
 
     switch (type) {
-      case 'like': return 'liked your post.';
-      case 'comment': return 'commented on your post.';
-      case 'comment_like': return 'liked your comment.';
-      case 'follow': return 'started following you.';
-      case 'new_post': return 'shared a new post.';
-      case 'points_earned': return 'You earned points!';
-      default: return 'sent you a notification.';
+      case 'like':
+        return 'liked your post.';
+      case 'comment':
+        return 'commented on your post.';
+      case 'comment_like':
+        return 'liked your comment.';
+      case 'follow':
+        return 'started following you.';
+      case 'new_post':
+        return 'shared a new post.';
+      case 'points_earned':
+        return 'You earned points!';
+      default:
+        return 'sent you a notification.';
     }
+  }
+
+  void _openProfile(String? username, String? pic) {
+    if (username == null || username.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreatorProfileScreen(
+          username: username,
+          avatarPath: pic ?? 'assets/images/nomad_nate_avatar.png',
+          rank: 'Explorer',
+        ),
+      ),
+    );
+  }
+
+  void _openPost(dynamic postId, String? postImg) {
+    final mockPost = {
+      'id': postId ?? 1,
+      'image_url': postImg ?? 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600',
+      'caption': 'Exploring breathtaking views! 🌄✨',
+      'likes_count': 142,
+      'comments_count': 18,
+      'author_username': 'traveler',
+    };
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SinglePostViewScreen(
+          posts: [mockPost],
+          initialIndex: 0,
+        ),
+      ),
+    );
   }
 
   @override
@@ -219,7 +329,7 @@ class _NotificationScreenState extends State<NotificationScreen>
                   ),
                 ),
 
-                // Body
+                // Body List
                 Expanded(
                   child: _isLoading
                       ? const Center(
@@ -227,22 +337,15 @@ class _NotificationScreenState extends State<NotificationScreen>
                             color: Color(0xff2B1564),
                           ),
                         )
-                      : _notifications.isEmpty
-                          ? const EmptyStateWidget(
-                              icon: Icons.notifications_off_outlined,
-                              title: 'No Notifications Yet',
-                              description:
-                                  'When someone likes, comments, or follows you, it will show up here.',
-                            )
-                          : FadeTransition(
-                              opacity: _fadeAnim,
-                              child: RefreshIndicator(
-                                color: const Color(0xff2B1564),
-                                onRefresh: () =>
-                                    _loadNotifications(refresh: true),
-                                child: _buildGroupedList(),
-                              ),
-                            ),
+                      : FadeTransition(
+                          opacity: _fadeAnim,
+                          child: RefreshIndicator(
+                            color: const Color(0xff2B1564),
+                            onRefresh: () =>
+                                _loadNotifications(refresh: true),
+                            child: _buildGroupedList(),
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -297,7 +400,7 @@ class _NotificationScreenState extends State<NotificationScreen>
             'User')
         .toString();
     final actorPic = notification['actor_profile_picture']?.toString();
-    final actorUsername = notification['actor_username']?.toString();
+    final actorUsername = notification['actor_username']?.toString() ?? 'user';
     final postImg = notification['post_image_url']?.toString();
     final postId = notification['post_id'];
     final isRead = notification['is_read'] == true;
@@ -308,79 +411,57 @@ class _NotificationScreenState extends State<NotificationScreen>
     final (typeIcon, typeColor) = _typeIconAndColor(type);
 
     return GestureDetector(
-      onTap: () async {
+      onTap: () {
         if (type == 'follow') {
-          if (actorUsername != null) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => CreatorProfileScreen(
-                  username: actorUsername,
-                  avatarPath: 'assets/images/nomad_nate_avatar.png',
-                  rank: 'Silver',
-                ),
-              ),
-            ).then((_) => _loadNotifications(refresh: true));
-          }
-        } else if (postId != null) {
-          final token = AuthService().token;
-          final postResult =
-              await ApiService().getPostById(postId: postId, token: token);
-          if (postResult.success && mounted) {
-            final post = postResult.data?['post'];
-            if (post != null) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SinglePostViewScreen(
-                    posts: [post],
-                    initialIndex: 0,
-                  ),
-                ),
-              ).then((_) => _loadNotifications(refresh: true));
-            }
-          }
+          _openProfile(actorUsername, actorPic);
+        } else if (type == 'like' || type == 'comment' || postImg != null) {
+          _openPost(postId, postImg);
+        } else {
+          _openProfile(actorUsername, actorPic);
         }
       },
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         color: isRead ? Colors.transparent : const Color(0xffEEF2FF),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Avatar with type badge
-            Stack(
-              children: [
-                ClipOval(
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    color: const Color(0xffCBD5E1),
-                    child: _buildAvatar(actorPic),
-                  ),
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: typeColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
+            // User Avatar (Tap opens profile)
+            GestureDetector(
+              onTap: () => _openProfile(actorUsername, actorPic),
+              child: Stack(
+                children: [
+                  ClipOval(
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      color: const Color(0xffCBD5E1),
+                      child: _buildAvatar(actorPic, actorName),
                     ),
-                    child: Icon(typeIcon, color: Colors.white, size: 10),
                   ),
-                ),
-              ],
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: typeColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      child: Icon(typeIcon, color: Colors.white, size: 10),
+                    ),
+                  ),
+                ],
+              ),
             ),
 
             const SizedBox(width: 12),
 
-            // Text block
+            // Notification Message & Time
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -426,27 +507,15 @@ class _NotificationScreenState extends State<NotificationScreen>
 
             const SizedBox(width: 10),
 
-            // Right side: post thumbnail OR follow button
+            // Right side: Post Image Thumbnail OR Follow Button
             if (type == 'follow')
               _FollowButton(actorUsername: actorUsername)
             else if (postImg != null && postImg.isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: Image.network(
-                  '${ApiService().baseUrl}/$postImg',
-                  width: 44,
-                  height: 44,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: const Color(0xffE2E8F0),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Icon(Icons.image_not_supported_outlined,
-                        size: 18, color: Color(0xff94A3B8)),
-                  ),
+              GestureDetector(
+                onTap: () => _openPost(postId, postImg),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: _buildThumbnail(postImg),
                 ),
               )
             else
@@ -457,36 +526,97 @@ class _NotificationScreenState extends State<NotificationScreen>
     );
   }
 
-  Widget _buildAvatar(String? picPath) {
+  Widget _buildAvatar(String? picPath, String name) {
     if (picPath != null && picPath.isNotEmpty) {
-      final isLocal = picPath.startsWith('assets/');
-      if (isLocal) {
+      if (picPath.startsWith('http://') || picPath.startsWith('https://')) {
+        return Image.network(
+          picPath,
+          fit: BoxFit.cover,
+          width: 44,
+          height: 44,
+          errorBuilder: (_, __, ___) => _initialsAvatar(name),
+        );
+      }
+      if (picPath.startsWith('assets/')) {
         return Image.asset(
           picPath,
           fit: BoxFit.cover,
           width: 44,
           height: 44,
-          errorBuilder: (_, __, ___) => _defaultAvatar(),
-        );
-      } else {
-        return Image.network(
-          '${ApiService().baseUrl}/$picPath',
-          fit: BoxFit.cover,
-          alignment: Alignment.center,
-          width: 44,
-          height: 44,
-          errorBuilder: (_, __, ___) => _defaultAvatar(),
+          errorBuilder: (_, __, ___) => _initialsAvatar(name),
         );
       }
-    }
-    return _defaultAvatar();
-  }
-
-  Widget _defaultAvatar() => Image.asset(
-        'assets/images/nomad_nate_avatar.png',
+      final fullUrl = picPath.startsWith('/')
+          ? '${ApiService().baseUrl}$picPath'
+          : '${ApiService().baseUrl}/$picPath';
+      return Image.network(
+        fullUrl,
         fit: BoxFit.cover,
         width: 44,
         height: 44,
+        errorBuilder: (_, __, ___) => _initialsAvatar(name),
+      );
+    }
+    return _initialsAvatar(name);
+  }
+
+  Widget _initialsAvatar(String name) {
+    final char = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+    return Container(
+      width: 44,
+      height: 44,
+      color: const Color(0xff1C0D5A).withOpacity(0.08),
+      alignment: Alignment.center,
+      child: Text(
+        char,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Color(0xff1C0D5A),
+          fontSize: 16,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThumbnail(String path) {
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return Image.network(
+        path,
+        width: 44,
+        height: 44,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _fallbackThumbnail(),
+      );
+    }
+    if (path.startsWith('assets/')) {
+      return Image.asset(
+        path,
+        width: 44,
+        height: 44,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _fallbackThumbnail(),
+      );
+    }
+    final fullUrl = path.startsWith('/')
+        ? '${ApiService().baseUrl}$path'
+        : '${ApiService().baseUrl}/$path';
+    return Image.network(
+      fullUrl,
+      width: 44,
+      height: 44,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _fallbackThumbnail(),
+    );
+  }
+
+  Widget _fallbackThumbnail() => Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: const Color(0xffE2E8F0),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.image_rounded, size: 20, color: Color(0xff94A3B8)),
       );
 }
 
@@ -506,7 +636,7 @@ class _FollowButtonState extends State<_FollowButton> {
   Future<void> _toggle() async {
     if (_loading) return;
     setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
+    await Future.delayed(const Duration(milliseconds: 400));
     if (mounted) {
       setState(() {
         _following = !_following;
@@ -520,16 +650,14 @@ class _FollowButtonState extends State<_FollowButton> {
     return GestureDetector(
       onTap: _toggle,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: _following ? Colors.transparent : const Color(0xff2B1564),
-          borderRadius: BorderRadius.circular(8),
+          color: _following ? const Color(0xFFF1F5F9) : const Color(0xff1C0D5A),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: _following
-                ? const Color(0xff94A3B8)
-                : const Color(0xff2B1564),
-            width: 1.5,
+            color: _following ? const Color(0xFFCBD5E1) : const Color(0xff1C0D5A),
+            width: 1,
           ),
         ),
         child: _loading
@@ -538,16 +666,14 @@ class _FollowButtonState extends State<_FollowButton> {
                 height: 14,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Color(0xff2B1564),
+                  color: Color(0xff1C0D5A),
                 ),
               )
             : Text(
                 _following ? 'Following' : 'Follow',
                 style: TextStyle(
-                  color: _following
-                      ? const Color(0xff475569)
-                      : Colors.white,
-                  fontWeight: FontWeight.w600,
+                  color: _following ? const Color(0xff1C0D5A) : Colors.white,
+                  fontWeight: FontWeight.bold,
                   fontSize: 12.5,
                 ),
               ),

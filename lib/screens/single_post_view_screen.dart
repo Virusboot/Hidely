@@ -324,13 +324,15 @@ class _SinglePostViewScreenState extends State<SinglePostViewScreen> {
                                 ),
                               ),
                               GestureDetector(
-                                onTap: () {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    backgroundColor: Colors.transparent,
-                                    builder: (context) => PostOptionsBottomSheet(post: post),
-                                  );
-                                },
+                                 onTap: () {
+                                   showModalBottomSheet(
+                                     context: context,
+                                     backgroundColor: Colors.transparent,
+                                     isScrollControlled: true,
+                                     useSafeArea: true,
+                                     builder: (context) => PostOptionsBottomSheet(post: post),
+                                   );
+                                 },
                                 child: Image.asset(
                                   'assets/icons/Menu.png',
                                   width: 20,

@@ -10,7 +10,8 @@ import 'blocked_accounts_screen.dart';
 import 'help_center_screen.dart';
 import 'about_screen.dart';
 import 'add_account_screen.dart';
-import 'package:hidely_new/widgets/itinerary_planner_sheet.dart';
+import 'saved_trips_screen.dart';
+import 'hire_traveller_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -112,18 +113,14 @@ class _SettingsAndPrivacyScreenState
         'icon': Icons.travel_explore_rounded,
         'items': [
           {
-            'title': 'Trip Planner',
-            'subtitle': 'AI-powered itinerary planner for your next trip',
+            'title': 'Trip Planner & My Trips',
+            'subtitle': 'AI-powered trip planner & your saved itineraries',
             'icon': Icons.map_rounded,
             'iconBg': const Color(0xffEDE9FC),
             'iconColor': const Color(0xff7C3AED),
-            'onTap': () => showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (_) => const ItineraryPlannerSheet(
-                locationName: 'My Trip',
-              ),
+            'onTap': () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SavedTripsScreen()),
             ),
           },
           {
@@ -132,41 +129,9 @@ class _SettingsAndPrivacyScreenState
             'icon': Icons.travel_explore_rounded,
             'iconBg': const Color(0xffE6F7EE),
             'iconColor': const Color(0xff059669),
-            'onTap': () => showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                backgroundColor: Colors.white,
-                title: const Row(
-                  children: [
-                    Icon(Icons.travel_explore_rounded, color: Color(0xFF059669), size: 22),
-                    SizedBox(width: 8),
-                    Text(
-                      'Hire a Traveller',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xff1C0D5A),
-                      ),
-                    ),
-                  ],
-                ),
-                content: const Text(
-                  'Connect with verified local explorers and travellers to guide your next adventure. This feature is coming soon!',
-                  style: TextStyle(fontSize: 13.5, color: Color(0xff4A457A), height: 1.5),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text(
-                      'Got it',
-                      style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
+            'onTap': () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const HireTravellerScreen()),
             ),
           },
         ],

@@ -215,52 +215,160 @@ class AiService {
     );
   }
 
-  /// AI Custom Trip Planner (Inputs: Location, Budget, Days)
+  /// AI Custom Trip Planner with real Gemini AI Generative Model + Smart Fallback
   Future<AiItineraryResult> generateCustomItinerary({
     required String location,
     required double budget,
     required int days,
   }) async {
+    final cleanLocation = location.trim().isEmpty ? 'Travel Destination' : location.trim();
+    final apiKey = await getApiKey() ?? '';
+
+    if (apiKey.isNotEmpty) {
+      try {
+        final model = GenerativeModel(
+          model: 'gemini-1.5-flash',
+          apiKey: apiKey,
+        );
+
+        final prompt = '''
+        You are an expert AI travel planner. Create a detailed $days-day customized trip itinerary for "$cleanLocation" with a total budget of ₹${budget.toStringAsFixed(0)} INR.
+
+        Respond strictly in valid JSON format matching this schema:
+        {
+          "summaryTip": "Actionable 1-sentence tip tailored specifically to $cleanLocation, budget ₹${budget.toStringAsFixed(0)}, and $days days duration.",
+          "days": [
+            {
+              "dayNumber": 1,
+              "title": "Short catchy title for Day 1",
+              "morning": "Morning activity detail for Day 1",
+              "afternoon": "Afternoon activity detail for Day 1",
+              "evening": "Evening activity detail for Day 1",
+              "estimatedCost": 1500
+            }
+          ]
+        }
+        ''';
+
+        final response = await model.generateContent([Content.text(prompt)]).timeout(const Duration(seconds: 7));
+        final responseText = response.text ?? '';
+
+        String jsonString = responseText.trim();
+        if (jsonString.contains('```json')) {
+          jsonString = jsonString.split('```json').last.split('```').first.trim();
+        } else if (jsonString.contains('```')) {
+          jsonString = jsonString.split('```').last.split('```').first.trim();
+        }
+
+        final Map<String, dynamic> data = json.decode(jsonString);
+        final String summaryTip = data['summaryTip'] as String? ??
+            'AI Tip: Early morning departure helps avoid traffic. Your ₹${budget.toStringAsFixed(0)} budget is well distributed!';
+        
+        final List<dynamic> daysList = data['days'] as List<dynamic>? ?? [];
+        final List<AiItineraryDay> itineraryDays = [];
+
+        for (final dayItem in daysList) {
+          final Map<String, dynamic> dMap = dayItem as Map<String, dynamic>;
+          itineraryDays.add(AiItineraryDay(
+            dayNumber: (dMap['dayNumber'] as num?)?.toInt() ?? (itineraryDays.length + 1),
+            title: dMap['title'] as String? ?? 'Exploration Day',
+            morning: dMap['morning'] as String? ?? 'Morning sightseeing around $cleanLocation.',
+            afternoon: dMap['afternoon'] as String? ?? 'Afternoon authentic lunch & spots.',
+            evening: dMap['evening'] as String? ?? 'Evening sunset views & local market.',
+            estimatedCost: (dMap['estimatedCost'] as num?)?.toDouble() ?? (budget / days),
+          ));
+        }
+
+        if (itineraryDays.isNotEmpty) {
+          return AiItineraryResult(
+            location: cleanLocation,
+            days: days,
+            budget: budget,
+            itineraryDays: itineraryDays,
+            summaryTip: summaryTip,
+          );
+        }
+      } catch (e) {
+        debugPrint('[AiService] Gemini itinerary generation error: $e');
+      }
+    }
+
+    // Smart AI Heuristics Fallback (Location-aware & Budget-tier aware)
+    return _generateSmartFallbackItinerary(cleanLocation, budget, days);
+  }
+
+  AiItineraryResult _generateSmartFallbackItinerary(String location, double budget, int days) {
+    final lowerLoc = location.toLowerCase();
     final List<AiItineraryDay> itineraryDays = [];
     final double perDayBudget = (budget / max(1, days)).roundToDouble();
 
-    for (int day = 1; day <= days; day++) {
-      if (day == 1) {
-        itineraryDays.add(AiItineraryDay(
-          dayNumber: 1,
-          title: 'Arrival & Scenic Exploration',
-          morning: 'Check-in at homestay & morning tea overlooking $location vistas.',
-          afternoon: 'Explore main heritage market & local authentic dining.',
-          evening: 'Sunset viewpoint capture & evening walk around secret trails.',
-          estimatedCost: perDayBudget * 0.9,
-        ));
-      } else if (day == 2) {
-        itineraryDays.add(AiItineraryDay(
-          dayNumber: 2,
-          title: 'Hidden Waterfalls & Nature Trek',
-          morning: 'Early morning trek to secret waterfall spot with minimal crowd.',
-          afternoon: 'Riverside picnic lunch & photography session.',
-          evening: 'Bonfire experience & stargazing at mountain cafe.',
-          estimatedCost: perDayBudget * 1.1,
-        ));
-      } else {
-        itineraryDays.add(AiItineraryDay(
-          dayNumber: day,
-          title: 'Cultural Heritage & Souvenirs',
-          morning: 'Visit ancient temple & local artisan handicraft workshops.',
-          afternoon: 'Panaromic valley view & relaxed cafe lunch.',
-          evening: 'Return travel preparation & final sunset view.',
-          estimatedCost: perDayBudget * 1.0,
-        ));
-      }
+    // Determine Budget Tier Label
+    String budgetTier = 'Comfortable Stay';
+    if (budget < 4000) {
+      budgetTier = 'Backpacker Budget';
+    } else if (budget > 12000) {
+      budgetTier = 'Premium Luxury Stay';
     }
+
+    // Location Type Heuristic
+    bool isBeach = lowerLoc.contains('goa') || lowerLoc.contains('beach') || lowerLoc.contains('gokarna') || lowerLoc.contains('kerala');
+    bool isMountain = lowerLoc.contains('manali') || lowerLoc.contains('shimla') || lowerLoc.contains('leh') || lowerLoc.contains('mussoorie') || lowerLoc.contains('nainital') || lowerLoc.contains('dharamshala');
+    bool isRishikesh = lowerLoc.contains('rishikesh') || lowerLoc.contains('haridwar');
+
+    for (int day = 1; day <= days; day++) {
+      String title = '';
+      String morning = '';
+      String afternoon = '';
+      String evening = '';
+
+      if (day == 1) {
+        title = 'Arrival & Scenic Exploration';
+        morning = 'Check-in at $budgetTier in $location & morning tea with local views.';
+        afternoon = isBeach
+            ? 'Relax at secret beach shack & enjoy fresh coconut water.'
+            : 'Explore heritage market & sample authentic local cuisine.';
+        evening = isRishikesh
+            ? 'Attend evening Ganga Aarti at Triveni Ghat & sunset walk.'
+            : 'Sunset viewpoint photo session & evening stroll near hidden trails.';
+      } else if (day == 2) {
+        title = isBeach ? 'Coastal Water Sports & Cliff Sunset' : (isMountain ? 'Hidden Waterfalls & Mountain Trek' : 'Local Spots & Hidden Gems');
+        morning = isBeach
+            ? 'Early morning beach walk & optional jet-ski or parasailing session.'
+            : 'Trek to secret waterfall spot with minimal crowd and pristine nature.';
+        afternoon = isMountain
+            ? 'Riverside picnic lunch & mountain valley photography.'
+            : 'Cafe hopping & trying signature local dish for lunch.';
+        evening = 'Bonfire experience, live acoustic music & stargazing at cozy cafe.';
+      } else if (day == 3) {
+        title = 'Culture, Crafts & Local Markets';
+        morning = 'Visit ancient temple, heritage fort, or local artisan handicraft center.';
+        afternoon = 'Panoramic view point visit & relaxed leisurely lunch.';
+        evening = 'Explore night bazaar for authentic souvenirs & local street snacks.';
+      } else {
+        title = 'Nature Escape & Scenic Trails (Day $day)';
+        morning = 'Sunrise view point trek or serene morning lakeside/river walk.';
+        afternoon = 'Visit hidden viewpoint cafe & local organic tea/coffee gardens.';
+        evening = 'Relaxed leisure evening with local storytelling & final dinner.';
+      }
+
+      itineraryDays.add(AiItineraryDay(
+        dayNumber: day,
+        title: title,
+        morning: morning,
+        afternoon: afternoon,
+        evening: evening,
+        estimatedCost: day == 1 ? perDayBudget * 0.9 : (day == 2 ? perDayBudget * 1.1 : perDayBudget),
+      ));
+    }
+
+    String summaryTip = 'AI Tip: For $location ($budgetTier), morning travel avoids weekend crowds. Your total ₹${budget.toStringAsFixed(0)} is perfectly optimized across $days days!';
 
     return AiItineraryResult(
       location: location,
       days: days,
       budget: budget,
       itineraryDays: itineraryDays,
-      summaryTip: 'Tip: Travel early in the morning to avoid weekend traffic. Total estimated budget ₹${budget.toStringAsFixed(0)} perfectly covers stays & activities!',
+      summaryTip: summaryTip,
     );
   }
 

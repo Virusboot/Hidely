@@ -245,11 +245,17 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                                 color: Colors.white,
                                 shape: BoxShape.circle,
                               ),
-                              child: Center(child: Image.asset('assets/images/back_icon.png', color: const Color(0xff1C0D5A), width: 18.0, height: 18.0)),
+                              child: const Center(
+                                child: Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1C0D5A), size: 18),
+                              ),
                             ),
                           ),
                           Text(
-                            "@${_creatorData?["username"] ?? widget.username}",
+                            (_creatorData?["username"] ?? widget.username).toString().contains(' ')
+                                ? (_creatorData?["username"] ?? widget.username)
+                                : ((_creatorData?["username"] ?? widget.username).toString().startsWith('@')
+                                    ? (_creatorData?["username"] ?? widget.username)
+                                    : "@${_creatorData?["username"] ?? widget.username}"),
                             style: const TextStyle(
                               color: Color(0xff1C0D5A),
                               fontWeight: FontWeight.bold,
@@ -277,42 +283,55 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
                       child: Row(
                         children: [
-                          Stack(
-                            clipBehavior: Clip.none,
-                            alignment: Alignment.center,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(2.5),
-                                decoration: const BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: LinearGradient(
-                                    colors: [Color(0xff4F46E5), Color(0xff9333EA)],
+                          SizedBox(
+                            width: 89,
+                            height: 89,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              alignment: Alignment.center,
+                              children: [
+                                Container(
+                                  width: 89,
+                                  height: 89,
+                                  padding: const EdgeInsets.all(2.5),
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [Color(0xFF1C0D5A), Color(0xFF6D28D9)],
+                                    ),
+                                  ),
+                                  child: UserAvatar(
+                                    avatarUrl: avatarUrl,
+                                    displayName: _creatorData?["name"]?.toString() ?? widget.username,
+                                    radius: 42,
                                   ),
                                 ),
-                                child: UserAvatar(
-                                  avatarUrl: avatarUrl,
-                                  displayName: _creatorData?["name"]?.toString() ?? widget.username,
-                                  radius: 42,
-                                ),
-                              ),
-                              Positioned(
-                                bottom: -8,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xff431D9A),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: Colors.white, width: 1.5),
+                                Positioned(
+                                  bottom: -8,
+                                  left: -15,
+                                  right: -15,
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF1C0D5A),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: Colors.white, width: 1.5),
+                                      ),
+                                      child: const Text(
+                                        'RANK',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                  child: Text(
-                                    widget.rank.toLowerCase().contains('rank')
-                                        ? widget.rank.toUpperCase()
-                                        : (widget.rank.toLowerCase() == 'novice' ? 'NOVICE' : 'RANK ${widget.rank.toUpperCase()}'),
-                                    style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold, letterSpacing: 0.4),
-                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                           Expanded(
                             child: Row(
@@ -363,9 +382,37 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            _creatorData?["name"] ?? _creatorData?["username"] ?? widget.username,
-                            style: const TextStyle(color: Color(0xff1C0D5A), fontSize: 16, fontWeight: FontWeight.bold),
+                          Row(
+                            children: [
+                              Text(
+                                _creatorData?["name"] ?? _creatorData?["username"] ?? widget.username,
+                                style: const TextStyle(color: Color(0xff1C0D5A), fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                              if (_creatorData?["is_verified"] == true || widget.username == 'hidely_official') ...[
+                                const SizedBox(width: 4),
+                                const Icon(Icons.verified_rounded, color: Color(0xFF2563EB), size: 17),
+                              ],
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFAF5FF),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: const Color(0xFFE9D5FF)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.workspace_premium_rounded, color: Color(0xFF9333EA), size: 14),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      widget.rank.isNotEmpty ? widget.rank : 'Master Explorer',
+                                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF7E22CE)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                           if (_cleanBio.isNotEmpty) ...[
                             const SizedBox(height: 6),
@@ -661,11 +708,40 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
     );
   }
 
+  String _formatCompactCount(dynamic number) {
+    if (number == null) return '0';
+    if (number is String) {
+      final parsed = num.tryParse(number);
+      if (parsed == null) return number;
+      number = parsed;
+    }
+    final num val = number as num;
+    if (val >= 1000000000) {
+      double res = val / 1000000000;
+      String str = res.toStringAsFixed(1);
+      if (str.endsWith('.0')) str = str.substring(0, str.length - 2);
+      return '${str}B';
+    } else if (val >= 1000000) {
+      double res = val / 1000000;
+      String str = res.toStringAsFixed(1);
+      if (str.endsWith('.0')) str = str.substring(0, str.length - 2);
+      return '${str}M';
+    } else if (val >= 1000) {
+      double res = val / 1000;
+      String str = res.toStringAsFixed(1);
+      if (str.endsWith('.0')) str = str.substring(0, str.length - 2);
+      return '${str}k';
+    } else {
+      return val.toInt().toString();
+    }
+  }
+
   Widget _buildMetaStatColumn(String count, String label) {
+    final formattedCount = _formatCompactCount(count);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(count, style: const TextStyle(color: Color(0xff1C0D5A), fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(formattedCount, style: const TextStyle(color: Color(0xff1C0D5A), fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
         Text(label, style: const TextStyle(color: Colors.black38, fontSize: 12, fontWeight: FontWeight.w500)),
       ],
