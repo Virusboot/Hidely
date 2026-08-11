@@ -7,6 +7,7 @@ import 'package:hidely_new/widgets/empty_state.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/widgets/explorer_badge.dart';
 import 'package:hidely_new/screens/group_chat_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:hidely_new/widgets/report_bottom_sheet.dart';
@@ -504,6 +505,14 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                         ],
                       ),
                     ),
+                    const SizedBox(height: 16),
+
+                    // Explorer Badges & Gamification Ribbon
+                    ExplorerBadgesRibbon(
+                      postCount: _creatorPosts.length,
+                      posts: _creatorPosts,
+                    ),
+
                     const SizedBox(height: 20),
 
                     // --- 4. ACTION ROW (FOLLOW / MESSAGE / USER ADD) ---

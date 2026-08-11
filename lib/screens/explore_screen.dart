@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:hidely_new/screens/location_detail_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/screens/leaderboard_screen.dart';
 import 'package:hidely_new/widgets/itinerary_planner_sheet.dart';
 import 'package:hidely_new/widgets/empty_state.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -545,6 +546,34 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             contentPadding: const EdgeInsets.symmetric(vertical: 13),
                           ),
                           style: const TextStyle(fontSize: 14, color: Colors.black87),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const LeaderboardScreen()),
+                        );
+                      },
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: const Color(0xffFEF3C7),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xffF59E0B).withOpacity(0.3)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Text("🏆", style: TextStyle(fontSize: 20)),
                         ),
                       ),
                     ),

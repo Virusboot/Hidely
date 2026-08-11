@@ -572,6 +572,11 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // Explorer Badges & Gamification Ribbon
+              ExplorerBadgesRibbon(postCount: _postsCount, posts: _userPosts),
+
               const SizedBox(height: 20),
 
               // --- 4. ACTION BUTTONS ---
