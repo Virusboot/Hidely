@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hidely_new/main.dart';
 import 'package:hidely_new/screens/location_detail_screen.dart';
-import 'package:hidely_new/data/official_posts.dart';
 
 class DeepLinkService {
   static final DeepLinkService _instance = DeepLinkService._internal();
@@ -36,30 +35,17 @@ class DeepLinkService {
     final context = navigatorKey.currentContext;
     if (context == null) return;
 
-    // Search official places first for instant offline preview matching
-    Map<String, dynamic>? matchedOfficial;
-    for (final post in officialHidelyPosts) {
-      if (post['id']?.toString() == placeId || 'official_${post["id"]}' == placeId) {
-        matchedOfficial = post;
-        break;
-      }
-    }
-
-    String title = matchedOfficial?['title'] ?? 'Hidden Place #$placeId';
-    String location = matchedOfficial?['location'] ?? 'Destination Location';
-    String image = matchedOfficial?['image_url'] ?? 'assets/images/explore_1.png';
-    String category = matchedOfficial?['category_name'] ?? 'Attractions';
-
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => LocationDetailScreen(
-          title: title,
-          location: location,
-          image: image,
-          category: category,
+          title: 'Place #$placeId',
+          location: 'Location',
+          image: '',
+          category: 'Attractions',
         ),
       ),
     );
   }
 }
+

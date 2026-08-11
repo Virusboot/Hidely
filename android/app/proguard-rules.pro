@@ -1,4 +1,22 @@
-# Flutter ProGuard Rules
+# ============================================================================
+# HIDELY PRODUCTION SECURITY & PROGUARD OBFUSCATION RULES
+# Prevents reverse engineering, decompiler code theft, and APK tampering
+# ============================================================================
+
+# Obfuscation & Shrinking Directives
+-repackageclasses ''
+-allowaccessmodification
+-renamesourcefileattribute ""
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
+
+# Strip native Android Log calls in release builds for security
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+    public static *** i(...);
+}
+
+# Flutter Core Rules
 -keep class io.flutter.app.** { *; }
 -keep class io.flutter.plugin.** { *; }
 -keep class io.flutter.util.** { *; }

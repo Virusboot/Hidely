@@ -61,62 +61,7 @@ class _NotificationScreenState extends State<NotificationScreen>
   }
 
   List<dynamic> get _effectiveNotifications {
-    if (_notifications.isNotEmpty) return _notifications;
-    return [
-      {
-        'id': '101',
-        'type': 'like',
-        'actor_name': 'Eleni K.',
-        'actor_username': 'eleni_k',
-        'actor_profile_picture': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-        'post_image_url': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300',
-        'created_at': DateTime.now().subtract(const Duration(minutes: 15)).toIso8601String(),
-        'text': 'liked your post.',
-        'is_read': false,
-      },
-      {
-        'id': '102',
-        'type': 'follow',
-        'actor_name': 'Aarav Sharma',
-        'actor_username': 'aarav_s',
-        'actor_profile_picture': 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-        'created_at': DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
-        'text': 'started following you.',
-        'is_read': false,
-      },
-      {
-        'id': '103',
-        'type': 'comment',
-        'actor_name': 'Priya Verma',
-        'actor_username': 'priya_v',
-        'actor_profile_picture': 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150',
-        'post_image_url': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=300',
-        'created_at': DateTime.now().subtract(const Duration(hours: 5)).toIso8601String(),
-        'text': 'commented: "Stunning view! 🔥"',
-        'is_read': true,
-      },
-      {
-        'id': '104',
-        'type': 'follow',
-        'actor_name': 'Sneha Kapoor',
-        'actor_username': 'sneha_k',
-        'actor_profile_picture': 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
-        'created_at': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-        'text': 'started following you.',
-        'is_read': true,
-      },
-      {
-        'id': '105',
-        'type': 'like',
-        'actor_name': 'Rohan Gupta',
-        'actor_username': 'rohan_g',
-        'actor_profile_picture': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-        'post_image_url': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300',
-        'created_at': DateTime.now().subtract(const Duration(days: 3)).toIso8601String(),
-        'text': 'liked your post.',
-        'is_read': true,
-      },
-    ];
+    return _notifications;
   }
 
   String _formatTime(String isoString) {
@@ -230,20 +175,17 @@ class _NotificationScreenState extends State<NotificationScreen>
   }
 
   void _openPost(dynamic postId, String? postImg) {
-    final mockPost = {
-      'id': postId ?? 1,
-      'image_url': postImg ?? 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600',
-      'caption': 'Exploring breathtaking views! 🌄✨',
-      'likes_count': 142,
-      'comments_count': 18,
-      'author_username': 'traveler',
+    if (postId == null) return;
+    final postData = {
+      'id': postId,
+      if (postImg != null && postImg.isNotEmpty) 'image_url': postImg,
     };
 
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => SinglePostViewScreen(
-          posts: [mockPost],
+          posts: [postData],
           initialIndex: 0,
         ),
       ),

@@ -29,6 +29,7 @@ class AuthService {
   }
   String get userName => _user?['name'] ?? '';
   String get userUsername => _user?['username'] ?? '';
+  String get userGender => _user?['gender'] ?? '';
   String get userPronouns => _user?['pronouns'] ?? '';
   String get userEmail => _user?['email'] ?? '';
   String get userBio => _user?['bio'] ?? '';

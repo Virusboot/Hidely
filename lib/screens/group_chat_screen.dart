@@ -785,28 +785,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
   static final Map<String, List<ChatMessage>> _messagesHistory = {};
 
   List<ChatMessage> _getDummyMessages(ChatItem chat) {
-    if (chat.isGroup) {
-      return [
-        ChatMessage(
-          id: '1',
-          senderName: 'Nomad Nate',
-          senderAvatar: 'assets/images/nomad_nate_avatar.png',
-          text: 'Hey group! Sab log Nainital trip ke liye excited ho? 🏔️',
-          time: '10:30 AM',
-          isMe: false,
-        ),
-        ChatMessage(
-          id: '2',
-          senderName: 'Solo Sara',
-          senderAvatar: 'assets/images/user2.jpg',
-          text: 'Haan packing start kar di hai! Pinned itinerary check kar li sabne?',
-          time: '10:32 AM',
-          isMe: false,
-        ),
-      ];
-    } else {
-      return [];
-    }
+    return [];
   }
 
   @override

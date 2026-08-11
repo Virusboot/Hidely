@@ -571,64 +571,7 @@ class _ShareToChatBottomSheetState extends State<ShareToChatBottomSheet> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
 
-  final List<Map<String, dynamic>> _users = [
-    {
-      "id": "1",
-      "name": "Eleni K.",
-      "username": "eleni_k",
-      "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
-      "selected": false,
-    },
-    {
-      "id": "2",
-      "name": "Manali Squad 🏔️",
-      "username": "group_manali",
-      "avatar": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=150",
-      "selected": false,
-    },
-    {
-      "id": "3",
-      "name": "Aarav Sharma",
-      "username": "aarav_s",
-      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
-      "selected": false,
-    },
-    {
-      "id": "4",
-      "name": "Priya Verma",
-      "username": "priya_v",
-      "avatar": "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150",
-      "selected": false,
-    },
-    {
-      "id": "5",
-      "name": "Goa Lovers 🏖️",
-      "username": "goa_squad",
-      "avatar": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=150",
-      "selected": false,
-    },
-    {
-      "id": "6",
-      "name": "Rohan Gupta",
-      "username": "rohan_g",
-      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-      "selected": false,
-    },
-    {
-      "id": "7",
-      "name": "Sneha Kapoor",
-      "username": "sneha_k",
-      "avatar": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150",
-      "selected": false,
-    },
-    {
-      "id": "8",
-      "name": "Vikram Singh",
-      "username": "vikram_s",
-      "avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
-      "selected": false,
-    },
-  ];
+  final List<Map<String, dynamic>> _users = [];
 
   @override
   void dispose() {

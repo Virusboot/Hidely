@@ -76,6 +76,7 @@ class ApiService {
     required String username,
     required String email,
     required String password,
+    String? gender,
   }) async {
     try {
       final response = await http.post(
@@ -86,6 +87,7 @@ class ApiService {
           'username': username,
           'email': email,
           'password': password,
+          if (gender != null && gender.isNotEmpty) 'gender': gender,
         }),
       ).timeout(const Duration(seconds: 90));
 
@@ -360,6 +362,7 @@ class ApiService {
     String? name,
     String? username,
     String? pronouns,
+    String? gender,
     String? bio,
     File? avatar,
   }) async {
@@ -371,6 +374,7 @@ class ApiService {
       if (name != null) request.fields['name'] = name;
       if (username != null) request.fields['username'] = username;
       if (pronouns != null) request.fields['pronouns'] = pronouns;
+      if (gender != null) request.fields['gender'] = gender;
       if (bio != null) request.fields['bio'] = bio;
 
       if (avatar != null) {

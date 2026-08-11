@@ -174,6 +174,7 @@ class _ItineraryPlannerSheetState extends State<ItineraryPlannerSheet> {
   void _openVibePickerModal(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -390,19 +391,22 @@ class _ItineraryPlannerSheetState extends State<ItineraryPlannerSheet> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: borderColor),
-                        ),
-                        child: Text(
-                          timeRange,
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w600,
-                            color: textColor.withOpacity(0.9),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: borderColor),
+                          ),
+                          child: Text(
+                            timeRange,
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w600,
+                              color: textColor.withOpacity(0.9),
+                            ),
                           ),
                         ),
                       ),
@@ -431,11 +435,14 @@ class _ItineraryPlannerSheetState extends State<ItineraryPlannerSheet> {
   Widget build(BuildContext context) {
     final double bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final double bottomPadding = MediaQuery.of(context).padding.bottom;
+    final double screenHeight = MediaQuery.of(context).size.height;
+    final double maxSheetHeight = screenHeight * 0.90;
+    final double adjustedHeight = (maxSheetHeight - bottomInset).clamp(280.0, maxSheetHeight);
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
-        height: MediaQuery.of(context).size.height * 0.90,
+        height: adjustedHeight,
         decoration: const BoxDecoration(
           color: AppColors.background,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -487,45 +494,52 @@ class _ItineraryPlannerSheetState extends State<ItineraryPlannerSheet> {
                       children: [
                         Row(
                           children: [
-                            const Text(
-                              'Trip Planner',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primaryDark,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Live AI Status Pill
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: _isGenerating ? const Color(0xffEEF2FF) : const Color(0xffECFDF5),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _isGenerating ? const Color(0xffC7D2FE) : const Color(0xffA7F3D0),
+                            const Flexible(
+                              child: Text(
+                                'Trip Planner',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primaryDark,
+                                  letterSpacing: -0.3,
                                 ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.auto_awesome_rounded,
-                                    size: 11,
-                                    color: _isGenerating ? const Color(0xff4F46E5) : const Color(0xff059669),
+                            ),
+                            const SizedBox(width: 6),
+                            // Live AI Status Pill
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: _isGenerating ? const Color(0xffEEF2FF) : const Color(0xffECFDF5),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: _isGenerating ? const Color(0xffC7D2FE) : const Color(0xffA7F3D0),
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _isGenerating ? 'AI Syncing...' : 'AI Active',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.auto_awesome_rounded,
+                                      size: 11,
                                       color: _isGenerating ? const Color(0xff4F46E5) : const Color(0xff059669),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _isGenerating ? 'AI Syncing...' : 'AI Active',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: _isGenerating ? const Color(0xff4F46E5) : const Color(0xff059669),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
@@ -574,6 +588,7 @@ class _ItineraryPlannerSheetState extends State<ItineraryPlannerSheet> {
             // Scrollable Content
             Expanded(
               child: ListView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 children: [
                   if (_isGenerating)
@@ -687,19 +702,22 @@ class _ItineraryPlannerSheetState extends State<ItineraryPlannerSheet> {
                                   ),
                                   if (day.estimatedCost > 0) ...[
                                     const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xffECFDF5),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: const Color(0xffA7F3D0)),
-                                      ),
-                                      child: Text(
-                                        '~₹${day.estimatedCost.toStringAsFixed(0)}',
-                                        style: const TextStyle(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.success,
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xffECFDF5),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: const Color(0xffA7F3D0)),
+                                        ),
+                                        child: Text(
+                                          '~₹${day.estimatedCost.toStringAsFixed(0)}',
+                                          style: const TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.success,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1050,28 +1068,31 @@ class _ItineraryPlannerSheetState extends State<ItineraryPlannerSheet> {
                     shadowColor: AppColors.primary.withOpacity(0.3),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _generatedItinerary == null
-                            ? Icons.auto_awesome_rounded
-                            : Icons.bookmark_add_rounded,
-                        color: Colors.white,
-                        size: 19,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _isGenerating
-                            ? 'Creating Your Trip...'
-                            : (_generatedItinerary == null ? 'Create My Trip' : 'Save Itinerary'),
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.2,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _generatedItinerary == null
+                              ? Icons.auto_awesome_rounded
+                              : Icons.bookmark_add_rounded,
+                          color: Colors.white,
+                          size: 19,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Text(
+                          _isGenerating
+                              ? 'Creating Your Trip...'
+                              : (_generatedItinerary == null ? 'Create My Trip' : 'Save Itinerary'),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

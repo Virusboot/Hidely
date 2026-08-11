@@ -5,7 +5,6 @@ import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/widgets/itinerary_planner_sheet.dart';
 import 'package:hidely_new/widgets/empty_state.dart';
-import 'package:hidely_new/data/official_posts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -135,32 +134,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
       setState(() {
         List<dynamic> posts = result.success ? (result.data?['posts'] as List? ?? []) : [];
 
-        // Filter official posts based on search query
-        List<dynamic> matchingOfficial = officialHidelyPosts;
-        if (_searchQuery.isNotEmpty) {
-          final q = _searchQuery.toLowerCase();
-          matchingOfficial = officialHidelyPosts.where((p) {
-            final title = (p['title'] ?? '').toString().toLowerCase();
-            final loc = (p['location'] ?? '').toString().toLowerCase();
-            final cat = (p['category_name'] ?? p['category'] ?? '').toString().toLowerCase();
-            return title.contains(q) || loc.contains(q) || cat.contains(q);
-          }).toList();
-        }
-
-        final List<dynamic> merged = [...matchingOfficial, ...posts];
-        final Set<String> seenImages = {};
-        final List<dynamic> uniquePosts = [];
-        for (var p in merged) {
-          final img = p['image_url']?.toString() ?? p['image']?.toString() ?? '';
-          if (img.isNotEmpty) {
-            if (seenImages.contains(img)) {
-              continue;
-            }
-            seenImages.add(img);
-          }
-          uniquePosts.add(p);
-        }
-        posts = uniquePosts;
           
           // Apply local multi-filters BEFORE sorting
           if (!_selectedCategories.contains("All") && _selectedCategories.isNotEmpty) {

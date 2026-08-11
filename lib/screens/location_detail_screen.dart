@@ -131,43 +131,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           : [];
       setState(() {
         _isLoadingGrid = false;
-        if (postsFromApi.isNotEmpty) {
-          _locationPosts = postsFromApi;
-        } else {
-          // Provide default curated location images if backend has no user uploads yet
-          _locationPosts = [
-            {
-              "id": 101,
-              "title": widget.title,
-              "location": widget.location,
-              "image_url": widget.image,
-              "category": widget.category,
-              "author_username": "hidely_official",
-              "is_verified": true,
-              "likes_count": 0,
-            },
-            {
-              "id": 102,
-              "title": "${widget.title} Sunset Point",
-              "location": widget.location,
-              "image_url": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80",
-              "category": widget.category,
-              "author_username": "hidely_official",
-              "is_verified": true,
-              "likes_count": 0,
-            },
-            {
-              "id": 103,
-              "title": "${widget.title} Scenic Trail",
-              "location": widget.location,
-              "image_url": "https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=600&q=80",
-              "category": widget.category,
-              "author_username": "hidely_official",
-              "is_verified": true,
-              "likes_count": 0,
-            },
-          ];
-        }
+        _locationPosts = postsFromApi;
       });
     }
   }
@@ -201,13 +165,12 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
       };
     }
 
-    // Default Tiger Hills Water Fall mock data from screenshot
     return {
-      "description": "A beautiful waterfall surrounded by dense forests and hills, known for its peaceful atmosphere and scenic trekking trail.",
-      "tags": "Natural pool, lush greenery, photography spot, less crowded",
-      "region": "Chakrata, Uttarakhand",
+      "description": "Explore ${widget.title} in ${widget.location}. Discover scenic views and local attractions.",
+      "tags": widget.category.isNotEmpty ? widget.category : "Explore, Hidden Spots, Sightseeing",
+      "region": widget.location,
       "difficulty": "Easy to Moderate",
-      "season": "July–November",
+      "season": "Year-round",
     };
   }
   @override

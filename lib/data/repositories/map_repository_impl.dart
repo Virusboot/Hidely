@@ -12,7 +12,6 @@ import '../../services/api_service.dart';
 import '../../domain/repositories/map_repository.dart';
 import '../models/nearby_place.dart';
 import '../models/route_data.dart';
-import '../official_posts.dart';
 
 class MapRepositoryImpl implements MapRepository {
   final LocalStorageService _storage;
@@ -173,7 +172,7 @@ class MapRepositoryImpl implements MapRepository {
   }
 
   Future<List<NearbyPlace>> _getCreatorPlaces(double lat, double lng, String? query) async {
-    final List<NearbyPlace> creatorPlaces = getOfficialNearbyPlaces();
+    final List<NearbyPlace> creatorPlaces = [];
     try {
       final apiResult = await ApiService().getExplorePosts(search: query ?? '');
       final dataMap = apiResult.data;
@@ -425,76 +424,10 @@ class MapRepositoryImpl implements MapRepository {
             return _filterPlacesLocally(allParsedPlaces, category, query, skipQueryFilter: true);
           }
         } catch (e) {
-          debugPrint('[Repository] Google Places Nearby search failed: $e. Trying Athens mock API.');
+          debugPrint('[Repository] Google Places Nearby search failed: $e. Falling back to local cache.');
         }
       }
-
-        // 3. Athens mock API fallback
-        try {
-          String apiType = 'all';
-          if (category != null && category.toLowerCase() != 'all') {
-            final catLower = category.toLowerCase();
-            if (catLower.contains('restaurant') || catLower.contains('cafe')) {
-              apiType = 'restaurant';
-            } else if (catLower.contains('hotel')) {
-              apiType = 'hotel';
-            } else if (catLower.contains('monument') || catLower.contains('museum') || catLower.contains('attraction')) {
-              apiType = 'attraction';
-            }
-          }
-
-          final queryParams = {
-            'lat': lat.toString(),
-            'lng': lng.toString(),
-            'radius': rad.toInt().toString(),
-            'type': apiType,
-            'lang': 'en',
-            'limit': '50',
-          };
-
-          final uri = Uri.https('goarmonia-travel.localserverpro.com', '/api/v1/nearby', queryParams);
-
-          final response = await http.get(
-            uri,
-            headers: {
-              'X-App-Token': AppConstants.armoniaMockApiToken,
-              'Content-Type': 'application/json',
-            },
-          ).timeout(const Duration(seconds: 15));
-
-          if (response.statusCode == 200) {
-            final Map<String, dynamic> body = json.decode(response.body);
-            if (body['status'] == true && body['data'] != null) {
-              final data = body['data'] as Map<String, dynamic>;
-              final List<NearbyPlace> parsedPlaces = [];
-
-              if (data['attractions'] != null) {
-                for (final item in data['attractions']) {
-                  parsedPlaces.add(NearbyPlace.fromJson(item as Map<String, dynamic>));
-                }
-              }
-              if (data['restaurants'] != null) {
-                for (final item in data['restaurants']) {
-                  parsedPlaces.add(NearbyPlace.fromJson(item as Map<String, dynamic>));
-                }
-              }
-              if (data['hotels'] != null) {
-                for (final item in data['hotels']) {
-                  parsedPlaces.add(NearbyPlace.fromJson(item as Map<String, dynamic>));
-                }
-              }
-
-              // Merge creator places
-              parsedPlaces.addAll(creatorPlaces);
-
-              await _syncPlacesToIsar(parsedPlaces);
-              return _filterPlacesLocally(parsedPlaces, category, query);
-            }
-          }
-        } catch (e) {
-          debugPrint('[Repository] Online mock API fetch failed: $e. Falling back to local cache.');
-        }
-      }
+    }
 
     // --- Offline Cache Fallback & On-Device Spatial Calculation ---
     if (!_storage.isInitialized) {

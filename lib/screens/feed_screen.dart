@@ -12,7 +12,6 @@ import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:hidely_new/widgets/post_options_bottom_sheet.dart';
-import 'package:hidely_new/data/official_posts.dart';
 import 'package:hidely_new/widgets/skeleton_loader.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
@@ -20,78 +19,7 @@ import 'dart:io';
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
 
-  static final List<Map<String, dynamic>> mockPosts = [
-    {
-      "id": 0,
-      "likes": 0,
-      "comments": 0,
-      "shares": 0,
-      "isLiked": false,
-      "isBookmarked": false,
-      "location": "Nainital, Uttarakhand",
-      "title": "Nainital Lake Boating",
-      "image": "assets/images/explore_1.png",
-      "isAsset": true,
-      "caption":
-          "Exploring the serene Naini Lake surrounded by misty pine hills under the golden hour sun.",
-    },
-    {
-      "id": 1,
-      "likes": 0,
-      "comments": 0,
-      "shares": 0,
-      "isLiked": false,
-      "isBookmarked": false,
-      "location": "Manali, Himachal Pradesh",
-      "title": "Solang Valley Snow",
-      "image": "assets/images/explore_2.png",
-      "isAsset": true,
-      "caption":
-          "Snowy peaks and pine trees in Solang Valley. Crisp mountain breeze and adventure trails.",
-    },
-    {
-      "id": 2,
-      "likes": 0,
-      "comments": 0,
-      "shares": 0,
-      "isLiked": false,
-      "isBookmarked": false,
-      "location": "North Goa, India",
-      "title": "Vagator Sunset Cliff",
-      "image": "assets/images/explore_3.png",
-      "isAsset": true,
-      "caption":
-          "Stunning coastal cliffs and coconut palms overlooking the Arabian Sea during sunset.",
-    },
-    {
-      "id": 3,
-      "likes": 0,
-      "comments": 0,
-      "shares": 0,
-      "isLiked": false,
-      "isBookmarked": false,
-      "location": "Agra, Uttar Pradesh",
-      "title": "Taj Mahal Marvel",
-      "image": "assets/images/explore_4.png",
-      "isAsset": true,
-      "caption":
-          "Witnessing the pure white marble wonder along Yamuna River. A cinematic morning view.",
-    },
-    {
-      "id": 4,
-      "likes": 0,
-      "comments": 0,
-      "shares": 0,
-      "isLiked": false,
-      "isBookmarked": false,
-      "location": "Varanasi, Uttar Pradesh",
-      "title": "Holy Ganga Ghats",
-      "image": "assets/images/explore_5.png",
-      "isAsset": true,
-      "caption":
-          "Immersing in the spiritual evening rituals and oil lamps along the banks of sacred River Ganga.",
-    },
-  ];
+  static final List<Map<String, dynamic>> mockPosts = [];
 
   // ignore: library_private_types_in_public_api
   static _FeedScreenState? activeState;
@@ -171,7 +99,7 @@ class _FeedScreenState extends State<FeedScreen> {
       }
     }
 
-    final mixedFeed = _mixFeedAlgorithm(serverFeed, officialHidelyPosts);
+    final mixedFeed = _mixFeedAlgorithm(serverFeed, []);
     final cleanFeed = mixedFeed.where((p) => !AuthService().isPostDeletedLocally(p['id'])).toList();
 
     setState(() {
@@ -1326,65 +1254,7 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
 
-  // Mock users with actual image assets and fallback colors
-  final List<Map<String, dynamic>> _users = [
-    {
-      "name": "Eleni K.",
-      "username": "eleni_k",
-      "avatar": "assets/images/elena_avatar.png",
-      "color": Colors.pinkAccent,
-      "selected": false,
-    },
-    {
-      "name": "Julian Travels",
-      "username": "julian_travels",
-      "avatar": "assets/images/marcus_avatar.png",
-      "color": Colors.blueAccent,
-      "selected": false,
-    },
-    {
-      "name": "Nomad Sophia",
-      "username": "nomad_sophia",
-      "avatar": "assets/images/aura_queen_avatar.png",
-      "color": Colors.orangeAccent,
-      "selected": false,
-    },
-    {
-      "name": "Marcus Aurelius",
-      "username": "marcus_a",
-      "avatar": "assets/images/marcus_avatar.png",
-      "color": Colors.teal,
-      "selected": false,
-    },
-    {
-      "name": "Aura Queen",
-      "username": "aura_queen",
-      "avatar": "assets/images/aura_queen_avatar.png",
-      "color": Colors.purpleAccent,
-      "selected": false,
-    },
-    {
-      "name": "Leo Vinci",
-      "username": "leo_vinci",
-      "avatar": "assets/images/leo_vinci_avatar.png",
-      "color": Colors.amber,
-      "selected": false,
-    },
-    {
-      "name": "Elena Smith",
-      "username": "elena_smith",
-      "avatar": "assets/images/elena_avatar.png",
-      "color": Colors.redAccent,
-      "selected": false,
-    },
-    {
-      "name": "Nathan Drake",
-      "username": "nathan_drake",
-      "avatar": "assets/images/nomad_nate_avatar.png",
-      "color": Colors.indigoAccent,
-      "selected": false,
-    },
-  ];
+  final List<Map<String, dynamic>> _users = [];
 
   @override
   void dispose() {

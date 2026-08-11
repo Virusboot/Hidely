@@ -38,44 +38,41 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
   String get _cleanBio {
     String clean = _bio;
-    final RegExp instaReg = RegExp(r'Instagram:\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false);
-    final RegExp ytReg = RegExp(r'YouTube:\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false);
-
-    clean = clean.replaceAll(instaReg, '').replaceAll(ytReg, '').trim();
-    return clean;
+    final RegExp linkLineReg = RegExp(r'^[a-zA-Z0-9_\s]+:\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false);
+    final lines = clean.split('\n').where((line) => !linkLineReg.hasMatch(line.trim()));
+    return lines.join('\n').trim();
   }
 
-  String get _instagramUrl {
-    final RegExp instaReg = RegExp(r'Instagram:\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false);
-    final match = instaReg.firstMatch(_bio);
-    if (match != null) {
-      String val = match.group(1) ?? '';
-      if (!val.startsWith('http')) {
-        if (val.startsWith('@')) {
-          val = val.substring(1);
+  List<Map<String, String>> get _allProfileLinks {
+    List<Map<String, String>> list = [];
+    final lines = _bio.split('\n');
+    for (var line in lines) {
+      final match = RegExp(r'^([^:\n]+):\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false).firstMatch(line.trim());
+      if (match != null) {
+        String key = match.group(1)?.trim() ?? '';
+        String val = match.group(2)?.trim() ?? '';
+        if (key.toLowerCase() == 'instagram') {
+          if (!val.startsWith('http')) {
+            if (val.startsWith('@')) val = val.substring(1);
+            val = 'https://instagram.com/$val';
+          }
+          list.add({'title': 'Instagram', 'url': val, 'type': 'instagram'});
+        } else if (key.toLowerCase() == 'youtube') {
+          if (!val.startsWith('http')) {
+            if (val.startsWith('@')) val = val.substring(1);
+            val = 'https://youtube.com/@$val';
+          }
+          list.add({'title': 'YouTube', 'url': val, 'type': 'youtube'});
+        } else {
+          if (!val.startsWith('http')) val = 'https://$val';
+          list.add({'title': key, 'url': val, 'type': 'website'});
         }
-        val = 'https://instagram.com/$val';
       }
-      return val;
     }
-    return '';
+    return list;
   }
 
-  String get _youtubeUrl {
-    final RegExp ytReg = RegExp(r'YouTube:\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false);
-    final match = ytReg.firstMatch(_bio);
-    if (match != null) {
-      String val = match.group(1) ?? '';
-      if (!val.startsWith('http')) {
-        if (val.startsWith('@')) {
-          val = val.substring(1);
-        }
-        val = 'https://youtube.com/@$val';
-      }
-      return val;
-    }
-    return '';
-  }
+
   int _postsCount = 0;
   int _followersCount = 0;
   int _followingsCount = 0;
@@ -125,148 +122,13 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
     // Check if logged in as Official Admin Account
     if (_username == 'hidely_official' || _username == 'hidely' || activeUsername == 'hidely_official' || activeUsername == 'hidely') {
-      final List<Map<String, dynamic>> curatedLocationPosts = [
-        {
-          "id": 2001,
-          "title": "Nainital Lake & Row Boats ⛵",
-          "location": "Nainital, Uttarakhand",
-          "image_url": "https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=800&q=80",
-          "category": "Lakes & Hills",
-          "author_username": "hidely_official",
-          "is_verified": true,
-          "likes_count": 0,
-          "caption": "Emerald waters of Naini Lake surrounded by misty pine hills. Experience peaceful boating during golden hours.",
-        },
-        {
-          "id": 2002,
-          "title": "Solang Valley Snow Peaks 🏔️",
-          "location": "Manali, Himachal Pradesh",
-          "image_url": "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&w=800&q=80",
-          "category": "Mountains",
-          "author_username": "hidely_official",
-          "is_verified": true,
-          "likes_count": 0,
-          "caption": "Snowy slopes and adventure sports in the heart of Solang Valley. Crisp mountain breeze & pine trees.",
-        },
-        {
-          "id": 2003,
-          "title": "Vagator Beach Sunset 🌅",
-          "location": "North Goa, India",
-          "image_url": "https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=800&q=80",
-          "category": "Beaches",
-          "author_username": "hidely_official",
-          "is_verified": true,
-          "likes_count": 0,
-          "caption": "Golden sun setting over the Arabian Sea at Vagator Cliff. Coconut palms and soothing tide waves.",
-        },
-        {
-          "id": 2004,
-          "title": "Taj Mahal Sunrise Marvel 🕌",
-          "location": "Agra, Uttar Pradesh",
-          "image_url": "https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=800&q=80",
-          "category": "Monuments",
-          "author_username": "hidely_official",
-          "is_verified": true,
-          "likes_count": 0,
-          "caption": "Pure white marble shining in early morning sunlight along the banks of Yamuna River.",
-        },
-        {
-          "id": 2005,
-          "title": "Holy Ganga Evening Aarti 🪔",
-          "location": "Varanasi, Uttar Pradesh",
-          "image_url": "https://images.unsplash.com/photo-1571536802807-30451e3955d8?auto=format&fit=crop&w=800&q=80",
-          "category": "Spiritual",
-          "author_username": "hidely_official",
-          "is_verified": true,
-          "likes_count": 0,
-          "caption": "Spiritual vibrations, oil lamps, and devotional chants at Dashashwamedh Ghat on River Ganga.",
-        },
-        {
-          "id": 2006,
-          "title": "River Rafting Shivpuri 🚣",
-          "location": "Rishikesh, Uttarakhand",
-          "image_url": "https://images.unsplash.com/photo-1530521954074-e64f6810b32d?auto=format&fit=crop&w=800&q=80",
-          "category": "Adventure",
-          "author_username": "hidely_official",
-          "is_verified": true,
-          "likes_count": 0,
-          "caption": "Conquering 16 km whitewater rapids along the Ganges. Cliff jumping and riverside camping.",
-        },
-        {
-          "id": 2007,
-          "title": "Hawa Mahal Pink Palace 🏰",
-          "location": "Jaipur, Rajasthan",
-          "image_url": "https://images.unsplash.com/photo-1599661046827-dacff0c0f09a?auto=format&fit=crop&w=800&q=80",
-          "category": "Heritage",
-          "author_username": "hidely_official",
-          "is_verified": true,
-          "likes_count": 0,
-          "caption": "953 intricate honeycomb lattice windows of Palace of Winds built with red and pink sandstone.",
-        },
-        {
-          "id": 2008,
-          "title": "Pangong Tso Blue Waters 🌊",
-          "location": "Leh Ladakh, India",
-          "image_url": "https://images.unsplash.com/photo-1581793745862-99fde7fa73d2?auto=format&fit=crop&w=800&q=80",
-          "category": "High Altitude Lakes",
-          "author_username": "hidely_official",
-          "is_verified": true,
-          "likes_count": 0,
-          "caption": "Crystal blue high-altitude salt lake changing colors under the clear Himalayan sky.",
-        },
-        {
-          "id": 2009,
-          "title": "Kerala Backwaters Houseboat 🌴",
-          "location": "Alappuzha, Kerala",
-          "image_url": "https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&w=800&q=80",
-          "category": "Nature",
-          "author_username": "hidely_official",
-          "is_verified": true,
-          "likes_count": 0,
-          "caption": "Gliding through palm-fringed tranquil lagoons and traditional wooden houseboats in Alleppey.",
-        },
-        {
-          "id": 2010,
-          "title": "Parthenon Ancient Temple 🏛️",
-          "location": "Athens, Greece",
-          "image_url": "https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=800&q=80",
-          "category": "Ancient Wonders",
-          "author_username": "hidely_official",
-          "is_verified": true,
-          "likes_count": 0,
-          "caption": "Iconic 5th century BC temple standing atop Acropolis overlooking ancient Athens city.",
-        },
-        {
-          "id": 2011,
-          "title": "Colosseum Ruins 🏟️",
-          "location": "Rome, Italy",
-          "image_url": "https://images.unsplash.com/photo-1552832230-c0197dd311b5?auto=format&fit=crop&w=800&q=80",
-          "category": "Historical Wonders",
-          "author_username": "hidely_official",
-          "is_verified": true,
-          "likes_count": 0,
-          "caption": "Architectural masterpiece of Roman Empire. The world's largest ancient amphitheatre.",
-        },
-        {
-          "id": 2012,
-          "title": "Santorini White Cliff Domes 🇬🇷",
-          "location": "Santorini, Greece",
-          "image_url": "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?auto=format&fit=crop&w=800&q=80",
-          "category": "Islands",
-          "author_username": "hidely_official",
-          "is_verified": true,
-          "likes_count": 0,
-          "caption": "Breathtaking whitewashed houses and cobalt-blue church domes looking over Aegean sea.",
-        },
-      ];
-
       if (mounted) {
         setState(() {
           _username = 'hidely_official';
           _name = 'Hidely Official';
           _bio = 'Official Hidely App Account. Exploring the world\'s most breathtaking places! 🌍✨';
-          _userPosts = curatedLocationPosts;
-          _postsCount = curatedLocationPosts.length;
+          _userPosts = [];
+          _postsCount = 0;
           _followersCount = 12800;
           _followingsCount = 42;
           _isLoading = false;
@@ -346,151 +208,12 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
       // Handle hidely_official Admin Profile Data & Location-wise Posts
       if (_username == 'hidely_official' || _username == 'hidely') {
-        final List<Map<String, dynamic>> curatedLocationPosts = [
-          {
-            "id": 2001,
-            "title": "Nainital Lake & Row Boats ⛵",
-            "location": "Nainital, Uttarakhand",
-            "image_url": "https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=800&q=80",
-            "category": "Lakes & Hills",
-            "author_username": "hidely_official",
-            "is_verified": true,
-            "likes_count": 0,
-            "caption": "Emerald waters of Naini Lake surrounded by misty pine hills. Experience peaceful boating during golden hours.",
-          },
-          {
-            "id": 2002,
-            "title": "Solang Valley Snow Peaks 🏔️",
-            "location": "Manali, Himachal Pradesh",
-            "image_url": "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&w=800&q=80",
-            "category": "Mountains",
-            "author_username": "hidely_official",
-            "is_verified": true,
-            "likes_count": 2150,
-            "caption": "Snowy slopes and adventure sports in the heart of Solang Valley. Crisp mountain breeze & pine trees.",
-          },
-          {
-            "id": 2003,
-            "title": "Vagator Beach Sunset 🌅",
-            "location": "North Goa, India",
-            "image_url": "https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=800&q=80",
-            "category": "Beaches",
-            "author_username": "hidely_official",
-            "is_verified": true,
-            "likes_count": 1920,
-            "caption": "Golden sun setting over the Arabian Sea at Vagator Cliff. Coconut palms and soothing tide waves.",
-          },
-          {
-            "id": 2004,
-            "title": "Taj Mahal Sunrise Marvel 🕌",
-            "location": "Agra, Uttar Pradesh",
-            "image_url": "https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=800&q=80",
-            "category": "Monuments",
-            "author_username": "hidely_official",
-            "is_verified": true,
-            "likes_count": 3410,
-            "caption": "Pure white marble shining in early morning sunlight along the banks of Yamuna River.",
-          },
-          {
-            "id": 2005,
-            "title": "Holy Ganga Evening Aarti 🪔",
-            "location": "Varanasi, Uttar Pradesh",
-            "image_url": "https://images.unsplash.com/photo-1571536802807-30451e3955d8?auto=format&fit=crop&w=800&q=80",
-            "category": "Spiritual",
-            "author_username": "hidely_official",
-            "is_verified": true,
-            "likes_count": 2890,
-            "caption": "Spiritual vibrations, oil lamps, and devotional chants at Dashashwamedh Ghat on River Ganga.",
-          },
-          {
-            "id": 2006,
-            "title": "River Rafting Shivpuri 🚣",
-            "location": "Rishikesh, Uttarakhand",
-            "image_url": "https://images.unsplash.com/photo-1530521954074-e64f6810b32d?auto=format&fit=crop&w=800&q=80",
-            "category": "Adventure",
-            "author_username": "hidely_official",
-            "is_verified": true,
-            "likes_count": 1670,
-            "caption": "Conquering 16 km whitewater rapids along the Ganges. Cliff jumping and riverside camping.",
-          },
-          {
-            "id": 2007,
-            "title": "Hawa Mahal Pink Palace 🏰",
-            "location": "Jaipur, Rajasthan",
-            "image_url": "https://images.unsplash.com/photo-1599661046827-dacff0c0f09a?auto=format&fit=crop&w=800&q=80",
-            "category": "Heritage",
-            "author_username": "hidely_official",
-            "is_verified": true,
-            "likes_count": 2340,
-            "caption": "953 intricate honeycomb lattice windows of Palace of Winds built with red and pink sandstone.",
-          },
-          {
-            "id": 2008,
-            "title": "Pangong Tso Blue Waters 🌊",
-            "location": "Leh Ladakh, India",
-            "image_url": "https://images.unsplash.com/photo-1581793745862-99fde7fa73d2?auto=format&fit=crop&w=800&q=80",
-            "category": "High Altitude Lakes",
-            "author_username": "hidely_official",
-            "is_verified": true,
-            "likes_count": 0,
-            "caption": "Crystal blue high-altitude salt lake changing colors under the clear Himalayan sky.",
-          },
-          {
-            "id": 2009,
-            "title": "Kerala Backwaters Houseboat 🌴",
-            "location": "Alappuzha, Kerala",
-            "image_url": "https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&w=800&q=80",
-            "category": "Nature",
-            "author_username": "hidely_official",
-            "is_verified": true,
-            "likes_count": 0,
-            "caption": "Gliding through palm-fringed tranquil lagoons and traditional wooden houseboats in Alleppey.",
-          },
-          {
-            "id": 2010,
-            "title": "Parthenon Ancient Temple 🏛️",
-            "location": "Athens, Greece",
-            "image_url": "https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=800&q=80",
-            "category": "Ancient Wonders",
-            "author_username": "hidely_official",
-            "is_verified": true,
-            "likes_count": 0,
-            "caption": "Iconic 5th century BC temple standing atop Acropolis overlooking ancient Athens city.",
-          },
-          {
-            "id": 2011,
-            "title": "Colosseum Ruins 🏟️",
-            "location": "Rome, Italy",
-            "image_url": "https://images.unsplash.com/photo-1552832230-c0197dd311b5?auto=format&fit=crop&w=800&q=80",
-            "category": "Historical Wonders",
-            "author_username": "hidely_official",
-            "is_verified": true,
-            "likes_count": 0,
-            "caption": "Architectural masterpiece of Roman Empire. The world's largest ancient amphitheatre.",
-          },
-          {
-            "id": 2012,
-            "title": "Santorini White Cliff Domes 🇬🇷",
-            "location": "Santorini, Greece",
-            "image_url": "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?auto=format&fit=crop&w=800&q=80",
-            "category": "Islands",
-            "author_username": "hidely_official",
-            "is_verified": true,
-            "likes_count": 3690,
-            "caption": "Breathtaking whitewashed houses and cobalt-blue church domes looking over Aegean sea.",
-          },
-        ];
-
-        final exploreResult = await ApiService().getExplorePosts(token: token);
-        List serverPosts = [];
-        if (exploreResult.success && exploreResult.data?['posts'] != null) {
-          serverPosts = (exploreResult.data?['posts'] as List?) ?? [];
+        if (_userPosts.isEmpty) {
+          final exploreResult = await ApiService().getExplorePosts(token: token);
+          if (exploreResult.success && exploreResult.data?['posts'] != null) {
+            _userPosts = (exploreResult.data?['posts'] as List?) ?? [];
+          }
         }
-
-        _userPosts = [...curatedLocationPosts, ...serverPosts];
-        _postsCount = _userPosts.length;
-        _followersCount = 12800;
-        _followingsCount = 42;
       }
 
       if (_userPosts.length > _postsCount) {
@@ -793,14 +516,16 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                             fontWeight: FontWeight.w500),
                       ),
                     ],
-                    if (_instagramUrl.isNotEmpty || _youtubeUrl.isNotEmpty) ...[
+                    if (_allProfileLinks.isNotEmpty) ...[
                       const SizedBox(height: 10),
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
-                          if (_instagramUrl.isNotEmpty) ...[
+                          for (final link in _allProfileLinks)
                             GestureDetector(
                               onTap: () async {
-                                final uri = Uri.parse(_instagramUrl);
+                                final uri = Uri.parse(link['url']!);
                                 if (await canLaunchUrl(uri)) {
                                   await launchUrl(uri, mode: LaunchMode.externalApplication);
                                 }
@@ -814,15 +539,24 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Image.network(
-                                      'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/600px-Instagram_icon.png',
-                                      width: 14,
-                                      height: 14,
-                                    ),
+                                    if (link['type'] == 'instagram')
+                                      Image.network(
+                                        'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/600px-Instagram_icon.png',
+                                        width: 14,
+                                        height: 14,
+                                      )
+                                    else if (link['type'] == 'youtube')
+                                      Image.network(
+                                        'https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/YouTube_full-color_icon_%282017%29.svg/512px-YouTube_full-color_icon_%282017%29.svg.png',
+                                        width: 16,
+                                        height: 11,
+                                      )
+                                    else
+                                      const Icon(Icons.link_rounded, size: 14, color: Color(0xff2563EB)),
                                     const SizedBox(width: 6),
-                                    const Text(
-                                      'Instagram',
-                                      style: TextStyle(
+                                    Text(
+                                      link['title']!,
+                                      style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.black87,
@@ -832,44 +566,6 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                                 ),
                               ),
                             ),
-                          ],
-                          if (_instagramUrl.isNotEmpty && _youtubeUrl.isNotEmpty) const SizedBox(width: 8),
-                          if (_youtubeUrl.isNotEmpty) ...[
-                            GestureDetector(
-                              onTap: () async {
-                                final uri = Uri.parse(_youtubeUrl);
-                                if (await canLaunchUrl(uri)) {
-                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                }
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xffF1F5F9),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Image.network(
-                                      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/YouTube_full-color_icon_%282017%29.svg/512px-YouTube_full-color_icon_%282017%29.svg.png',
-                                      width: 16,
-                                      height: 11,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    const Text(
-                                      'YouTube',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                     ],

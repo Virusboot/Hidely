@@ -25,6 +25,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _selectedImagePath;
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
+  String? _selectedGender;
+  final List<Map<String, String>> _customLinks = [];
 
   @override
   void initState() {
@@ -55,6 +57,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _bioController = TextEditingController(text: cleanBio);
     _instagramController = TextEditingController(text: instagramUrl);
     _youtubeController = TextEditingController(text: youtubeUrl);
+    _selectedGender = AuthService().userGender.isNotEmpty ? AuthService().userGender : null;
+
+    // Parse remaining custom title: url lines from original bio
+    final lines = originalBio.split('\n');
+    for (final line in lines) {
+      final match = RegExp(r'^([^:\n]+):\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false).firstMatch(line.trim());
+      if (match != null) {
+        final key = match.group(1)?.trim() ?? '';
+        final val = match.group(2)?.trim() ?? '';
+        if (key.toLowerCase() != 'instagram' && key.toLowerCase() != 'youtube') {
+          _customLinks.add({'title': key, 'url': val});
+        }
+      }
+    }
   }
 
   @override
@@ -223,11 +239,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             if (youtube.isNotEmpty) {
                               finalBio = '$finalBio\nYouTube: $youtube';
                             }
+                            for (final link in _customLinks) {
+                              final title = link['title'] ?? 'Link';
+                              final url = link['url'] ?? '';
+                              if (url.isNotEmpty) {
+                                finalBio = '$finalBio\n$title: $url';
+                              }
+                            }
 
                             final result = await ApiService().updateUserProfile(
                               token: AuthService().token ?? '',
                               name: name,
                               username: username,
+                              gender: _selectedGender,
                               bio: finalBio,
                               avatar: _selectedImagePath != null ? File(_selectedImagePath!) : null,
                             );
@@ -349,6 +373,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           FilteringTextInputFormatter.allow(RegExp(r'[a-z0-9_.]')),
                         ],
                       ),
+                      _buildGenderDropdownField(),
                       _buildEditableField(
                         "Bio",
                         _bioController,
@@ -356,7 +381,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         inputFormatters: [LengthLimitingTextInputFormatter(150)],
                       ),
                       
-                      // 4. Links Section
+                      // 4. Links Section (Instagram Style)
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                         child: Align(
@@ -364,7 +389,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           child: Text(
                             "Social Links",
                             style: TextStyle(
-                                fontSize: 16,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: Color(0xff1C0D5A),
                             ),
@@ -372,6 +397,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ),
                       ),
                       const Divider(height: 1, thickness: 0.5, color: Colors.black12),
+                      _buildLinksRow(),
                       _buildEditableField(
                         "Instagram",
                         _instagramController,
@@ -443,5 +469,400 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       const Divider(height: 1, thickness: 0.5, color: Colors.black12),
     ],
   );
+
+  Widget _buildGenderDropdownField() => Column(
+    children: [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 100,
+              child: Text(
+                "Gender",
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xff1C0D5A),
+                ),
+              ),
+            ),
+            Expanded(
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedGender,
+                  isExpanded: true,
+                  hint: const Text(
+                    "Select Gender",
+                    style: TextStyle(fontSize: 15, color: Colors.black38),
+                  ),
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black54),
+                  dropdownColor: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  style: const TextStyle(fontSize: 15, color: Colors.black87),
+                  items: const [
+                    DropdownMenuItem(value: "Male", child: Text("Male")),
+                    DropdownMenuItem(value: "Female", child: Text("Female")),
+                    DropdownMenuItem(value: "Other", child: Text("Other")),
+                    DropdownMenuItem(value: "Prefer not to say", child: Text("Prefer not to say")),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedGender = value;
+                    });
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      const Divider(height: 1, thickness: 0.5, color: Colors.black12),
+    ],
+  );
+
+  Widget _buildLinksRow() {
+    int totalCount = (_instagramController.text.trim().isNotEmpty ? 1 : 0)
+        + (_youtubeController.text.trim().isNotEmpty ? 1 : 0)
+        + _customLinks.length;
+    String subtitle = totalCount == 0 ? "Add external link" : "$totalCount ${totalCount == 1 ? 'link' : 'links'}";
+
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: () => _showLinksManagerBottomSheet(context),
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: 100,
+                  child: Text(
+                    "Links",
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xff1C0D5A),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: totalCount == 0 ? const Color(0xff5D3EBC) : Colors.black87,
+                      fontWeight: totalCount == 0 ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 15,
+                  color: Colors.black38,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const Divider(height: 1, thickness: 0.5, color: Colors.black12),
+      ],
+    );
+  }
+
+  void _showLinksManagerBottomSheet(BuildContext outerContext) {
+    showModalBottomSheet(
+      context: outerContext,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              top: 12,
+              left: 20,
+              right: 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Handle Bar
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Links",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xff1C0D5A),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded, size: 18, color: Colors.black87),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Add social links to your profile",
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 20),
+
+                // Existing Links List
+                if (_instagramController.text.trim().isNotEmpty)
+                  _buildModalLinkItem(
+                    title: "Instagram",
+                    url: _instagramController.text.trim(),
+                    icon: Icons.camera_alt_outlined,
+                    iconColor: const Color(0xffE1306C),
+                    onDelete: () {
+                      setState(() => _instagramController.clear());
+                      setModalState(() {});
+                    },
+                  ),
+
+                if (_youtubeController.text.trim().isNotEmpty)
+                  _buildModalLinkItem(
+                    title: "YouTube",
+                    url: _youtubeController.text.trim(),
+                    icon: Icons.play_circle_fill_rounded,
+                    iconColor: Colors.red,
+                    onDelete: () {
+                      setState(() => _youtubeController.clear());
+                      setModalState(() {});
+                    },
+                  ),
+
+                for (int i = 0; i < _customLinks.length; i++)
+                  _buildModalLinkItem(
+                    title: _customLinks[i]['title'] ?? 'Link',
+                    url: _customLinks[i]['url'] ?? '',
+                    icon: Icons.link_rounded,
+                    iconColor: const Color(0xff5D3EBC),
+                    onDelete: () {
+                      setState(() => _customLinks.removeAt(i));
+                      setModalState(() {});
+                    },
+                  ),
+
+                const SizedBox(height: 12),
+
+                // Add External Link Button
+                GestureDetector(
+                  onTap: () {
+                    _showAddSingleLinkDialog(outerContext, setModalState);
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xffF1F5F9),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.add_rounded, color: Color(0xff5D3EBC), size: 22),
+                        SizedBox(width: 12),
+                        Text(
+                          "Add external link",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xff5D3EBC),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildModalLinkItem({
+    required String title,
+    required String url,
+    required IconData icon,
+    required Color iconColor,
+    required VoidCallback onDelete,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xff1C0D5A),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  url,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+            onPressed: onDelete,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddSingleLinkDialog(BuildContext parentContext, StateSetter setModalState) {
+    final titleController = TextEditingController();
+    final urlController = TextEditingController();
+
+    showDialog(
+      context: parentContext,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          "Add Link",
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xff1C0D5A),
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: urlController,
+              decoration: InputDecoration(
+                hintText: "URL (e.g. https://... or @username)",
+                labelText: "URL",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: titleController,
+              decoration: InputDecoration(
+                hintText: "Title (e.g. Instagram, Website, Portfolio)",
+                labelText: "Title (Optional)",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final url = urlController.text.trim();
+              String title = titleController.text.trim();
+
+              if (url.isEmpty) {
+                ScaffoldMessenger.of(parentContext).showSnackBar(
+                  const SnackBar(content: Text("Please enter a valid URL")),
+                );
+                return;
+              }
+
+              if (title.isEmpty) {
+                if (url.toLowerCase().contains("instagram") || url.startsWith("@")) {
+                  title = "Instagram";
+                } else if (url.toLowerCase().contains("youtube")) {
+                  title = "YouTube";
+                } else {
+                  title = "Website";
+                }
+              }
+
+              setState(() {
+                if (title.toLowerCase() == 'instagram') {
+                  _instagramController.text = url;
+                } else if (title.toLowerCase() == 'youtube') {
+                  _youtubeController.text = url;
+                } else {
+                  _customLinks.add({'title': title, 'url': url});
+                }
+              });
+              setModalState(() {});
+
+              Navigator.pop(dialogContext);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xff2B1564),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text("Add", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
 
 }

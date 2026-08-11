@@ -26,6 +26,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   bool _isConfirmPasswordObscured = true;
   bool _agreeToTerms = false;
   bool _isLoading = false;
+  String? _selectedGender;
 
   late final TapGestureRecognizer _termsRecognizer = TapGestureRecognizer()
     ..onTap = () {
@@ -131,6 +132,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           icon: Icons.alternate_email_rounded,
                           maxLength: 30,
                         ),
+                        const SizedBox(height: 16),
+
+                        _buildGenderSelector(),
                         const SizedBox(height: 16),
 
                         _buildInputField(
@@ -262,6 +266,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                   "Username can only contain letters, numbers, underscores, and periods. It cannot start/end with or have consecutive dots or underscores.", 
                                   isError: true,
                                 );
+                              } else if (_selectedGender == null || _selectedGender!.isEmpty) {
+                                _showCustomSnackBar(context, "Please select your gender", isError: true);
                               } else if (email.isEmpty) {
                                 _showCustomSnackBar(context, "Please enter your email", isError: true);
                               } else if (!emailRegex.hasMatch(email)) {
@@ -289,6 +295,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                     username: username,
                                     email: email,
                                     password: password,
+                                    gender: _selectedGender,
                                    ).then((result) async {
                                      if (!context.mounted) {
                                        _isLoading = false;
@@ -425,6 +432,66 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         ),
+      ),
+    );
+  }
+
+  Widget _buildGenderSelector() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.6),
+          width: 1.2,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      child: Row(
+        children: [
+          Icon(
+            Icons.wc_rounded,
+            color: const Color(0xff1C0D5A).withOpacity(0.6),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedGender,
+                isExpanded: true,
+                hint: Text(
+                  "Select Gender",
+                  style: TextStyle(
+                    color: const Color(0xff1C0D5A).withOpacity(0.4),
+                    fontSize: 16,
+                  ),
+                ),
+                icon: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: const Color(0xff1C0D5A).withOpacity(0.6),
+                ),
+                dropdownColor: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                style: const TextStyle(
+                  color: Color(0xff1C0D5A),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+                items: const [
+                  DropdownMenuItem(value: "Male", child: Text("Male")),
+                  DropdownMenuItem(value: "Female", child: Text("Female")),
+                  DropdownMenuItem(value: "Other", child: Text("Other")),
+                  DropdownMenuItem(value: "Prefer not to say", child: Text("Prefer not to say")),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _selectedGender = value;
+                  });
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
