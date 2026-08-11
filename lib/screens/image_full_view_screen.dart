@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hidely_new/services/api_service.dart';
+import 'package:hidely_new/services/media_download_service.dart';
 
 class ImageFullViewScreen extends StatelessWidget {
   final String imagePath;
@@ -62,6 +63,32 @@ class ImageFullViewScreen extends StatelessWidget {
                 ),
                 child: const Icon(
                   Icons.close_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            ),
+          ),
+
+          // Safe-area download button on top-right
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            right: 16,
+            child: GestureDetector(
+              onTap: () {
+                final fullPath = imagePath.startsWith('http')
+                    ? imagePath
+                    : (imagePath.startsWith('uploads') ? '${ApiService().baseUrl}/$imagePath' : imagePath);
+                MediaDownloadService.downloadMediaToGallery(context, fullPath);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.download_rounded,
                   color: Colors.white,
                   size: 24,
                 ),

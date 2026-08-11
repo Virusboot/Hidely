@@ -9,6 +9,8 @@ import 'package:hidely_new/screens/user_profile_screen.dart';
 import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/screens/single_post_view_screen.dart';
 import 'package:hidely_new/screens/reels_screen.dart';
+import 'package:hidely_new/services/media_download_service.dart';
+import 'package:hidely_new/widgets/custom_snackbar.dart';
 
 class PostOptionsBottomSheet extends StatefulWidget {
   final dynamic post;
@@ -108,6 +110,19 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  void _downloadToGallery() {
+    Navigator.pop(context);
+    String mediaUrl = widget.post['media_url'] ?? widget.post['image_url'] ?? widget.post['video_url'] ?? widget.post['image'] ?? widget.post['video'] ?? widget.post['mediaUrl'] ?? widget.post['url'] ?? '';
+    if (mediaUrl.isNotEmpty) {
+      if (mediaUrl.startsWith('uploads') || mediaUrl.startsWith('/uploads')) {
+        mediaUrl = '${ApiService().baseUrl}/${mediaUrl.startsWith('/') ? mediaUrl.substring(1) : mediaUrl}';
+      }
+      MediaDownloadService.downloadMediaToGallery(context, mediaUrl);
+    } else {
+      showHidelySnackBar(context, "No media file found to download", isError: true);
+    }
   }
 
   void _showQrCode() {
@@ -463,7 +478,7 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
           ),
           const SizedBox(height: 14),
 
-          // Group 1 Card: Save, QR code
+          // Group 1 Card: Save, Download to Gallery, QR code
           _buildGroupCard(
             children: [
               _buildGroupTile(
@@ -471,6 +486,13 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
                 title: _isSaved ? "Saved" : "Save",
                 color: _isSaved ? const Color(0xff1C0D5A) : Colors.black87,
                 onTap: _toggleSave,
+              ),
+              const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              _buildGroupTile(
+                icon: Icons.download_rounded,
+                title: "Download to Gallery",
+                color: const Color(0xff2B1564),
+                onTap: _downloadToGallery,
               ),
               const Divider(height: 1, color: Color(0xFFE2E8F0)),
               _buildGroupTile(

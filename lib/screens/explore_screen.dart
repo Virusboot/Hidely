@@ -649,6 +649,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                       fit: BoxFit.cover,
                                       width: double.infinity,
                                       height: double.infinity,
+                                      memCacheWidth: 400,
+                                      memCacheHeight: 400,
                                       alignment: Alignment.center,
                                       placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
                                       errorWidget: (context, url, error) => Container(
