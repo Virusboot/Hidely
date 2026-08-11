@@ -24,8 +24,10 @@ class AppEnv {
 
   /// Local fallback servers for development testing.
   static List<String> get localDiscoveryUrls => const [
-        'http://10.0.2.2:3000', // Android emulator
-        'http://localhost:3000', // iOS simulator / Web
+        'http://10.0.2.2:5000', // Android emulator (Port 5000 default)
+        'http://localhost:5000', // iOS simulator / Web (Port 5000 default)
+        'http://10.0.2.2:3000', // Android emulator (Port 3000 legacy)
+        'http://localhost:3000', // iOS simulator / Web (Port 3000 legacy)
       ];
 
   /// API Key definitions.

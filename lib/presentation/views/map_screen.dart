@@ -149,6 +149,29 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
     });
   }
 
+  Future<void> _fetchAndCenterUserLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+        Position? pos = await Geolocator.getLastKnownPosition();
+        pos ??= await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        ).timeout(const Duration(seconds: 4));
+
+        if (mounted) {
+          final userLoc = LatLng(pos.latitude, pos.longitude);
+          ref.read(mapCenterProvider.notifier).state = userLoc;
+          debugPrint('[MapScreen] Centered map on real user location: ${userLoc.latitude}, ${userLoc.longitude}');
+        }
+      }
+    } catch (e) {
+      debugPrint('[MapScreen] Error fetching user location on open: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -173,6 +196,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
       }
       if (widget.initialSearchQuery != null && widget.initialSearchQuery!.isNotEmpty) {
         _handleInitialSearchQuery(widget.initialSearchQuery!, widget.startNavigationDirectly);
+      } else {
+        _fetchAndCenterUserLocation();
       }
     });
 
@@ -2119,49 +2144,92 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
   Widget _buildIntelligenceChip({
     required IconData icon,
     required Color color,
+    required Color bgColor,
     required String title,
     required String value,
   }) {
+    double progress = 0.8;
+    if (value.toLowerCase().contains('low') || value.toLowerCase().contains('clear')) {
+      progress = 0.25;
+    } else if (value.toLowerCase().contains('moderate') || value.toLowerCase().contains('pleasant')) {
+      progress = 0.55;
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.18), width: 1.2),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xffF1F5F9), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xff1C0D5A).withOpacity(0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 18),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 16),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontFamily: 'PublicSans',
+                    fontSize: 12,
+                    color: Color(0xff6B657D),
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            title,
-            style: TextStyle(
-              fontFamily: 'PublicSans',
-              fontSize: 11,
-              color: color.withOpacity(0.9),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 14),
           Text(
             value,
             style: const TextStyle(
               fontFamily: 'PublicSans',
-              fontSize: 12,
+              fontSize: 14,
               color: Color(0xff1C0D5A),
               fontWeight: FontWeight.w800,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          // Micro Status Indicator Gauge
+          Container(
+            height: 4,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xffF1F5F9),
+              borderRadius: BorderRadius.circular(2),
+            ),
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: progress,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -2174,22 +2242,20 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
     required String title,
     required String desc,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14.0),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12.0),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xffF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border(
+          left: BorderSide(color: color, width: 4.5),
+        ),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Center(
-              child: Icon(icon, color: color, size: 18),
-            ),
-          ),
+          Icon(icon, color: color, size: 18),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -2199,20 +2265,20 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
                   title,
                   style: const TextStyle(
                     fontFamily: 'PublicSans',
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
                     color: Color(0xff1C0D5A),
                     height: 1.2,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   desc,
                   style: const TextStyle(
                     fontFamily: 'PublicSans',
-                    fontSize: 12,
-                    color: Color(0xff6B657D),
-                    height: 1.35,
+                    fontSize: 11.5,
+                    color: Color(0xff52525B),
+                    height: 1.4,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -2237,16 +2303,16 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
         return Container(
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black12,
-                blurRadius: 20,
-                offset: Offset(0, -4),
+                blurRadius: 24,
+                offset: Offset(0, -6),
               ),
             ],
           ),
-          padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.of(context).padding.bottom),
+          padding: EdgeInsets.fromLTRB(24, 12, 24, 20 + MediaQuery.of(context).padding.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2254,31 +2320,31 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
               // Drag Handle Bar
               Center(
                 child: Container(
-                  width: 40,
-                  height: 4.5,
+                  width: 44,
+                  height: 5,
                   decoration: BoxDecoration(
                     color: const Color(0xffE2E8F0),
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
               
               // Header Row
               Row(
                 children: [
                   Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xff2B1564).withOpacity(0.08),
+                    width: 42,
+                    height: 42,
+                    decoration: const BoxDecoration(
+                      color: Color(0xffFEF3C7),
                       shape: BoxShape.circle,
                     ),
                     child: const Center(
-                      child: Icon(Icons.info_outline_rounded, color: Color(0xff2B1564), size: 22),
+                      child: Icon(Icons.stars_rounded, color: Color(0xffD97706), size: 22),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2287,17 +2353,18 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
                           destination.name,
                           style: const TextStyle(
                             fontFamily: 'PublicSans',
-                            fontSize: 18,
+                            fontSize: 20,
                             fontWeight: FontWeight.w800,
                             color: Color(0xff1C0D5A),
-                            height: 1.2,
+                            height: 1.25,
+                            letterSpacing: -0.3,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 3),
                         const Text(
-                          'Live Tourist Intelligence & Travel Brief',
+                          'Live Tourist Intelligence & Advisory Brief',
                           style: TextStyle(
                             fontFamily: 'PublicSans',
                             fontSize: 12,
@@ -2308,20 +2375,17 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
                       ],
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.05),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.close_rounded, color: Colors.black54, size: 18),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, color: Color(0xff1C0D5A), size: 20),
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xffF1F5F9),
+                      padding: const EdgeInsets.all(8),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
               
               // 1. Live Status Grid Cards
               Row(
@@ -2329,85 +2393,89 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
                   Expanded(
                     child: _buildIntelligenceChip(
                       icon: Icons.traffic_rounded,
-                      color: const Color(0xff2B1564),
+                      color: const Color(0xff15803d),
+                      bgColor: const Color(0xfff0fdf4),
                       title: 'Traffic',
                       value: 'Clear Flow',
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: _buildIntelligenceChip(
                       icon: Icons.groups_rounded,
-                      color: const Color(0xff2B1564),
+                      color: const Color(0xffb45309),
+                      bgColor: const Color(0xfffffbeb),
                       title: 'Crowd',
                       value: 'Low Density',
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: _buildIntelligenceChip(
                       icon: Icons.wb_sunny_rounded,
-                      color: const Color(0xff2B1564),
+                      color: const Color(0xff0369a1),
+                      bgColor: const Color(0xfff0f9ff),
                       title: 'Weather',
                       value: '24°C Pleasant',
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 24),
               
               // 2. Real-time Advisory Section Title
               const Text(
-                'LIVE LOCATION UPDATES & ADVISORY',
+                'LIVE UPDATES & FIELD ADVISORIES',
                 style: TextStyle(
                   fontFamily: 'PublicSans',
-                  fontSize: 11,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w800,
                   color: Color(0xff2B1564),
                   letterSpacing: 0.8,
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
 
               _buildBriefBullet(
                 icon: Icons.camera_alt_rounded,
-                color: const Color(0xff2B1564),
+                color: const Color(0xff6366F1),
                 title: 'Best Time to Visit & Photo Spot',
                 desc: 'Soft natural lighting from 4:00 PM – 6:30 PM. Great vantage point for photography.',
               ),
               _buildBriefBullet(
                 icon: Icons.local_parking_rounded,
-                color: const Color(0xff2B1564),
+                color: const Color(0xff059669),
                 title: 'Parking & Facilities',
                 desc: 'Ample vehicle parking available near gate. Restrooms and snack stalls open.',
               ),
               _buildBriefBullet(
                 icon: Icons.cell_tower_rounded,
-                color: const Color(0xff2B1564),
+                color: const Color(0xffD97706),
                 title: 'Mobile Signal Alert',
                 desc: 'Strong signal at destination, but weak network zone 2 km before arrival.',
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
-                height: 48,
+                height: 52,
                 child: ElevatedButton.icon(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 18),
+                  icon: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
                   label: const Text(
                     'Got it, thanks!',
                     style: TextStyle(
                       fontFamily: 'PublicSans',
-                      fontSize: 14,
+                      fontSize: 15,
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xff2B1564),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    elevation: 0,
+                    shadowColor: const Color(0xff2B1564).withOpacity(0.3),
+                    elevation: 3,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                 ),
               ),

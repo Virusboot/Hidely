@@ -463,10 +463,11 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     final destChanged = oldDest?.location.latitude != newDest?.location.latitude ||
         oldDest?.location.longitude != newDest?.location.longitude;
 
+    final isTrackingUser = ref.read(isTrackingUserProvider);
     final mapEngine = ref.read(mapEngineProvider);
     if (mapEngine == MapEngine.googleMaps && _googleMapController != null) {
       final isNavigating = ref.read(navigationStatusProvider) == NavigationStatus.navigating;
-      if (isNavigating && locationChanged) {
+      if (isNavigating && locationChanged && isTrackingUser) {
         final bearing = _calculateBearing(oldLocation, newLocation);
         _animateCameraSafe(
           gmaps.CameraUpdate.newCameraPosition(
@@ -482,7 +483,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
         _animateCameraSafe(
           gmaps.CameraUpdate.newLatLng(_toGoogleLatLng(newDest.location)),
         );
-      } else if (locationChanged) {
+      } else if (locationChanged && isTrackingUser) {
         _animateCameraSafe(
           gmaps.CameraUpdate.newCameraPosition(
             gmaps.CameraPosition(
@@ -499,7 +500,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
       try {
         if (newDest != null && destChanged) {
           _animateOsmMap(newDest.location, 14.5, 0.0);
-        } else if (locationChanged) {
+        } else if (locationChanged && isTrackingUser) {
           final isNavigating = ref.read(navigationStatusProvider) == NavigationStatus.navigating;
           if (isNavigating) {
             final bearing = _calculateBearing(oldLocation, newLocation);
@@ -720,112 +721,118 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     if (mapEngine == MapEngine.googleMaps) {
       // --- Online Mode: Google Maps ---
       final googleMapType = ref.watch(googleMapTypeProvider);
-      return RepaintBoundary(
-        child: gmaps.GoogleMap(
-        mapType: googleMapType == 'satellite' ? gmaps.MapType.satellite : gmaps.MapType.normal,
-        style: googleMapType == 'satellite' ? null : _mapStyleJson,
-        initialCameraPosition: gmaps.CameraPosition(
-          target: _toGoogleLatLng(currentLocation),
-          zoom: 15.5,
-        ),
-        myLocationEnabled: true,
-        myLocationButtonEnabled: false,
-        zoomControlsEnabled: false,
-        mapToolbarEnabled: false,
-        trafficEnabled: true,
-        onMapCreated: (gmaps.GoogleMapController controller) {
-          _googleMapController = controller;
-          controller.animateCamera(
-            gmaps.CameraUpdate.newLatLng(_toGoogleLatLng(currentLocation)),
-          );
+      return Listener(
+        onPointerDown: (_) {
+          ref.read(isTrackingUserProvider.notifier).state = false;
         },
-        onCameraMoveStarted: () {
-          if (!_isProgrammaticMove) {
-            ref.read(isTrackingUserProvider.notifier).state = false;
-          }
-        },
-        polylines: {
-          if (widget.activeRoute != null && widget.activeRoute!.coordinates.isNotEmpty)
-            gmaps.Polyline(
-              polylineId: const gmaps.PolylineId('routing_line'),
-              points: widget.activeRoute!.coordinates.map(_toGoogleLatLng).toList(),
-              color: const Color(0xFF2563EB), // Vibrant Electric Blue navigation route
-              width: 7,
-              jointType: gmaps.JointType.round,
-              startCap: gmaps.Cap.roundCap,
-              endCap: gmaps.Cap.roundCap,
-              patterns: travelMode == 'walking'
-                  ? [gmaps.PatternItem.dash(20), gmaps.PatternItem.gap(10)]
-                  : [],
-            )
-          else if (widget.activeDestination != null)
-            gmaps.Polyline(
-              polylineId: const gmaps.PolylineId('routing_line'),
-              points: [_toGoogleLatLng(currentLocation), _toGoogleLatLng(destinationTarget)],
-              color: const Color(0xFF2563EB), // Vibrant Electric Blue navigation route
-              width: 7,
-              jointType: gmaps.JointType.round,
-              startCap: gmaps.Cap.roundCap,
-              endCap: gmaps.Cap.roundCap,
-              patterns: travelMode == 'walking'
-                  ? [gmaps.PatternItem.dash(20), gmaps.PatternItem.gap(10)]
-                  : [],
+        child: RepaintBoundary(
+          child: gmaps.GoogleMap(
+            mapType: googleMapType == 'satellite' ? gmaps.MapType.satellite : gmaps.MapType.normal,
+            style: googleMapType == 'satellite' ? null : _mapStyleJson,
+            initialCameraPosition: gmaps.CameraPosition(
+              target: _toGoogleLatLng(currentLocation),
+              zoom: 15.5,
             ),
-        },
-        markers: _buildGoogleMarkers(currentLocation, widget.activeDestination),
-        circles: _buildGoogleCircles(widget.places),
-      ),
-    );
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            mapToolbarEnabled: false,
+            trafficEnabled: true,
+            onMapCreated: (gmaps.GoogleMapController controller) {
+              _googleMapController = controller;
+              controller.animateCamera(
+                gmaps.CameraUpdate.newLatLng(_toGoogleLatLng(currentLocation)),
+              );
+            },
+            onCameraMoveStarted: () {
+              if (!_isProgrammaticMove) {
+                ref.read(isTrackingUserProvider.notifier).state = false;
+              }
+            },
+            polylines: {
+              if (widget.activeRoute != null && widget.activeRoute!.coordinates.isNotEmpty)
+                gmaps.Polyline(
+                  polylineId: const gmaps.PolylineId('routing_line'),
+                  points: widget.activeRoute!.coordinates.map(_toGoogleLatLng).toList(),
+                  color: const Color(0xFF2563EB), // Vibrant Electric Blue navigation route
+                  width: 7,
+                  jointType: gmaps.JointType.round,
+                  startCap: gmaps.Cap.roundCap,
+                  endCap: gmaps.Cap.roundCap,
+                  patterns: const [],
+                )
+              else if (widget.activeDestination != null)
+                gmaps.Polyline(
+                  polylineId: const gmaps.PolylineId('routing_line'),
+                  points: [_toGoogleLatLng(currentLocation), _toGoogleLatLng(destinationTarget)],
+                  color: const Color(0xFF2563EB), // Vibrant Electric Blue navigation route
+                  width: 7,
+                  jointType: gmaps.JointType.round,
+                  startCap: gmaps.Cap.roundCap,
+                  endCap: gmaps.Cap.roundCap,
+                  patterns: const [],
+                ),
+            },
+            markers: _buildGoogleMarkers(currentLocation, widget.activeDestination),
+            circles: _buildGoogleCircles(widget.places),
+          ),
+        ),
+      );
     } else {
       // --- Offline/OSM Mode: Interactive Tile Map via flutter_map ---
-      return fm.FlutterMap(
-        mapController: _osmMapController,
-        options: fm.MapOptions(
-          initialCenter: currentLocation,
-          initialZoom: 14.5,
-          maxZoom: isOnline ? 19.5 : 15.0,
-          minZoom: isOnline ? 1.0 : 13.0,
-          onPositionChanged: (position, hasGesture) {
-            if (hasGesture) {
-              ref.read(isTrackingUserProvider.notifier).state = false;
-            }
-          },
-        ),
-        children: [
-          if (isOnline || _offlineTilesPath.isNotEmpty)
-            fm.TileLayer(
-              urlTemplate: isOnline 
-                  ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png' 
-                  : '$_offlineTilesPath/{z}/{x}/{y}.png',
-              subdomains: const ['a', 'b', 'c', 'd'],
-              tileProvider: isOnline 
-                  ? fm.NetworkTileProvider(
-                      headers: {
-                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-                      },
-                    ) 
-                  : fm.FileTileProvider(),
-              fallbackUrl: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-            ),
-          if (ref.watch(showHeatmapProvider))
-            fm.CircleLayer(
-              circles: _buildOfflineCircles(widget.places),
-            ),
-          fm.MarkerLayer(
-            markers: _buildOfflineMapMarkers(currentLocation, widget.activeDestination),
+      return Listener(
+        onPointerDown: (_) {
+          ref.read(isTrackingUserProvider.notifier).state = false;
+        },
+        child: fm.FlutterMap(
+          mapController: _osmMapController,
+          options: fm.MapOptions(
+            initialCenter: currentLocation,
+            initialZoom: 14.5,
+            maxZoom: isOnline ? 19.5 : 15.0,
+            minZoom: isOnline ? 1.0 : 13.0,
+            onPositionChanged: (position, hasGesture) {
+              if (hasGesture) {
+                ref.read(isTrackingUserProvider.notifier).state = false;
+              }
+            },
           ),
-          if (widget.activeRoute != null && widget.activeRoute!.coordinates.isNotEmpty)
-            fm.PolylineLayer(
-              polylines: _buildOfflinePolylines(widget.activeRoute!.coordinates, travelMode),
-            )
-          else if (widget.activeDestination != null)
-            fm.PolylineLayer(
-              polylines: _buildOfflinePolylines(
-                [currentLocation, widget.activeDestination!.location],
-                travelMode,
+          children: [
+            if (isOnline || _offlineTilesPath.isNotEmpty)
+              fm.TileLayer(
+                urlTemplate: isOnline 
+                    ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png' 
+                    : '$_offlineTilesPath/{z}/{x}/{y}.png',
+                subdomains: const ['a', 'b', 'c', 'd'],
+                tileProvider: isOnline 
+                    ? fm.NetworkTileProvider(
+                        headers: {
+                          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+                        },
+                      ) 
+                    : fm.FileTileProvider(),
+                fallbackUrl: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
               ),
+            if (ref.watch(showHeatmapProvider))
+              fm.CircleLayer(
+                circles: _buildOfflineCircles(widget.places),
+              ),
+            fm.MarkerLayer(
+              markers: _buildOfflineMapMarkers(currentLocation, widget.activeDestination),
             ),
-        ],
+            if (widget.activeRoute != null && widget.activeRoute!.coordinates.isNotEmpty)
+              fm.PolylineLayer(
+                polylines: _buildOfflinePolylines(widget.activeRoute!.coordinates, travelMode),
+              )
+            else if (widget.activeDestination != null)
+              fm.PolylineLayer(
+                polylines: _buildOfflinePolylines(
+                  [currentLocation, widget.activeDestination!.location],
+                  travelMode,
+                ),
+              ),
+          ],
+        ),
       );
     }
   }
@@ -838,7 +845,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
         points: coordinates,
         color: const Color(0xFF2563EB), // Vibrant Electric Blue navigation route
         strokeWidth: 7.0,
-        isDotted: travelMode == 'walking',
+        isDotted: false,
       ),
     ];
   }

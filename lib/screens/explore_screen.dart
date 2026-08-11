@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:hidely_new/screens/location_detail_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
-import 'package:hidely_new/screens/leaderboard_screen.dart';
 import 'package:hidely_new/widgets/itinerary_planner_sheet.dart';
 import 'package:hidely_new/widgets/empty_state.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -551,34 +550,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     ),
                     const SizedBox(width: 8),
                     GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const LeaderboardScreen()),
-                        );
-                      },
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: const Color(0xffFEF3C7),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xffF59E0B).withOpacity(0.3)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Center(
-                          child: Text("🏆", style: TextStyle(fontSize: 20)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
                       onTap: () => _showFilterSheet(context),
                       child: Container(
                         width: 48,
@@ -678,8 +649,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                       fit: BoxFit.cover,
                                       width: double.infinity,
                                       height: double.infinity,
-                                      memCacheWidth: 400,
-                                      memCacheHeight: 400,
+                                      memCacheWidth: 600,
                                       alignment: Alignment.center,
                                       placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
                                       errorWidget: (context, url, error) => Container(

@@ -71,7 +71,6 @@ class UserAvatar extends StatelessWidget {
           imageUrl: resolvedUrl,
           fit: BoxFit.cover,
           memCacheWidth: (diameter * 2.5).clamp(60, 300).toInt(),
-          memCacheHeight: (diameter * 2.5).clamp(60, 300).toInt(),
           alignment: Alignment.center,
           placeholder: (context, url) => Container(color: const Color(0xffE2E8F0)),
           errorWidget: (context, url, error) => fallbackChild,

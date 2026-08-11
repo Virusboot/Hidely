@@ -688,37 +688,52 @@ class MapRepositoryImpl implements MapRepository {
         debugPrint('[Repository] Google Directions API request failed: $e. Falling back to OSRM.');
       }
 
-      // 2. OSRM Fallback for Driving & Walking
+      // 2. OSRM Fallback for Driving, Bicycling & Walking
       if (mode != 'transit') {
         try {
-          final profile = mode == 'driving' ? 'driving' : mode == 'bicycling' ? 'bike' : 'foot';
+          final String osmProfile;
+          final String fallbackProfile;
+          if (mode == 'driving') {
+            osmProfile = 'routed-car';
+            fallbackProfile = 'driving';
+          } else if (mode == 'bicycling') {
+            osmProfile = 'routed-bike';
+            fallbackProfile = 'bicycle';
+          } else {
+            osmProfile = 'routed-foot';
+            fallbackProfile = 'foot';
+          }
+
+          // Primary: openstreetmap.de (natively supports car/bike/foot profiles)
           final url = Uri.parse(
-            'https://router.project-osrm.org/route/v1/$profile/'
+            'https://routing.openstreetmap.de/$osmProfile/route/v1/$fallbackProfile/'
             '${start.longitude},${start.latitude};${end.longitude},${end.latitude}'
             '?overview=full&geometries=geojson',
           );
 
           http.Response response;
           try {
-            response = await http.get(url).timeout(const Duration(seconds: 15));
+            response = await http.get(url).timeout(const Duration(seconds: 12));
             if (response.statusCode != 200) {
-              throw Exception('Primary OSRM server status code: ${response.statusCode}');
+              throw Exception('OSM Routing Server returned ${response.statusCode}');
+            }
+            final data = json.decode(response.body);
+            if (data['routes'] == null || (data['routes'] as List).isEmpty) {
+              throw Exception('OSM Routing Server returned empty routes');
             }
           } catch (_) {
-            // Secondary OSM Routing Server Fallback if project-osrm is down
-            final osmProfile = mode == 'driving' ? 'routed-car' : 'routed-foot';
-            final fallbackProfile = mode == 'driving' ? 'driving' : 'foot';
-            final fallbackUrl = Uri.parse(
-              'https://routing.openstreetmap.de/$osmProfile/route/v1/$fallbackProfile/'
+            // Backup fallback: project-osrm.org (only supports driving)
+            final backupUrl = Uri.parse(
+              'https://router.project-osrm.org/route/v1/driving/'
               '${start.longitude},${start.latitude};${end.longitude},${end.latitude}'
               '?overview=full&geometries=geojson',
             );
-            response = await http.get(fallbackUrl).timeout(const Duration(seconds: 15));
+            response = await http.get(backupUrl).timeout(const Duration(seconds: 12));
           }
 
           if (response.statusCode == 200) {
             final data = json.decode(response.body);
-            if (data['routes'] != null && data['routes'].isNotEmpty) {
+            if (data['routes'] != null && (data['routes'] as List).isNotEmpty) {
               final route = data['routes'][0];
               final geometry = route['geometry'];
               final coordinatesList = geometry['coordinates'] as List;
@@ -735,7 +750,7 @@ class MapRepositoryImpl implements MapRepository {
                 coordinates: points,
                 distanceKm: double.parse(distanceKm.toStringAsFixed(2)),
                 durationMin: durationMin > 0 ? durationMin : 1,
-                elevationGainM: (distanceKm * 15).round(),
+                elevationGainM: mode == 'walking' ? (distanceKm * 20).round() : (distanceKm * 5).round(),
                 instructions: _generateInstructionsForPoints(points, language),
               );
             }

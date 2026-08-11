@@ -72,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (widget.isAddingAccount) ...[
+                if (widget.isAddingAccount || Navigator.canPop(context)) ...[
                   const SizedBox(height: 16),
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
@@ -189,7 +189,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           if ((email.toLowerCase() == 'admin@hidely.app' || email.toLowerCase() == 'hidely_official') &&
                               (password == 'admin123' || password == 'hidely123' || password == 'admin')) {
                             final adminUserData = {
-                              'id': 'admin_official',
+                              'id': '1',
                               'name': 'Hidely Official',
                               'username': 'hidely_official',
                               'email': 'admin@hidely.app',

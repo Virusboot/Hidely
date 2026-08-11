@@ -86,14 +86,14 @@ class _FeedScreenState extends State<FeedScreen> {
       _isLoading = true;
     });
 
-    final token = AuthService().token ?? '';
-    final result = await ApiService().getFeedPosts(token: token.isNotEmpty ? token : null);
+    final token = AuthService().token;
+    final ApiResult result = await ApiService().getFeedPosts(token: token);
 
     if (!mounted) return;
 
     List<dynamic> serverFeed = [];
     if (result.success) {
-      final feedList = result.data?['feed'];
+      final feedList = result.data?['feed'] ?? result.data?['posts'];
       if (feedList != null && feedList is List) {
         serverFeed = feedList;
       }

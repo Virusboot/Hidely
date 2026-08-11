@@ -127,12 +127,26 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           _username = 'hidely_official';
           _name = 'Hidely Official';
           _bio = 'Official Hidely App Account. Exploring the world\'s most breathtaking places! 🌍✨';
-          _userPosts = [];
-          _postsCount = 0;
           _followersCount = 12800;
           _followingsCount = 42;
-          _isLoading = false;
         });
+      }
+      try {
+        final postsResult = await ApiService().getUserPosts(userId: '1', token: token);
+        if (postsResult.success && mounted) {
+          setState(() {
+            _userPosts = (postsResult.data?['posts'] as List?) ?? [];
+            _postsCount = _userPosts.length;
+            _isLoading = false;
+          });
+        }
+      } catch (e) {
+        debugPrint('[UserProfileScreen] Error loading admin posts: $e');
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
       return;
     }

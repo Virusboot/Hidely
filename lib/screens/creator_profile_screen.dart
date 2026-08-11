@@ -137,27 +137,27 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
         });
       } else {
         if (widget.username == 'hidely_official' || widget.username == 'hidely') {
-          final adminPostsResult = await ApiService().getExplorePosts(token: token);
+          final adminPostsResult = await ApiService().getUserPosts(userId: '1', token: token);
           List adminPosts = [];
           if (adminPostsResult.success) {
             adminPosts = adminPostsResult.data?['posts'] as List? ?? [];
           }
           setState(() {
             _creatorData = {
-              'id': 'admin_official',
+              'id': '1',
               'username': 'hidely_official',
               'full_name': 'Hidely Official',
               'bio': 'Official Hidely App Account. Exploring the world\'s most breathtaking places! 🌍✨',
               'is_verified': true,
               'followers_count': 12800,
               'followings_count': 42,
-              'posts_count': adminPosts.isNotEmpty ? adminPosts.length : 154,
+              'posts_count': adminPosts.length,
               'is_following': false,
             };
             _creatorPosts = adminPosts;
             _followers = "12.8K";
             _followings = "42";
-            _postsCount = adminPosts.isNotEmpty ? "${adminPosts.length}" : "154";
+            _postsCount = "${adminPosts.length}";
             _isFollowing = false;
             _isBlocked = false;
             _isLoading = false;

@@ -8,8 +8,6 @@ import 'package:hidely_new/screens/main_wrapper.dart';
 import 'package:hidely_new/widgets/travel_squad_sheet.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
-import 'package:hidely_new/widgets/report_bottom_sheet.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class LocationDetailScreen extends StatefulWidget {
   final String title;
@@ -57,18 +55,369 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     );
   }
 
-  Future<void> _openExternalGoogleMaps() async {
-    final title = widget.title.isNotEmpty ? widget.title : widget.location;
-    final url = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${Uri.encodeComponent(title)}");
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
+
+
+  void _navigateToLocationInApp() {
+    final cleanTitle = widget.title.trim();
+    final cleanLoc = widget.location.trim();
+    final isCaption = cleanTitle.length > 35 || cleanTitle.contains('#') || cleanTitle.contains('\n');
+
+    String searchQuery;
+    if (!isCaption && cleanTitle.isNotEmpty && cleanTitle != cleanLoc) {
+      searchQuery = cleanLoc.isNotEmpty ? "$cleanTitle, $cleanLoc" : cleanTitle;
     } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Could not launch Google Maps")),
-        );
-      }
+      searchQuery = cleanLoc.isNotEmpty ? cleanLoc : cleanTitle;
     }
+
+    MapDiscoveryScreen.initialSearchQuery = searchQuery;
+    MapDiscoveryScreen.startNavigationDirectly = true;
+    Navigator.popUntil(context, (route) => route.settings.name == '/main' || route.isFirst);
+    Future.delayed(const Duration(milliseconds: 200), () {
+      MainWrapperState.activeState?.setIndex(1);
+    });
+  }
+
+  void _showLocationFeedbackSheet(BuildContext context) {
+    int selectedRating = 5;
+    String selectedCategory = 'General Tip';
+    final feedbackController = TextEditingController();
+
+    const categories = ['General Tip', 'Road Condition', 'Best Time', 'Safety Tip', 'Parking & Entry'];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            String ratingDesc = 'Excellent experience!';
+            if (selectedRating == 4) {
+              ratingDesc = 'Good destination';
+            } else if (selectedRating == 3) {
+              ratingDesc = 'Average place';
+            } else if (selectedRating == 2) {
+              ratingDesc = 'Needs improvement';
+            } else if (selectedRating == 1) {
+              ratingDesc = 'Poor condition';
+            }
+
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header Bar Indicator
+                    const SizedBox(height: 12),
+                    Center(
+                      child: Container(
+                        width: 45,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Header Title
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xffFEF3C7),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(Icons.rate_review_rounded, color: Color(0xffD97706), size: 24),
+                          ),
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Feedback & Tips',
+                                  style: TextStyle(
+                                    fontSize: 19,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xff1C0D5A),
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    Icon(Icons.workspace_premium_rounded, size: 14, color: Color(0xff047857)),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Earn +50 Explorer XP!',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xff047857),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            icon: const Icon(Icons.close_rounded, color: Color(0xff1C0D5A)),
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xffF1F5F9),
+                              padding: const EdgeInsets.all(8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Divider(color: Color(0xffF1F5F9), height: 1),
+                    const SizedBox(height: 14),
+
+                    // Scrollable Inputs Area
+                    Flexible(
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Star Rating Card
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xffF8FAFC),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: const Color(0xffF1F5F9)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'How was your experience?',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A)),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      Row(
+                                        children: List.generate(5, (index) {
+                                          final star = index + 1;
+                                          return GestureDetector(
+                                            onTap: () {
+                                              setModalState(() {
+                                                selectedRating = star;
+                                              });
+                                            },
+                                            child: Padding(
+                                              padding: const EdgeInsets.only(right: 10.0),
+                                              child: Icon(
+                                                star <= selectedRating ? Icons.star_rounded : Icons.star_outline_rounded,
+                                                color: const Color(0xffF59E0B),
+                                                size: 34,
+                                              ),
+                                            ),
+                                          );
+                                        }),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    ratingDesc,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xffD97706),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Feedback Tags
+                            const Text(
+                              'Select Topic Category',
+                              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A)),
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: categories.map((cat) {
+                                final isSel = cat == selectedCategory;
+                                return GestureDetector(
+                                  onTap: () {
+                                    setModalState(() {
+                                      selectedCategory = cat;
+                                    });
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: isSel ? const Color(0xff2B1564) : Colors.white,
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(
+                                        color: isSel ? const Color(0xff2B1564) : const Color(0xffE2E8F0),
+                                        width: 1.2,
+                                      ),
+                                      boxShadow: isSel ? [
+                                        BoxShadow(
+                                          color: const Color(0xff2B1564).withOpacity(0.2),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ] : [],
+                                    ),
+                                    child: Text(
+                                      cat,
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
+                                        color: isSel ? Colors.white : const Color(0xff4A457A),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Tips Box input
+                            const Text(
+                              'Write Location Details & Tips',
+                              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A)),
+                            ),
+                            const SizedBox(height: 10),
+                            TextField(
+                              controller: feedbackController,
+                              maxLines: 4,
+                              style: const TextStyle(fontSize: 14, color: Colors.black87),
+                              decoration: InputDecoration(
+                                hintText: 'Share road condition, parking space, ticket prices, safety tips, or best visit hours...',
+                                hintStyle: const TextStyle(fontSize: 13, color: Colors.black38, height: 1.4),
+                                fillColor: const Color(0xffF8FAFC),
+                                filled: true,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(color: Color(0xff2B1564), width: 1.5),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Submit Button Row with keyboard-insets offset
+                    Container(
+                      padding: EdgeInsets.only(
+                        left: 24,
+                        right: 24,
+                        top: 14,
+                        bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+                      ),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          top: BorderSide(color: Color(0xffF1F5F9), width: 1),
+                        ),
+                      ),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xff2B1564),
+                            foregroundColor: Colors.white,
+                            elevation: 4,
+                            shadowColor: const Color(0xff2B1564).withOpacity(0.3),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          onPressed: () {
+                            if (feedbackController.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(content: Text('Please enter your feedback or tips')),
+                              );
+                              return;
+                            }
+
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Row(
+                                  children: [
+                                    Icon(Icons.stars_rounded, color: Colors.amberAccent, size: 22),
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        'Feedback submitted! +50 Explorer XP added to your profile 🌟',
+                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                backgroundColor: const Color(0xff2B1564),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                margin: const EdgeInsets.all(16),
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          },
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.workspace_premium_rounded, color: Colors.amberAccent, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Submit Feedback (+50 XP)',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.2),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Widget _buildHighlightBubble({
@@ -248,25 +597,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                           ),
                           // Only Navigation button in top right
                           GestureDetector(
-                            onTap: () {
-                              final cleanTitle = widget.title.trim();
-                              final cleanLoc = widget.location.trim();
-                              final isCaption = cleanTitle.length > 35 || cleanTitle.contains('#') || cleanTitle.contains('\n');
-
-                              String searchQuery;
-                              if (!isCaption && cleanTitle.isNotEmpty && cleanTitle != cleanLoc) {
-                                searchQuery = cleanLoc.isNotEmpty ? "$cleanTitle, $cleanLoc" : cleanTitle;
-                              } else {
-                                searchQuery = cleanLoc.isNotEmpty ? cleanLoc : cleanTitle;
-                              }
-
-                              MapDiscoveryScreen.initialSearchQuery = searchQuery;
-                              MapDiscoveryScreen.startNavigationDirectly = true;
-                              Navigator.popUntil(context, (route) => route.settings.name == '/main' || route.isFirst);
-                              Future.delayed(const Duration(milliseconds: 300), () {
-                                MainWrapperState.activeState?.setIndex(1);
-                              });
-                            },
+                            onTap: _navigateToLocationInApp,
                             child: Container(
                               width: 44,
                               height: 44,
@@ -519,55 +850,25 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            _buildHighlightBubble(
-                              icon: Icons.directions_outlined,
-                              label: 'Directions',
-                              iconColor: const Color(0xff1C0D5A),
-                              onTap: _openExternalGoogleMaps,
-                            ),
-                            const SizedBox(width: 16),
                             _buildHighlightBubble(
                               icon: _isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
                               label: _isSaved ? 'Saved' : 'Save',
                               iconColor: const Color(0xff1C0D5A),
                               onTap: _toggleSave,
                             ),
-                            const SizedBox(width: 16),
                             _buildHighlightBubble(
                               icon: Icons.share_rounded,
                               label: 'Share',
                               iconColor: const Color(0xff1C0D5A),
                               onTap: _shareLocation,
                             ),
-                            const SizedBox(width: 16),
                             _buildHighlightBubble(
-                              icon: Icons.hotel_rounded,
-                              label: 'Stays',
+                              icon: Icons.rate_review_outlined,
+                              label: 'Feedback',
                               iconColor: const Color(0xff1C0D5A),
-                              onTap: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Nearby stays coming soon!'), behavior: SnackBarBehavior.floating),
-                                );
-                              },
-                            ),
-                            const SizedBox(width: 16),
-                            _buildHighlightBubble(
-                              icon: Icons.flag_outlined,
-                              label: 'Report',
-                              iconColor: const Color(0xff1C0D5A),
-                              onTap: () {
-                                showModalBottomSheet(
-                                  context: context,
-                                  isScrollControlled: true,
-                                  backgroundColor: Colors.transparent,
-                                  builder: (_) => ReportBottomSheet(
-                                    targetType: 'Hidden Place',
-                                    targetName: widget.title,
-                                    onSubmitSuccess: () {},
-                                  ),
-                                );
-                              },
+                              onTap: () => _showLocationFeedbackSheet(context),
                             ),
                           ],
                         ),

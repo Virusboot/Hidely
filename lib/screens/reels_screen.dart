@@ -35,16 +35,16 @@ class _ReelsScreenState extends State<ReelsScreen> {
       _isLoading = true;
     });
 
-    final result = await ApiService().getExplorePosts(
-      category: "All",
-      token: AuthService().token,
+    final token = AuthService().token;
+    final result = await ApiService().getFeedPosts(
+      token: token,
     );
 
     if (mounted) {
       setState(() {
         _isLoading = false;
         if (result.success) {
-          final allPosts = result.data?['posts'] ?? [];
+          final allPosts = result.data?['feed'] ?? result.data?['posts'] ?? [];
           _videoReels = allPosts.where((post) {
             if (AuthService().isPostDeletedLocally(post['id'])) return false;
             final imageUrl = post["image_url"]?.toString().toLowerCase() ?? "";

@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hidely_new/config/app_colors.dart';
 import 'package:hidely_new/services/ai_service.dart';
+import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/screens/login_screen.dart';
 
 class ItineraryPlannerSheet extends StatefulWidget {
   final String locationName;
@@ -111,7 +113,17 @@ class _ItineraryPlannerSheetState extends State<ItineraryPlannerSheet> {
     }
   }
 
+
+
   Future<void> _generateItinerary() async {
+    if (!AuthService().isLoggedIn) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+      return;
+    }
+
     final destination = _locationController.text.trim();
     if (destination.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
