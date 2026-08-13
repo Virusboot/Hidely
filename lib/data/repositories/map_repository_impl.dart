@@ -180,6 +180,20 @@ class MapRepositoryImpl implements MapRepository {
         final posts = dataMap['posts'] as List;
         for (final post in posts) {
           final locName = post['location'] as String? ?? '';
+          String imgUrl = post['image_url'] as String? ?? '';
+          
+          if (imgUrl.isEmpty) continue; // Skip posts without images
+          
+          final pc = (post['category'] as String? ?? '').toLowerCase();
+          // Skip food and dining posts completely
+          if (pc.contains('restaurant') || 
+              pc.contains('cafe') || 
+              pc.contains('food') || 
+              pc.contains('dining') || 
+              pc.contains('eat')) {
+            continue;
+          }
+
           if (locName.isNotEmpty) {
             final coords = await geocodeAddress(locName);
             if (coords != null) {
@@ -188,16 +202,12 @@ class MapRepositoryImpl implements MapRepository {
                   ? '${distM.round()}m'
                   : '${(distM / 1000.0).toStringAsFixed(1)}km';
 
-              String imgUrl = post['image_url'] as String? ?? '';
               if (imgUrl.isNotEmpty && !imgUrl.startsWith('http') && !imgUrl.startsWith('assets')) {
-                imgUrl = '${ApiService().baseUrl}/$imgUrl';
+                imgUrl = '${ApiService().baseUrl}/${imgUrl.startsWith('/') ? imgUrl.substring(1) : imgUrl}';
               }
 
               String postCat = 'attraction';
-              final pc = (post['category'] as String? ?? '').toLowerCase();
-              if (pc.contains('restaurant') || pc.contains('cafe')) {
-                postCat = 'restaurant';
-              } else if (pc.contains('hotel') || pc.contains('resort') || pc.contains('stay') || pc.contains('lodging')) {
+              if (pc.contains('hotel') || pc.contains('resort') || pc.contains('stay') || pc.contains('lodging')) {
                 postCat = 'hotel';
               }
 
@@ -621,8 +631,19 @@ class MapRepositoryImpl implements MapRepository {
             final distanceKm = (legs['distance']['value'] as num) / 1000.0;
             final durationMin = ((legs['duration']['value'] as num) / 60.0).round();
             
-            final encodedPolyline = route['overview_polyline']['points'] as String;
-            final points = _decodePolyline(encodedPolyline);
+            List<LatLng> points = [];
+            if (legs['steps'] != null) {
+              for (final step in legs['steps']) {
+                if (step['polyline'] != null && step['polyline']['points'] != null) {
+                  final stepPoints = _decodePolyline(step['polyline']['points'] as String);
+                  points.addAll(stepPoints);
+                }
+              }
+            }
+            if (points.isEmpty) {
+              final encodedPolyline = route['overview_polyline']['points'] as String;
+              points = _decodePolyline(encodedPolyline);
+            }
 
             List<String> instructions = [];
             if (legs['steps'] != null) {
@@ -756,7 +777,7 @@ class MapRepositoryImpl implements MapRepository {
             }
           }
         } catch (e) {
-          debugPrint('[Repository] Online OSRM routing failed: $e. Falling back to direct line.');
+          debugPrint('[Repository] Online OSRM routing failed: $e.');
         }
       } else {
         // Fallback for online transit: generate rich multi-modal transit roadmap steps
@@ -780,33 +801,7 @@ class MapRepositoryImpl implements MapRepository {
       }
     }
 
-    // --- Offline Pathing: "As-The-Crow-Flies" Direct Navigational Bearing Path Line ---
-    final distanceMeters = const Distance().as(LengthUnit.Meter, start, end);
-    final distanceKm = distanceMeters / 1000.0;
-
-    final double speed = mode == 'driving' ? 40.0 : 5.0; // km/h
-    final int durationMin = ((distanceKm / speed) * 60).round().clamp(1, 120);
-
-    return RouteData(
-      coordinates: [start, end],
-      distanceKm: double.parse(distanceKm.toStringAsFixed(1)),
-      durationMin: durationMin,
-      elevationGainM: 0,
-      instructions: language == 'es'
-          ? [
-              'Proceda en línea recta hacia el destino objetivo.',
-              'Distancia directa: ${distanceMeters.round()}m.'
-            ]
-          : language == 'de'
-              ? [
-                  'Gehen Sie in gerader Linie auf das Ziel zu.',
-                  'Direkte Entfernung: ${distanceMeters.round()}m.'
-                ]
-              : [
-                  'Proceed in a straight line towards target destination.',
-                  'Direct distance: ${distanceMeters.round()}m.'
-                ],
-    );
+    throw Exception("Unable to calculate road route. Please try again.");
   }
 
   List<String> _generateInstructionsForPoints(List<LatLng> points, [String? language]) {

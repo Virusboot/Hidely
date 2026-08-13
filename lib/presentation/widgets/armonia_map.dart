@@ -70,6 +70,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
   final fm.MapController _osmMapController = fm.MapController();
   // ignore: unused_field
   String? _offlineStyleString;
+  // ignore: unused_field
   String _offlineTilesPath = '';
 
   final Map<String, gmaps.BitmapDescriptor> _customMarkers = {};
@@ -716,7 +717,6 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     }
 
     final currentLocation = widget.simulatedLocation ?? widget.center;
-    final destinationTarget = widget.activeDestination?.location ?? const LatLng(28.6139, 77.2090);
 
     if (mapEngine == MapEngine.googleMaps) {
       // --- Online Mode: Google Maps ---
@@ -760,17 +760,6 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
                   startCap: gmaps.Cap.roundCap,
                   endCap: gmaps.Cap.roundCap,
                   patterns: const [],
-                )
-              else if (widget.activeDestination != null)
-                gmaps.Polyline(
-                  polylineId: const gmaps.PolylineId('routing_line'),
-                  points: [_toGoogleLatLng(currentLocation), _toGoogleLatLng(destinationTarget)],
-                  color: const Color(0xFF2563EB), // Vibrant Electric Blue navigation route
-                  width: 7,
-                  jointType: gmaps.JointType.round,
-                  startCap: gmaps.Cap.roundCap,
-                  endCap: gmaps.Cap.roundCap,
-                  patterns: const [],
                 ),
             },
             markers: _buildGoogleMarkers(currentLocation, widget.activeDestination),
@@ -788,9 +777,9 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
           mapController: _osmMapController,
           options: fm.MapOptions(
             initialCenter: currentLocation,
-            initialZoom: 14.5,
-            maxZoom: isOnline ? 19.5 : 15.0,
-            minZoom: isOnline ? 1.0 : 13.0,
+            initialZoom: 12.0,
+            maxZoom: 18.0,
+            minZoom: 4.0,
             onPositionChanged: (position, hasGesture) {
               if (hasGesture) {
                 ref.read(isTrackingUserProvider.notifier).state = false;
@@ -798,21 +787,20 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
             },
           ),
           children: [
-            if (isOnline || _offlineTilesPath.isNotEmpty)
-              fm.TileLayer(
-                urlTemplate: isOnline 
-                    ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png' 
-                    : '$_offlineTilesPath/{z}/{x}/{y}.png',
-                subdomains: const ['a', 'b', 'c', 'd'],
-                tileProvider: isOnline 
-                    ? fm.NetworkTileProvider(
-                        headers: {
-                          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-                        },
-                      ) 
-                    : fm.FileTileProvider(),
-                fallbackUrl: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-              ),
+            fm.TileLayer(
+              urlTemplate: ref.watch(isOnlineProvider)
+                  ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+                  : 'file:///Users/harshbhardwaj/.gemini/antigravity-ide/app-data/offline_tiles/{z}/{x}/{y}.png',
+              subdomains: const ['a', 'b', 'c', 'd'],
+              tileProvider: ref.watch(isOnlineProvider)
+                  ? fm.NetworkTileProvider(
+                      headers: const {
+                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+                      },
+                    ) 
+                  : fm.FileTileProvider(),
+              fallbackUrl: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+            ),
             if (ref.watch(showHeatmapProvider))
               fm.CircleLayer(
                 circles: _buildOfflineCircles(widget.places),
@@ -823,13 +811,6 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
             if (widget.activeRoute != null && widget.activeRoute!.coordinates.isNotEmpty)
               fm.PolylineLayer(
                 polylines: _buildOfflinePolylines(widget.activeRoute!.coordinates, travelMode),
-              )
-            else if (widget.activeDestination != null)
-              fm.PolylineLayer(
-                polylines: _buildOfflinePolylines(
-                  [currentLocation, widget.activeDestination!.location],
-                  travelMode,
-                ),
               ),
           ],
         ),

@@ -24,13 +24,11 @@ class PostOptionsBottomSheet extends StatefulWidget {
 class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
   final TextEditingController _aiQueryController = TextEditingController();
   bool _isSaved = false;
-  bool _isFavourite = false;
 
   @override
   void initState() {
     super.initState();
     _isSaved = widget.post['is_saved'] == true || widget.post['isSaved'] == true;
-    _isFavourite = widget.post['is_favourite'] == true;
   }
 
   @override
@@ -125,63 +123,7 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
     }
   }
 
-  void _showQrCode() {
-    final String postId = widget.post['id']?.toString() ?? '8924';
-    final String shareUrl = "https://hidely.app/post/$postId";
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text("Post QR Code", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Icon(Icons.qr_code_2_rounded, size: 140, color: Color(0xff1C0D5A)),
-            ),
-            const SizedBox(height: 12),
-            Text(shareUrl, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Close", style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _toggleFavourite() {
-    setState(() {
-      _isFavourite = !_isFavourite;
-      widget.post['is_favourite'] = _isFavourite;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(_isFavourite ? Icons.star_rounded : Icons.star_outline_rounded, color: Colors.amber, size: 20),
-            const SizedBox(width: 10),
-            Text(_isFavourite ? "Added to Favourites!" : "Removed from Favourites."),
-          ],
-        ),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xff1C0D5A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
 
   void _unfollowUser() {
     final username = widget.post['author_username'] ?? widget.post['username'] ?? 'user';
@@ -211,46 +153,6 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
           avatarPath: authorAvatar,
           rank: 'Explorer',
         ),
-      ),
-    );
-  }
-
-  void _whySeeingThis() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Row(
-          children: [
-            Icon(Icons.info_outline_rounded, color: Color(0xff1C0D5A)),
-            SizedBox(width: 8),
-            Text("Why you're seeing this", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: const Text(
-          "This post is shown based on travel destinations you explore and creators you interact with on Hidely.",
-          style: TextStyle(fontSize: 13.5, height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Got it", style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _notInterested() {
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text("We'll show fewer posts like this."),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xff1C0D5A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -301,41 +203,7 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
     }
   }
 
-  void _editPost() {
-    Navigator.pop(context);
-    final TextEditingController captionController = TextEditingController(text: widget.post['caption']?.toString() ?? '');
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Edit Post Caption", style: TextStyle(color: Color(0xff1C0D5A), fontWeight: FontWeight.bold)),
-        content: TextField(
-          controller: captionController,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            hintText: "Update caption...",
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff1C0D5A)),
-            onPressed: () {
-              widget.post['caption'] = captionController.text;
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Post caption updated!"), behavior: SnackBarBehavior.floating),
-              );
-            },
-            child: const Text("Save", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildGroupCard({required List<Widget> children}) {
     return Container(
@@ -478,7 +346,7 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
           ),
           const SizedBox(height: 14),
 
-          // Group 1 Card: Save, Download to Gallery, QR code
+          // Group 1 Card: Save, Download to Gallery
           _buildGroupCard(
             children: [
               _buildGroupTile(
@@ -494,36 +362,25 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
                 color: const Color(0xff2B1564),
                 onTap: _downloadToGallery,
               ),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
-              _buildGroupTile(
-                icon: Icons.qr_code_scanner_rounded,
-                title: "QR code",
-                onTap: _showQrCode,
-              ),
             ],
           ),
           const SizedBox(height: 12),
 
-          // Group 2 Card: Add to Favourites, Unfollow
-          _buildGroupCard(
-            children: [
-              _buildGroupTile(
-                icon: _isFavourite ? Icons.star_rounded : Icons.star_outline_rounded,
-                title: _isFavourite ? "Favourited" : "Add to Favourites",
-                color: _isFavourite ? Colors.amber.shade700 : Colors.black87,
-                onTap: _toggleFavourite,
-              ),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
-              _buildGroupTile(
-                icon: Icons.person_remove_outlined,
-                title: "Unfollow",
-                onTap: _unfollowUser,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
+          // Group 2 Card: Unfollow (only for creator posts)
+          if (!_isMyPost) ...[
+            _buildGroupCard(
+              children: [
+                _buildGroupTile(
+                  icon: Icons.person_remove_outlined,
+                  title: "Unfollow",
+                  onTap: _unfollowUser,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
 
-          // Group 3 Card: About account, Why seeing, Not interested, Report
+          // Group 3 Card: About account, Report
           _buildGroupCard(
             children: [
               _buildGroupTile(
@@ -531,39 +388,23 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
                 title: "About this account",
                 onTap: _aboutAccount,
               ),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
-              _buildGroupTile(
-                icon: Icons.info_outline_rounded,
-                title: "Why you're seeing this post",
-                onTap: _whySeeingThis,
-              ),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
-              _buildGroupTile(
-                icon: Icons.visibility_off_outlined,
-                title: "Not interested",
-                onTap: _notInterested,
-              ),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
-              _buildGroupTile(
-                icon: Icons.error_outline_rounded,
-                title: "Report",
-                isDestructive: true,
-                onTap: _reportPost,
-              ),
+              if (!_isMyPost) ...[
+                const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                _buildGroupTile(
+                  icon: Icons.error_outline_rounded,
+                  title: "Report",
+                  isDestructive: true,
+                  onTap: _reportPost,
+                ),
+              ],
             ],
           ),
 
-          // Author options if author of post
+          // Author options if author of post (Delete only)
           if (_isMyPost) ...[
             const SizedBox(height: 12),
             _buildGroupCard(
               children: [
-                _buildGroupTile(
-                  icon: Icons.edit_note_rounded,
-                  title: "Edit Post Caption",
-                  onTap: _editPost,
-                ),
-                const Divider(height: 1, color: Color(0xFFE2E8F0)),
                 _buildGroupTile(
                   icon: Icons.delete_outline_rounded,
                   title: "Delete Post",

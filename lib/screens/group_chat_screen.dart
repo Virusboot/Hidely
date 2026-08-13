@@ -27,8 +27,8 @@ class ChatItem {
   final String id;
   final String name;
   final String avatar;
-  final String lastMessage;
-  final String time;
+  String lastMessage;
+  String time;
   final int unreadCount;
   final bool isGroup;
   final bool isOfficial;
@@ -40,7 +40,7 @@ class ChatItem {
   final List<String>? memberAvatars;
   final TripItineraryData? itinerary;
 
-  const ChatItem({
+  ChatItem({
     required this.id,
     required this.name,
     required this.avatar,
@@ -807,6 +807,9 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
 
+    final now = TimeOfDay.now();
+    final timeStr = '${now.hourOfPeriod == 0 ? 12 : now.hourOfPeriod}:${now.minute.toString().padLeft(2, '0')} ${now.period == DayPeriod.am ? 'AM' : 'PM'}';
+
     setState(() {
       _messages.add(
         ChatMessage(
@@ -815,11 +818,15 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
           senderAvatar:
               'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
           text: text,
-          time: 'Just now',
+          time: timeStr,
           isMe: true,
         ),
       );
       _msgController.clear();
+
+      // Update chat list preview
+      widget.chat.lastMessage = 'You: $text';
+      widget.chat.time = timeStr;
     });
     HapticFeedback.lightImpact();
   }

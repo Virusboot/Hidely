@@ -18,8 +18,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _usernameController;
   late final TextEditingController _bioController;
-  late final TextEditingController _instagramController;
-  late final TextEditingController _youtubeController;
+
 
   // Profile Image State Variables
   String? _selectedImagePath;
@@ -36,39 +35,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     
     final originalBio = AuthService().userBio;
     String cleanBio = originalBio;
-    String instagramUrl = '';
-    String youtubeUrl = '';
-
-    final RegExp instaReg = RegExp(r'Instagram:\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false);
-    final RegExp ytReg = RegExp(r'YouTube:\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false);
-
-    final instaMatch = instaReg.firstMatch(originalBio);
-    if (instaMatch != null) {
-      instagramUrl = instaMatch.group(1) ?? '';
-      cleanBio = cleanBio.replaceAll(instaMatch.group(0) ?? '', '').trim();
-    }
-
-    final ytMatch = ytReg.firstMatch(originalBio);
-    if (ytMatch != null) {
-      youtubeUrl = ytMatch.group(1) ?? '';
-      cleanBio = cleanBio.replaceAll(ytMatch.group(0) ?? '', '').trim();
-    }
 
     _bioController = TextEditingController(text: cleanBio);
-    _instagramController = TextEditingController(text: instagramUrl);
-    _youtubeController = TextEditingController(text: youtubeUrl);
     _selectedGender = AuthService().userGender.isNotEmpty ? AuthService().userGender : null;
 
-    // Parse remaining custom title: url lines from original bio
+    // Parse custom title: url lines from original bio
     final lines = originalBio.split('\n');
     for (final line in lines) {
       final match = RegExp(r'^([^:\n]+):\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false).firstMatch(line.trim());
       if (match != null) {
         final key = match.group(1)?.trim() ?? '';
         final val = match.group(2)?.trim() ?? '';
-        if (key.toLowerCase() != 'instagram' && key.toLowerCase() != 'youtube') {
-          _customLinks.add({'title': key, 'url': val});
-        }
+        _customLinks.add({'title': key, 'url': val});
       }
     }
   }
@@ -78,8 +56,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController.dispose();
     _usernameController.dispose();
     _bioController.dispose();
-    _instagramController.dispose();
-    _youtubeController.dispose();
+
     super.dispose();
   }
 
@@ -155,8 +132,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             final name = _nameController.text.trim();
                             final username = _usernameController.text.trim().toLowerCase();
                             final bio = _bioController.text.trim();
-                            final instagram = _instagramController.text.trim();
-                            final youtube = _youtubeController.text.trim();
+
 
                             // 1. Validations (Instagram-like limitations)
                             if (name.isEmpty) {
@@ -189,36 +165,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               return;
                             }
 
-                            // 2. Strict Link / Handle Validation (must be valid URL or start with @)
-                            final urlRegex = RegExp(r'^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$');
-                            final handleRegex = RegExp(r'^@[a-zA-Z0-9_.]+$');
 
-                            if (instagram.isNotEmpty) {
-                              final isUrl = urlRegex.hasMatch(instagram);
-                              final isHandle = handleRegex.hasMatch(instagram);
-                              if (!isUrl && !isHandle) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text("Instagram must be a valid link (https://...) or username starting with @"),
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                                return;
-                              }
-                            }
-                            if (youtube.isNotEmpty) {
-                              final isUrl = urlRegex.hasMatch(youtube);
-                              final isHandle = handleRegex.hasMatch(youtube);
-                              if (!isUrl && !isHandle) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text("YouTube must be a valid link (https://...) or channel starting with @"),
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                                return;
-                              }
-                            }
 
                             setState(() {
                               _isLoading = true;
@@ -233,12 +180,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             );
 
                             String finalBio = bio;
-                            if (instagram.isNotEmpty) {
-                              finalBio = '$finalBio\nInstagram: $instagram';
-                            }
-                            if (youtube.isNotEmpty) {
-                              finalBio = '$finalBio\nYouTube: $youtube';
-                            }
+
                             for (final link in _customLinks) {
                               final title = link['title'] ?? 'Link';
                               final url = link['url'] ?? '';
@@ -381,35 +323,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         inputFormatters: [LengthLimitingTextInputFormatter(150)],
                       ),
                       
-                      // 4. Links Section (Instagram Style)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            "Social Links",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xff1C0D5A),
-                            ),
-                          ),
-                        ),
-                      ),
+                      // 4. Links Section
                       const Divider(height: 1, thickness: 0.5, color: Colors.black12),
                       _buildLinksRow(),
-                      _buildEditableField(
-                        "Instagram",
-                        _instagramController,
-                        hint: "@username or link",
-                        inputFormatters: [LengthLimitingTextInputFormatter(80)],
-                      ),
-                      _buildEditableField(
-                        "YouTube",
-                        _youtubeController,
-                        hint: "@channel or link",
-                        inputFormatters: [LengthLimitingTextInputFormatter(80)],
-                      ),
 
                       const SizedBox(height: 30),
                     ],
@@ -522,9 +438,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   );
 
   Widget _buildLinksRow() {
-    int totalCount = (_instagramController.text.trim().isNotEmpty ? 1 : 0)
-        + (_youtubeController.text.trim().isNotEmpty ? 1 : 0)
-        + _customLinks.length;
+    int totalCount = _customLinks.length;
     String subtitle = totalCount == 0 ? "Add external link" : "$totalCount ${totalCount == 1 ? 'link' : 'links'}";
 
     return Column(
@@ -578,135 +492,114 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
-          return Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-              top: 12,
-              left: 20,
-              right: 20,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Top Handle Bar
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          return SafeArea(
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                top: 12,
+                left: 20,
+                right: 20,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      "Links",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xff1C0D5A),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
+                    // Top Handle Bar
+                    Center(
                       child: Container(
-                        padding: const EdgeInsets.all(6),
+                        width: 40,
+                        height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          shape: BoxShape.circle,
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
                         ),
-                        child: const Icon(Icons.close_rounded, size: 18, color: Colors.black87),
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "Add social links to your profile",
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 20),
+                    const SizedBox(height: 16),
 
-                // Existing Links List
-                if (_instagramController.text.trim().isNotEmpty)
-                  _buildModalLinkItem(
-                    title: "Instagram",
-                    url: _instagramController.text.trim(),
-                    icon: Icons.camera_alt_outlined,
-                    iconColor: const Color(0xffE1306C),
-                    onDelete: () {
-                      setState(() => _instagramController.clear());
-                      setModalState(() {});
-                    },
-                  ),
-
-                if (_youtubeController.text.trim().isNotEmpty)
-                  _buildModalLinkItem(
-                    title: "YouTube",
-                    url: _youtubeController.text.trim(),
-                    icon: Icons.play_circle_fill_rounded,
-                    iconColor: Colors.red,
-                    onDelete: () {
-                      setState(() => _youtubeController.clear());
-                      setModalState(() {});
-                    },
-                  ),
-
-                for (int i = 0; i < _customLinks.length; i++)
-                  _buildModalLinkItem(
-                    title: _customLinks[i]['title'] ?? 'Link',
-                    url: _customLinks[i]['url'] ?? '',
-                    icon: Icons.link_rounded,
-                    iconColor: const Color(0xff5D3EBC),
-                    onDelete: () {
-                      setState(() => _customLinks.removeAt(i));
-                      setModalState(() {});
-                    },
-                  ),
-
-                const SizedBox(height: 12),
-
-                // Add External Link Button
-                GestureDetector(
-                  onTap: () {
-                    _showAddSingleLinkDialog(outerContext, setModalState);
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xffF1F5F9),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Row(
+                    // Header
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Icon(Icons.add_rounded, color: Color(0xff5D3EBC), size: 22),
-                        SizedBox(width: 12),
-                        Text(
-                          "Add external link",
+                        const Text(
+                          "Links",
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xff5D3EBC),
+                            color: Color(0xff1C0D5A),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close_rounded, size: 18, color: Colors.black87),
                           ),
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Add links to your profile",
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 20),
+
+                    for (int i = 0; i < _customLinks.length; i++)
+                      _buildModalLinkItem(
+                        title: _customLinks[i]['title'] ?? 'Link',
+                        url: _customLinks[i]['url'] ?? '',
+                        icon: Icons.link_rounded,
+                        iconColor: const Color(0xff5D3EBC),
+                        onDelete: () {
+                          setState(() => _customLinks.removeAt(i));
+                          setModalState(() {});
+                        },
+                      ),
+
+                    const SizedBox(height: 12),
+
+                    // Add External Link Button
+                    GestureDetector(
+                      onTap: () {
+                        _showAddSingleLinkDialog(outerContext, setModalState);
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xffF1F5F9),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.add_rounded, color: Color(0xff5D3EBC), size: 22),
+                            SizedBox(width: 12),
+                            Text(
+                              "Add external link",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xff5D3EBC),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                 ),
-                const SizedBox(height: 10),
-              ],
+              ),
             ),
           );
         },
@@ -842,13 +735,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               }
 
               setState(() {
-                if (title.toLowerCase() == 'instagram') {
-                  _instagramController.text = url;
-                } else if (title.toLowerCase() == 'youtube') {
-                  _youtubeController.text = url;
-                } else {
-                  _customLinks.add({'title': title, 'url': url});
-                }
+                _customLinks.add({'title': title, 'url': url});
               });
               setModalState(() {});
 

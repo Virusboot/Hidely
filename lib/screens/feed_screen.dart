@@ -591,7 +591,11 @@ class _FeedScreenState extends State<FeedScreen> {
                                   builder: (context) => LocationDetailScreen(
                                     title: post["title"] ?? location,
                                     location: location,
-                                    image: isAsset ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
+                                    image: isAsset 
+                                        ? imageUrl 
+                                        : (imageUrl.toLowerCase().startsWith("http") || imageUrl.toLowerCase().startsWith("https"))
+                                            ? imageUrl
+                                            : '${ApiService().baseUrl}/${imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl}',
                                     category: post["category"] ?? "All",
                                   ),
                                 ),

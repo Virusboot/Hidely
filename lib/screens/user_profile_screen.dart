@@ -11,7 +11,6 @@ import 'settings_and_privacy_screen.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:hidely_new/widgets/empty_state.dart';
-import 'package:hidely_new/widgets/explorer_badge.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -505,8 +504,6 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                           const SizedBox(width: 4),
                           const Icon(Icons.verified_rounded, color: Color(0xff2563EB), size: 18),
                         ],
-                        const SizedBox(width: 8),
-                        ExplorerBadge.fromPostCount(_postsCount),
                         if (_pronouns.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Text(
@@ -588,8 +585,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               ),
               const SizedBox(height: 16),
 
-              // Explorer Badges & Gamification Ribbon
-              ExplorerBadgesRibbon(postCount: _postsCount, posts: _userPosts),
+
 
               const SizedBox(height: 20),
 
@@ -786,7 +782,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         final String imagePath = post["image_url"]?.toString() ?? post["image"]?.toString() ?? "";
         final String lowerPath = imagePath.toLowerCase();
         final bool isVideo = lowerPath.endsWith('.mp4') || lowerPath.endsWith('.mov') || lowerPath.endsWith('.mkv') || lowerPath.endsWith('.avi');
-        final bool isNetwork = imagePath.startsWith("http") || imagePath.startsWith("uploads");
+        final bool isNetwork = lowerPath.startsWith("http") || lowerPath.startsWith("https") || lowerPath.startsWith("uploads") || lowerPath.startsWith("/uploads") || lowerPath.startsWith("/");
         final bool hasImage = imagePath.isNotEmpty;
 
         return GestureDetector(
@@ -840,7 +836,9 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                         : isNetwork
                             ? SizedBox.expand(
                                 child: CachedNetworkImage(
-                                  imageUrl: imagePath.startsWith("http") ? imagePath : '${ApiService().baseUrl}/$imagePath',
+                                  imageUrl: (lowerPath.startsWith("http") || lowerPath.startsWith("https"))
+                                      ? imagePath
+                                      : '${ApiService().baseUrl}/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}',
                                   fit: BoxFit.cover,
                                   alignment: Alignment.center,
                                   memCacheWidth: 600,
@@ -896,7 +894,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             : Map<String, dynamic>.from(rawPost as Map);
 
         final String imagePath = post["image_url"]?.toString() ?? post["image"]?.toString() ?? "";
-        final bool isNetwork = imagePath.startsWith("http") || imagePath.startsWith("uploads");
+        final String lowerPath = imagePath.toLowerCase();
+        final bool isNetwork = lowerPath.startsWith("http") || lowerPath.startsWith("https") || lowerPath.startsWith("uploads") || lowerPath.startsWith("/uploads") || lowerPath.startsWith("/");
         final bool hasImage = imagePath.isNotEmpty;
 
         return GestureDetector(
@@ -943,7 +942,9 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                       : isNetwork
                           ? SizedBox.expand(
                               child: CachedNetworkImage(
-                                imageUrl: imagePath.startsWith("http") ? imagePath : '${ApiService().baseUrl}/$imagePath',
+                                imageUrl: (lowerPath.startsWith("http") || lowerPath.startsWith("https"))
+                                    ? imagePath
+                                    : '${ApiService().baseUrl}/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}',
                                 fit: BoxFit.cover,
                                 alignment: Alignment.center,
                                 memCacheWidth: 600,

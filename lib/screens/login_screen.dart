@@ -116,12 +116,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 50),
 
-                // Email Input
+                // Email/Username Input
                 _buildInputField(
                   controller: _emailController,
-                  hintText: "Email Address",
-                  icon: Icons.email_outlined,
-                  keyboardType: TextInputType.emailAddress,
+                  hintText: "Email or Username",
+                  icon: Icons.person_outline_rounded,
+                  keyboardType: TextInputType.text,
                 ),
                 const SizedBox(height: 20),
 
@@ -171,13 +171,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         final email = _emailController.text.trim();
                         final password = _passwordController.text;
 
-                        // Email format validation using RegExp
+                        final isEmailFormat = email.contains('@');
                         final emailRegex = RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+");
 
                         if (email.isEmpty) {
-                          _showCustomSnackBar(context, "Please enter your email", isError: true);
-                        } else if (!emailRegex.hasMatch(email)) {
-                          _showCustomSnackBar(context, "Please enter a valid email", isError: true);
+                          _showCustomSnackBar(context, "Please enter your email or username", isError: true);
+                        } else if (isEmailFormat && !emailRegex.hasMatch(email)) {
+                          _showCustomSnackBar(context, "Please enter a valid email address", isError: true);
                         } else if (password.isEmpty) {
                           _showCustomSnackBar(context, "Please enter your password", isError: true);
                         } else {

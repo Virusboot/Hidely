@@ -193,6 +193,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
         ref.read(navigationStatusProvider.notifier).state = NavigationStatus.idle;
         ref.read(navigationIndexProvider.notifier).state = 0;
         ref.read(simulatedLocationProvider.notifier).state = null;
+        ref.read(searchQueryProvider.notifier).state = '';
+        _searchController.clear();
       }
       if (widget.initialSearchQuery != null && widget.initialSearchQuery!.isNotEmpty) {
         _handleInitialSearchQuery(widget.initialSearchQuery!, widget.startNavigationDirectly);
@@ -624,6 +626,10 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
 
     final userLoc = ref.read(userLocationProvider);
     ref.read(mapCenterProvider.notifier).state = userLoc;
+
+    setState(() {
+      _isNavPanelCollapsed = true;
+    });
   }
 
   void _stopNavigation() {
@@ -1769,6 +1775,16 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
     });
 
     ref.listen<AsyncValue<RouteData?>>(routeDataProvider, (previous, next) {
+      if (next.hasError) {
+        final error = next.error;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
       next.whenData((route) {
         if (route != null &&
             route.coordinates.isNotEmpty &&
@@ -1829,7 +1845,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
               _buildTravelModeRow(travelMode, l10n),
               SizedBox(height: context.h(8)),
               _buildAlertsBanner(alerts),
-              if (searchQuery.trim().isNotEmpty && ref.watch(activeDestinationProvider) == null)
+              if (isSearchFocused && searchQuery.trim().isNotEmpty && ref.watch(activeDestinationProvider) == null)
                 ref.watch(autocompletePredictionsProvider(searchQuery)).when(
                   data: (predictions) => _buildSearchSuggestions(predictions),
                   loading: () => Container(

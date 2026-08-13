@@ -7,7 +7,6 @@ import 'package:hidely_new/widgets/empty_state.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
-import 'package:hidely_new/widgets/explorer_badge.dart';
 import 'package:hidely_new/screens/group_chat_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:hidely_new/widgets/report_bottom_sheet.dart';
@@ -507,11 +506,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                     ),
                     const SizedBox(height: 16),
 
-                    // Explorer Badges & Gamification Ribbon
-                    ExplorerBadgesRibbon(
-                      postCount: _creatorPosts.length,
-                      posts: _creatorPosts,
-                    ),
+
 
                     const SizedBox(height: 20),
 
@@ -785,7 +780,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
         final String imagePath = post["image_url"]?.toString() ?? post["image"]?.toString() ?? "";
         final String lowerPath = imagePath.toLowerCase();
         final bool isVideo = lowerPath.endsWith('.mp4') || lowerPath.endsWith('.mov') || lowerPath.endsWith('.mkv') || lowerPath.endsWith('.avi');
-        final bool isNetwork = imagePath.startsWith("http") || imagePath.startsWith("uploads");
+        final bool isNetwork = lowerPath.startsWith("http") || lowerPath.startsWith("https") || lowerPath.startsWith("uploads") || lowerPath.startsWith("/uploads") || lowerPath.startsWith("/");
         final bool hasImage = imagePath.isNotEmpty;
 
         return GestureDetector(
@@ -837,7 +832,9 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                         : isNetwork
                             ? SizedBox.expand(
                                 child: Image.network(
-                                  imagePath.startsWith("http") ? imagePath : '${ApiService().baseUrl}/$imagePath',
+                                  (lowerPath.startsWith("http") || lowerPath.startsWith("https"))
+                                      ? imagePath
+                                      : '${ApiService().baseUrl}/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}',
                                   fit: BoxFit.cover,
                                   alignment: Alignment.center,
                                   errorBuilder: (context, error, stackTrace) => const Center(
