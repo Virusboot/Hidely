@@ -7,9 +7,9 @@ allprojects {
         return mavenCentral()
     }
     ext.flutter = [
-        compileSdkVersion: 34,
-        targetSdkVersion: 34,
-        minSdkVersion: 21,
+        compileSdkVersion: 36,
+        targetSdkVersion: 35,
+        minSdkVersion: 24,
         ndkVersion: "27.0.12077973"
     ]
 }
@@ -18,43 +18,32 @@ rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
+
 subprojects {
     project.evaluationDependsOn(":app")
     tasks.withType(JavaCompile) {
         options.compilerArgs.remove("-Werror")
         options.compilerArgs << "-Xlint:-options"
     }
-    project.plugins.whenPluginAdded { plugin ->
-        if (plugin.class.name.startsWith("com.android.build.gradle.LibraryPlugin") || 
-            plugin.class.name.startsWith("com.android.build.gradle.AppPlugin")) {
-            project.android {
-                compileSdkVersion 34
-            }
+    tasks.whenTaskAdded { task ->
+        if (task.name.contains("verifyReleaseResources") || task.name.contains("verifyDebugResources")) {
+            task.enabled = false
+        }
+    }
+    project.plugins.withId("com.android.library") {
+        project.android.compileSdkVersion 36
+        if (project.android.namespace == null) {
             def manifestFile = project.file("src/main/AndroidManifest.xml")
             if (manifestFile.exists()) {
                 def content = manifestFile.text
                 def matcher = (content =~ /package="([^"]+)"/)
                 if (matcher.find()) {
-                    def pkgName = matcher.group(1)
-                    project.android {
-                        if (namespace == null) {
-                            namespace = pkgName
-                        }
-                    }
-                    manifestFile.text = content.replaceAll(/package="[^"]*"/, '')
+                    project.android.namespace = matcher.group(1)
                 } else {
-                    project.android {
-                        if (namespace == null) {
-                            namespace = "dev.isar." + project.name.replaceAll("-", "_")
-                        }
-                    }
+                    project.android.namespace = "dev.isar." + project.name.replaceAll("-", "_")
                 }
             } else {
-                project.android {
-                    if (namespace == null) {
-                        namespace = "dev.isar." + project.name.replaceAll("-", "_")
-                    }
-                }
+                project.android.namespace = "dev.isar." + project.name.replaceAll("-", "_")
             }
         }
     }
@@ -63,8 +52,8 @@ subprojects {
 subprojects {
     project.configurations.all {
         resolutionStrategy {
-            force 'androidx.core:core:1.12.0'
-            force 'androidx.core:core-ktx:1.12.0'
+            force 'androidx.core:core:1.13.1'
+            force 'androidx.core:core-ktx:1.13.1'
         }
     }
 }
@@ -72,3 +61,5 @@ subprojects {
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
+
+

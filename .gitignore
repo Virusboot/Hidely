@@ -37,10 +37,13 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
+# Android Studio / Gradle place build artifacts here
 /android/app/debug
 /android/app/profile
 /android/app/release
+android/.gradle/
+android/build/
+android/local.properties
 
 # Local Backend & Temporary files
 backend/

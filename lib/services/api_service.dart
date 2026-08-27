@@ -794,7 +794,7 @@ class ApiService {
         headers: {
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResult(success: true, message: 'Notifications loaded.', data: body);
@@ -814,7 +814,7 @@ class ApiService {
         headers: {
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResult(success: true, message: 'Notifications marked as read.', data: body);
