@@ -52,7 +52,10 @@ android {
 
     signingConfigs {
         release {
-            def keystorePropertiesFile = rootProject.file('key.properties')
+            def keystorePropertiesFile = rootProject.file('android/key.properties')
+            if (!keystorePropertiesFile.exists()) {
+                keystorePropertiesFile = rootProject.file('key.properties')
+            }
             if (keystorePropertiesFile.exists()) {
                 def keystoreProperties = new Properties()
                 keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
@@ -69,12 +72,7 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            def keystorePropertiesFile = rootProject.file('key.properties')
-            if (keystorePropertiesFile.exists()) {
-                signingConfig = signingConfigs.release
-            } else {
-                signingConfig = signingConfigs.debug
-            }
+            signingConfig signingConfigs.release
         }
     }
 }
