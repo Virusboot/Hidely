@@ -76,11 +76,7 @@ class AuthService {
     
 
 
-    if (_user != null) {
-      _user = {..._user!, ...userData};
-    } else {
-      _user = userData;
-    }
+    _user = Map<String, dynamic>.from(userData);
     _isLoggedIn = true;
 
     final prefs = await SharedPreferences.getInstance();

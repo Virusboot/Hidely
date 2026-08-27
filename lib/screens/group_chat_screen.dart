@@ -447,7 +447,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     if (_activeChat != null) {
       return PopScope(
         canPop: false,
-        onPopInvoked: (didPop) {
+        onPopInvokedWithResult: (didPop, result) {
           if (didPop) return;
           _closeChat();
         },

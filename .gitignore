@@ -51,4 +51,12 @@ test_project/
 .local_tools/
 android/.kotlin/
 
+# Keystore & Binary Releases
+key.properties
+*.jks
+*.keystore
+*.apk
+*.aab
+
+
 

@@ -127,7 +127,7 @@ class MainWrapperState extends State<MainWrapper> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         final shouldExit = await _showExitConfirmationDialog(context);
         if (shouldExit == true && context.mounted) {

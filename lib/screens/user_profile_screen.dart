@@ -768,7 +768,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
     return GridView.builder(
       padding: const EdgeInsets.all(2),
-      cacheExtent: 1000,
+      cacheExtent: 1000.0,
       physics: const BouncingScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
@@ -877,7 +877,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
     return GridView.builder(
       padding: const EdgeInsets.all(2),
-      cacheExtent: 1000,
+      cacheExtent: 1000.0,
       physics: const BouncingScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,

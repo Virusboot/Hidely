@@ -788,18 +788,14 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
           ),
           children: [
             fm.TileLayer(
-              urlTemplate: ref.watch(isOnlineProvider)
-                  ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-                  : 'file:///Users/harshbhardwaj/.gemini/antigravity-ide/app-data/offline_tiles/{z}/{x}/{y}.png',
+              urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
               subdomains: const ['a', 'b', 'c', 'd'],
-              tileProvider: ref.watch(isOnlineProvider)
-                  ? fm.NetworkTileProvider(
-                      headers: const {
-                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-                      },
-                    ) 
-                  : fm.FileTileProvider(),
-              fallbackUrl: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+              tileProvider: fm.NetworkTileProvider(
+                headers: const {
+                  'User-Agent': 'HidelyApp/1.0 (Android; MapTileViewer)',
+                },
+              ),
+              fallbackUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             ),
             if (ref.watch(showHeatmapProvider))
               fm.CircleLayer(

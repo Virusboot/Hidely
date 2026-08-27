@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:zego_uikit/zego_uikit.dart';
 import 'package:zego_uikit_prebuilt_call/zego_uikit_prebuilt_call.dart';
 import 'package:hidely_new/config/call_config.dart';
 import 'package:hidely_new/services/auth_service.dart';
@@ -164,9 +165,6 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
         ],
         style: ZegoMenuBarStyle.light,
       )
-      ..onOnlySelfInRoom = (context) {
-        Navigator.of(context).pop();
-      }
       ..avatarBuilder = (BuildContext context, Size size, ZegoUIKitUser? user, Map<String, dynamic> extraInfo) {
         return Container(
           width: size.width,

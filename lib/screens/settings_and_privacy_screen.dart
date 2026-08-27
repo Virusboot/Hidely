@@ -891,7 +891,7 @@ class _SettingsAndPrivacyScreenState
                                                           value: item[
                                                                   'toggleValue']
                                                               as bool,
-                                                          activeColor: _primary,
+                                                          activeThumbColor: _primary,
                                                           activeTrackColor:
                                                               _primary
                                                                   .withOpacity(

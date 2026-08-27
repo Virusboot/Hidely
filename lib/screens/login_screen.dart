@@ -185,20 +185,21 @@ class _LoginScreenState extends State<LoginScreen> {
                             _isLoading = true;
                           });
 
-                          // Check for Admin Account login
-                          if ((email.toLowerCase() == 'admin@hidely.app' || email.toLowerCase() == 'hidely_official') &&
-                              (password == 'admin123' || password == 'hidely123' || password == 'admin')) {
-                            final adminUserData = {
+                          // Check for Demo / Reviewer / Admin Account login
+                          final lowerEmail = email.toLowerCase();
+                          if ((lowerEmail == 'admin@hidely.app' || lowerEmail == 'hidely_official' || lowerEmail == 'demo@hidely.app' || lowerEmail == 'reviewer@hidely.app' || lowerEmail == 'tester@hidely.app') &&
+                              (password == 'admin123' || password == 'hidely123' || password == 'admin' || password == 'demo123' || password == 'pass123' || password == 'reviewer123')) {
+                            final demoUserData = {
                               'id': '1',
-                              'name': 'Hidely Official',
-                              'username': 'hidely_official',
-                              'email': 'admin@hidely.app',
-                              'bio': 'Official Hidely App Account. Exploring the world\'s most breathtaking places! 🌍✨',
+                              'name': lowerEmail.contains('reviewer') ? 'Google Reviewer' : 'Hidely Demo User',
+                              'username': lowerEmail.contains('reviewer') ? 'google_reviewer' : 'hidely_demo',
+                              'email': email,
+                              'bio': 'Official Hidely Demo Account. Exploring the world\'s most breathtaking places! 🌍✨',
                               'profile_picture': 'assets/images/logo_horizontal_color.png',
                               'is_verified': true,
-                              'role': 'admin',
+                              'role': 'user',
                             };
-                            await AuthService().login('admin_official_token', adminUserData);
+                            await AuthService().login('demo_reviewer_token_123', demoUserData);
                             final prefs = await SharedPreferences.getInstance();
                             await prefs.setString('saved_email', email);
                             await prefs.setString('saved_password', password);

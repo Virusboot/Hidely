@@ -265,7 +265,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         onRefresh: _loadFeed,
                         color: const Color(0xff2B1564),
                         child: ListView.builder(
-                          cacheExtent: 1500,
+                          cacheExtent: 1500.0,
                           physics: const AlwaysScrollableScrollPhysics(
                             parent: BouncingScrollPhysics(),
                           ),

@@ -6,6 +6,12 @@
 
 #import "GeneratedPluginRegistrant.h"
 
+#if __has_include(<audio_session/AudioSessionPlugin.h>)
+#import <audio_session/AudioSessionPlugin.h>
+#else
+@import audio_session;
+#endif
+
 #if __has_include(<audioplayers_darwin/AudioplayersDarwinPlugin.h>)
 #import <audioplayers_darwin/AudioplayersDarwinPlugin.h>
 #else
@@ -24,16 +30,22 @@
 @import connectivity_plus;
 #endif
 
+#if __has_include(<device_info_plus/FPPDeviceInfoPlusPlugin.h>)
+#import <device_info_plus/FPPDeviceInfoPlusPlugin.h>
+#else
+@import device_info_plus;
+#endif
+
 #if __has_include(<file_picker/FilePickerPlugin.h>)
 #import <file_picker/FilePickerPlugin.h>
 #else
 @import file_picker;
 #endif
 
-#if __has_include(<flutter_callkit_incoming_yoer/FlutterCallkitIncomingPlugin.h>)
-#import <flutter_callkit_incoming_yoer/FlutterCallkitIncomingPlugin.h>
+#if __has_include(<flutter_callkit_incoming/FlutterCallkitIncomingPlugin.h>)
+#import <flutter_callkit_incoming/FlutterCallkitIncomingPlugin.h>
 #else
-@import flutter_callkit_incoming_yoer;
+@import flutter_callkit_incoming;
 #endif
 
 #if __has_include(<flutter_local_notifications/FlutterLocalNotificationsPlugin.h>)
@@ -42,10 +54,10 @@
 @import flutter_local_notifications;
 #endif
 
-#if __has_include(<flutter_logs/FlutterLogsPlugin.h>)
-#import <flutter_logs/FlutterLogsPlugin.h>
+#if __has_include(<flutter_logs_yoer/FlutterLogsYoerPlugin.h>)
+#import <flutter_logs_yoer/FlutterLogsYoerPlugin.h>
 #else
-@import flutter_logs;
+@import flutter_logs_yoer;
 #endif
 
 #if __has_include(<flutter_native_splash/FlutterNativeSplashPlugin.h>)
@@ -54,16 +66,22 @@
 @import flutter_native_splash;
 #endif
 
+#if __has_include(<flutter_ringtone_player/FlutterRingtonePlayerPlugin.h>)
+#import <flutter_ringtone_player/FlutterRingtonePlayerPlugin.h>
+#else
+@import flutter_ringtone_player;
+#endif
+
 #if __has_include(<flutter_tts/FlutterTtsPlugin.h>)
 #import <flutter_tts/FlutterTtsPlugin.h>
 #else
 @import flutter_tts;
 #endif
 
-#if __has_include(<flutter_vibrate/VibratePlugin.h>)
-#import <flutter_vibrate/VibratePlugin.h>
+#if __has_include(<flutter_volume_controller/FlutterVolumeControllerPlugin.h>)
+#import <flutter_volume_controller/FlutterVolumeControllerPlugin.h>
 #else
-@import flutter_vibrate;
+@import flutter_volume_controller;
 #endif
 
 #if __has_include(<geocoding_ios/GeocodingPlugin.h>)
@@ -90,16 +108,16 @@
 @import image_picker_ios;
 #endif
 
-#if __has_include(<is_lock_screen2/SwiftIsLockScreenPlugin.h>)
-#import <is_lock_screen2/SwiftIsLockScreenPlugin.h>
-#else
-@import is_lock_screen2;
-#endif
-
 #if __has_include(<isar_flutter_libs/IsarFlutterLibsPlugin.h>)
 #import <isar_flutter_libs/IsarFlutterLibsPlugin.h>
 #else
 @import isar_flutter_libs;
+#endif
+
+#if __has_include(<just_audio/JustAudioPlugin.h>)
+#import <just_audio/JustAudioPlugin.h>
+#else
+@import just_audio;
 #endif
 
 #if __has_include(<native_device_orientation/NativeDeviceOrientationPlugin.h>)
@@ -132,6 +150,18 @@
 @import photo_manager;
 #endif
 
+#if __has_include(<proximity_sensor/SwiftProximitySensorPlugin.h>)
+#import <proximity_sensor/SwiftProximitySensorPlugin.h>
+#else
+@import proximity_sensor;
+#endif
+
+#if __has_include(<screen_brightness_ios/ScreenBrightnessIosPlugin.h>)
+#import <screen_brightness_ios/ScreenBrightnessIosPlugin.h>
+#else
+@import screen_brightness_ios;
+#endif
+
 #if __has_include(<share_plus/FPPSharePlusPlugin.h>)
 #import <share_plus/FPPSharePlusPlugin.h>
 #else
@@ -160,6 +190,12 @@
 #import <url_launcher_ios/URLLauncherPlugin.h>
 #else
 @import url_launcher_ios;
+#endif
+
+#if __has_include(<vibration/VibrationPlugin.h>)
+#import <vibration/VibrationPlugin.h>
+#else
+@import vibration;
 #endif
 
 #if __has_include(<video_player_avfoundation/FVPVideoPlayerPlugin.h>)
@@ -219,32 +255,38 @@
 @implementation GeneratedPluginRegistrant
 
 + (void)registerWithRegistry:(NSObject<FlutterPluginRegistry>*)registry {
+  [AudioSessionPlugin registerWithRegistrar:[registry registrarForPlugin:@"AudioSessionPlugin"]];
   [AudioplayersDarwinPlugin registerWithRegistrar:[registry registrarForPlugin:@"AudioplayersDarwinPlugin"]];
   [CameraPlugin registerWithRegistrar:[registry registrarForPlugin:@"CameraPlugin"]];
   [ConnectivityPlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"ConnectivityPlusPlugin"]];
+  [FPPDeviceInfoPlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"FPPDeviceInfoPlusPlugin"]];
   [FilePickerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FilePickerPlugin"]];
   [FlutterCallkitIncomingPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterCallkitIncomingPlugin"]];
   [FlutterLocalNotificationsPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterLocalNotificationsPlugin"]];
-  [FlutterLogsPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterLogsPlugin"]];
+  [FlutterLogsYoerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterLogsYoerPlugin"]];
   [FlutterNativeSplashPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterNativeSplashPlugin"]];
+  [FlutterRingtonePlayerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterRingtonePlayerPlugin"]];
   [FlutterTtsPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterTtsPlugin"]];
-  [VibratePlugin registerWithRegistrar:[registry registrarForPlugin:@"VibratePlugin"]];
+  [FlutterVolumeControllerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterVolumeControllerPlugin"]];
   [GeocodingPlugin registerWithRegistrar:[registry registrarForPlugin:@"GeocodingPlugin"]];
   [GeolocatorPlugin registerWithRegistrar:[registry registrarForPlugin:@"GeolocatorPlugin"]];
   [FLTGoogleMapsPlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTGoogleMapsPlugin"]];
   [FLTImagePickerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTImagePickerPlugin"]];
-  [SwiftIsLockScreenPlugin registerWithRegistrar:[registry registrarForPlugin:@"SwiftIsLockScreenPlugin"]];
   [IsarFlutterLibsPlugin registerWithRegistrar:[registry registrarForPlugin:@"IsarFlutterLibsPlugin"]];
+  [JustAudioPlugin registerWithRegistrar:[registry registrarForPlugin:@"JustAudioPlugin"]];
   [NativeDeviceOrientationPlugin registerWithRegistrar:[registry registrarForPlugin:@"NativeDeviceOrientationPlugin"]];
   [FPPPackageInfoPlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"FPPPackageInfoPlusPlugin"]];
   [PathProviderPlugin registerWithRegistrar:[registry registrarForPlugin:@"PathProviderPlugin"]];
   [PermissionHandlerPlugin registerWithRegistrar:[registry registrarForPlugin:@"PermissionHandlerPlugin"]];
   [PhotoManagerPlugin registerWithRegistrar:[registry registrarForPlugin:@"PhotoManagerPlugin"]];
+  [SwiftProximitySensorPlugin registerWithRegistrar:[registry registrarForPlugin:@"SwiftProximitySensorPlugin"]];
+  [ScreenBrightnessIosPlugin registerWithRegistrar:[registry registrarForPlugin:@"ScreenBrightnessIosPlugin"]];
   [FPPSharePlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"FPPSharePlusPlugin"]];
   [SharedPreferencesPlugin registerWithRegistrar:[registry registrarForPlugin:@"SharedPreferencesPlugin"]];
   [SpeechToTextPlugin registerWithRegistrar:[registry registrarForPlugin:@"SpeechToTextPlugin"]];
   [SqflitePlugin registerWithRegistrar:[registry registrarForPlugin:@"SqflitePlugin"]];
   [URLLauncherPlugin registerWithRegistrar:[registry registrarForPlugin:@"URLLauncherPlugin"]];
+  [VibrationPlugin registerWithRegistrar:[registry registrarForPlugin:@"VibrationPlugin"]];
   [FVPVideoPlayerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FVPVideoPlayerPlugin"]];
   [WakelockPlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"WakelockPlusPlugin"]];
   [ZegoCallkitPlugin registerWithRegistrar:[registry registrarForPlugin:@"ZegoCallkitPlugin"]];

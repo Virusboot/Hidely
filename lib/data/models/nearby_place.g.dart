@@ -15,7 +15,7 @@ extension GetNearbyPlaceCollection on Isar {
 
 const NearbyPlaceSchema = CollectionSchema(
   name: r'NearbyPlace',
-  id: -2639654556134628249,
+  id: -2639654556134628352,
   properties: {
     r'category': PropertySchema(
       id: 0,
@@ -115,7 +115,7 @@ const NearbyPlaceSchema = CollectionSchema(
   idName: r'isarId',
   indexes: {
     r'serverId': IndexSchema(
-      id: -7950187970872907662,
+      id: -7950187970872907776,
       name: r'serverId',
       unique: true,
       replace: true,
@@ -128,7 +128,7 @@ const NearbyPlaceSchema = CollectionSchema(
       ],
     ),
     r'latitude': IndexSchema(
-      id: 2839588665230214757,
+      id: 2839588665230214656,
       name: r'latitude',
       unique: false,
       replace: false,
@@ -141,7 +141,7 @@ const NearbyPlaceSchema = CollectionSchema(
       ],
     ),
     r'longitude': IndexSchema(
-      id: -7076447437327017580,
+      id: -7076447437327017984,
       name: r'longitude',
       unique: false,
       replace: false,

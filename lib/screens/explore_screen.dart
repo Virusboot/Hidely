@@ -592,7 +592,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         },
                       )
                     : GridView.builder(
-                        cacheExtent: 1000,
+                        cacheExtent: 1000.0,
                         padding: EdgeInsets.only(
                           left: 0.0,
                           right: 0.0,

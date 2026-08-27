@@ -11,8 +11,9 @@ void main() {
       ),
     );
 
-    // Advance fake timer in splash screen to complete initialization
-    await tester.pump(const Duration(seconds: 5));
+    // Advance timers for splash screen service initializations and animations
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
 
     // Verify HidelyApp builds without throwing exceptions
     expect(find.byType(HidelyApp), findsOneWidget);

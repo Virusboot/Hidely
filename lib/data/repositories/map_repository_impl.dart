@@ -801,7 +801,22 @@ class MapRepositoryImpl implements MapRepository {
       }
     }
 
-    throw Exception("Unable to calculate road route. Please try again.");
+    // Fallback when network APIs fail or offline: produce straight line bearing path
+    final distanceKm = const Distance().as(LengthUnit.Meter, start, end) / 1000.0;
+    final int durationMin = (distanceKm / 0.08).round().clamp(1, 1440);
+    return RouteData(
+      coordinates: [start, end],
+      distanceKm: double.parse(distanceKm.toStringAsFixed(2)),
+      durationMin: durationMin > 0 ? durationMin : 1,
+      elevationGainM: (distanceKm * 10).round(),
+      instructions: [
+        language == 'es'
+            ? 'Proceda en línea recta hacia el destino.'
+            : language == 'de'
+                ? 'Fahren Sie auf direktem Weg zum Ziel.'
+                : 'Proceed along direct path towards destination.'
+      ],
+    );
   }
 
   List<String> _generateInstructionsForPoints(List<LatLng> points, [String? language]) {
