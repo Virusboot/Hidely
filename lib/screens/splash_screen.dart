@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:hidely_new/screens/onboarding_controller.dart';
@@ -70,8 +71,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         }),
       ]);
 
-      // Ensure splash logo animation displays smoothly for at least 1.4 seconds
-      await Future.delayed(const Duration(milliseconds: 1400));
+      // Skip splash delay on Web for instantaneous Home load
+      if (!kIsWeb) {
+        await Future.delayed(const Duration(milliseconds: 800));
+      }
 
       if (!mounted) return;
 
@@ -81,7 +84,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         PageRouteBuilder(
           settings: const RouteSettings(name: "/main"),
           pageBuilder: (context, animation, secondaryAnimation) =>
-              isLoggedIn ? const MainWrapper() : const OnboardingController(),
+              (isLoggedIn || kIsWeb) ? const MainWrapper() : const OnboardingController(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             final curvedAnimation = CurvedAnimation(
               parent: animation,
