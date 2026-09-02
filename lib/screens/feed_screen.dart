@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hidely_new/config/responsive_breakpoints.dart';
 import 'package:hidely_new/screens/notification_screen.dart';
 import 'package:hidely_new/screens/create_media_screen.dart';
 import 'package:hidely_new/screens/creator_profile_screen.dart';
@@ -254,8 +255,10 @@ class _FeedScreenState extends State<FeedScreen> {
             ),
           ),
           child: SafeArea(
-            child: Stack(
-              children: [
+            child: ResponsiveContainer(
+              maxWidth: 680.0,
+              child: Stack(
+                children: [
                 _feedPosts.isEmpty && _isLoading
                     ? ListView.builder(
                         itemCount: 4,
@@ -407,8 +410,8 @@ class _FeedScreenState extends State<FeedScreen> {
                           },
                         ),
                       ),
-  
-              ],
+                ],
+              ),
             ),
           ),
         ),

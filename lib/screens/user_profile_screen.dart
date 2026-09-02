@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hidely_new/config/responsive_breakpoints.dart';
 import 'package:flutter/services.dart';
 import 'package:hidely_new/screens/create_media_screen.dart';
 import 'edit_profile_screen.dart';
@@ -767,13 +768,13 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.all(2),
+      padding: const EdgeInsets.all(4),
       cacheExtent: 1000.0,
       physics: const BouncingScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 2,
-        crossAxisSpacing: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: ResponsiveBreakpoints.isDesktopOrTablet(context) ? 4 : 3,
+        mainAxisSpacing: 4,
+        crossAxisSpacing: 4,
         childAspectRatio: 4 / 5,
       ),
       itemCount: _userPosts.length,
@@ -876,13 +877,13 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.all(2),
+      padding: const EdgeInsets.all(4),
       cacheExtent: 1000.0,
       physics: const BouncingScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 2,
-        crossAxisSpacing: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: ResponsiveBreakpoints.isDesktopOrTablet(context) ? 4 : 3,
+        mainAxisSpacing: 4,
+        crossAxisSpacing: 4,
         childAspectRatio: 4 / 5,
       ),
       itemCount: _savedPosts.length,

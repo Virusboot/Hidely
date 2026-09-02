@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hidely_new/config/responsive_breakpoints.dart';
 import 'dart:async';
 import 'package:hidely_new/screens/location_detail_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
@@ -600,10 +601,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           bottom: 120 + MediaQuery.of(context).padding.bottom,
                         ),
                         physics: const BouncingScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          mainAxisSpacing: 3,
-                          crossAxisSpacing: 3,
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: ResponsiveBreakpoints.isLargeDesktop(context)
+                              ? 6
+                              : ResponsiveBreakpoints.isDesktop(context)
+                                  ? 5
+                                  : ResponsiveBreakpoints.isTablet(context)
+                                      ? 4
+                                      : 3,
+                          mainAxisSpacing: 4,
+                          crossAxisSpacing: 4,
                           childAspectRatio: 0.85,
                         ),
                         itemCount: _filteredPosts.length,

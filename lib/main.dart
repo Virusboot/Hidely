@@ -1,10 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hidely_new/config/config.dart';
 import 'package:hidely_new/services/notification_polling_service.dart';
 
-import 'dart:ui';
 import 'package:hidely_new/widgets/something_went_wrong_screen.dart';
 
 import 'package:hidely_new/services/deep_link_service.dart';
@@ -27,10 +27,12 @@ Future<void> main() async {
     return true; // Prevents crash
   };
 
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  if (!kIsWeb) {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
 
   // Non-blocking initialization for < 2 sec app startup
   DeepLinkService();
