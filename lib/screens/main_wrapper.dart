@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:hidely_new/config/responsive_breakpoints.dart';
 import 'package:hidely_new/screens/feed_screen.dart';
@@ -154,9 +155,10 @@ class MainWrapperState extends State<MainWrapper> {
     );
 
     return PopScope(
-      canPop: false,
+      // On web, allow back navigation freely — exit dialog only makes sense on mobile
+      canPop: kIsWeb,
       onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
+        if (didPop || kIsWeb) return;
         final shouldExit = await _showExitConfirmationDialog(context);
         if (shouldExit == true && context.mounted) {
           await SystemNavigator.pop();
