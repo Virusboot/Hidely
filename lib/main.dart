@@ -56,11 +56,11 @@ class HidelyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: navigatorKey,
-      title: 'Hidely',
+      title: 'Hidely — Social Places Discovery',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      initialRoute: AppRoutes.splash,
-      routes: AppRoutes.routes,
+      initialRoute: AppRoutes.home,
+      onGenerateRoute: AppRoutes.onGenerateRoute,
       builder: (context, child) {
         final mediaQueryData = MediaQuery.of(context);
         final constrainedTextScaler = mediaQueryData.textScaler.clamp(

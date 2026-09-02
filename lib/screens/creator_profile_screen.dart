@@ -20,8 +20,8 @@ class CreatorProfileScreen extends StatefulWidget {
   const CreatorProfileScreen({
     super.key,
     required this.username,
-    required this.avatarPath,
-    required this.rank,
+    this.avatarPath = '',
+    this.rank = '',
     this.bio = "",
   });
 
