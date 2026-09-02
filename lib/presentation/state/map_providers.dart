@@ -411,3 +411,9 @@ final recenterTriggerProvider = StateProvider<int>((ref) => 0);
 
 // Provider to manage user GPS tracking mode state (active/inactive)
 final isTrackingUserProvider = StateProvider<bool>((ref) => true);
+
+// Provider to manage multi-route option selection
+final selectedRouteIndexProvider = StateProvider<int>((ref) => 0);
+
+// Provider to manage off-route rerouting status banner
+final isReroutingProvider = StateProvider<bool>((ref) => false);

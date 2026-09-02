@@ -201,18 +201,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
                       const Spacer(flex: 2),
 
-                      // Sleek Cinematic Progress Spinner
-                      SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white70),
-                          backgroundColor: Colors.white.withOpacity(0.08),
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-
                       // Status Info Label
                       Text(
                         _statusMessage,

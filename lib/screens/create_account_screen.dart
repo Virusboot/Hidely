@@ -224,6 +224,13 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                       ),
                                       recognizer: _privacyRecognizer,
                                     ),
+                                    const TextSpan(
+                                      text: " *",
+                                      style: TextStyle(
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -399,6 +406,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     VoidCallback? onSuffixTap,
     TextInputType keyboardType = TextInputType.text,
     int? maxLength,
+    bool isRequired = true,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -416,7 +424,28 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         inputFormatters: maxLength != null ? [LengthLimitingTextInputFormatter(maxLength)] : null,
         style: const TextStyle(color: Color(0xff1C0D5A), fontSize: 16),
         decoration: InputDecoration(
-          hintText: hintText,
+          label: isRequired
+              ? Text.rich(
+                  TextSpan(
+                    text: hintText,
+                    style: TextStyle(
+                      color: const Color(0xff1C0D5A).withOpacity(0.4),
+                      fontSize: 16,
+                    ),
+                    children: const [
+                      TextSpan(
+                        text: ' *',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : null,
+          hintText: isRequired ? null : hintText,
+          floatingLabelBehavior: FloatingLabelBehavior.never,
           counterText: "",
           hintStyle: TextStyle(color: const Color(0xff1C0D5A).withOpacity(0.4)),
           prefixIcon: Icon(icon, color: const Color(0xff1C0D5A).withOpacity(0.6)),
@@ -436,7 +465,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
   }
 
-  Widget _buildGenderSelector() {
+  Widget _buildGenderSelector({bool isRequired = true}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.7),
@@ -459,13 +488,32 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               child: DropdownButton<String>(
                 value: _selectedGender,
                 isExpanded: true,
-                hint: Text(
-                  "Select Gender",
-                  style: TextStyle(
-                    color: const Color(0xff1C0D5A).withOpacity(0.4),
-                    fontSize: 16,
-                  ),
-                ),
+                hint: isRequired
+                    ? Text.rich(
+                        TextSpan(
+                          text: "Select Gender",
+                          style: TextStyle(
+                            color: const Color(0xff1C0D5A).withOpacity(0.4),
+                            fontSize: 16,
+                          ),
+                          children: const [
+                            TextSpan(
+                              text: ' *',
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Text(
+                        "Select Gender",
+                        style: TextStyle(
+                          color: const Color(0xff1C0D5A).withOpacity(0.4),
+                          fontSize: 16,
+                        ),
+                      ),
                 icon: Icon(
                   Icons.keyboard_arrow_down_rounded,
                   color: const Color(0xff1C0D5A).withOpacity(0.6),

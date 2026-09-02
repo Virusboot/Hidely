@@ -15,6 +15,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../state/map_providers.dart';
 import '../../data/models/nearby_place.dart';
 import '../../data/models/route_data.dart';
+import '../../data/models/navigation_step.dart';
 import '../widgets/armonia_map.dart';
 import '../widgets/route_info_card.dart';
 import '../widgets/map_sizes.dart';
@@ -93,6 +94,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
   final Set<String> _dismissedAlerts = {};
   bool _isNavPanelCollapsed = false;
   final FlutterTts _flutterTts = FlutterTts();
+  int _offRouteCounter = 0;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -157,14 +159,26 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
       }
       if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
         Position? pos = await Geolocator.getLastKnownPosition();
-        pos ??= await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-        ).timeout(const Duration(seconds: 4));
-
-        if (mounted) {
+        if (pos != null && mounted) {
           final userLoc = LatLng(pos.latitude, pos.longitude);
           ref.read(mapCenterProvider.notifier).state = userLoc;
-          debugPrint('[MapScreen] Centered map on real user location: ${userLoc.latitude}, ${userLoc.longitude}');
+          ref.read(isTrackingUserProvider.notifier).state = true;
+        }
+
+        try {
+          Position currentPos = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+          ).timeout(const Duration(seconds: 5));
+
+          if (mounted) {
+            final userLoc = LatLng(currentPos.latitude, currentPos.longitude);
+            ref.read(mapCenterProvider.notifier).state = userLoc;
+            ref.read(isTrackingUserProvider.notifier).state = true;
+            ref.read(recenterTriggerProvider.notifier).state++;
+            debugPrint('[MapScreen] Centered map on real user location: ${userLoc.latitude}, ${userLoc.longitude}');
+          }
+        } catch (e) {
+          debugPrint('[MapScreen] Timeout/Error getting current position: $e');
         }
       }
     } catch (e) {
@@ -209,7 +223,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
         return;
       }
       if (_debounceTimer?.isActive ?? false) _debounceTimer?.cancel();
-      _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _debounceTimer = Timer(const Duration(milliseconds: 250), () {
         if (mounted) {
           ref.read(searchQueryProvider.notifier).state = _searchController.text;
         }
@@ -634,10 +648,16 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
 
   void _stopNavigation() {
     _navigationTimer?.cancel();
+    _navigationTimer = null;
     _stopSpeaking();
+    _offRouteCounter = 0;
     ref.read(navigationStatusProvider.notifier).state = NavigationStatus.idle;
     ref.read(navigationIndexProvider.notifier).state = 0;
     ref.read(simulatedLocationProvider.notifier).state = null;
+    ref.read(isReroutingProvider.notifier).state = false;
+    ref.read(selectedRouteIndexProvider.notifier).state = 0;
+    ref.read(isTrackingUserProvider.notifier).state = true;
+    debugPrint('[MapScreen] Navigation session successfully stopped and state disposed.');
   }
 
   void _showReachedDestinationDialog() {
@@ -1586,8 +1606,35 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
 
   Widget _buildRecenterButton() {
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
         ref.read(isTrackingUserProvider.notifier).state = true;
+
+        try {
+          LocationPermission permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            permission = await Geolocator.requestPermission();
+          }
+
+          if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+            Position pos = await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+            ).timeout(const Duration(seconds: 4));
+
+            if (mounted) {
+              final userLoc = LatLng(pos.latitude, pos.longitude);
+              ref.read(mapCenterProvider.notifier).state = userLoc;
+            }
+          }
+        } catch (e) {
+          debugPrint('[RecenterButton] Fetch current position error: $e');
+        }
+
+        final currentUserLoc = ref.read(userLocationProvider);
+        final mapCenter = ref.read(mapCenterProvider);
+        if (mapCenter.latitude == 28.6139 && mapCenter.longitude == 77.2090) {
+          ref.read(mapCenterProvider.notifier).state = currentUserLoc;
+        }
+
         ref.read(recenterTriggerProvider.notifier).state++;
       },
       child: Container(
@@ -1681,17 +1728,26 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
 
         final double remainingDistanceKm = double.parse((sumMeters / 1000.0).toStringAsFixed(1));
         int remainingDurationMin = route.durationMin;
+        int? remainingDurationInTrafficMin;
+
         if (route.distanceKm > 0) {
           final double ratio = remainingDistanceKm / route.distanceKm;
           remainingDurationMin = (route.durationMin * ratio).round().clamp(1, route.durationMin);
+          if (route.durationInTrafficMin != null) {
+            remainingDurationInTrafficMin = (route.durationInTrafficMin! * ratio).round().clamp(1, route.durationInTrafficMin!);
+          }
         }
 
         displayRouteData = RouteData(
           coordinates: route.coordinates,
           distanceKm: remainingDistanceKm,
           durationMin: remainingDurationMin,
+          durationInTrafficMin: remainingDurationInTrafficMin,
           elevationGainM: route.elevationGainM,
           instructions: route.instructions,
+          steps: route.steps,
+          options: route.options,
+          selectedOptionIndex: route.selectedOptionIndex,
         );
       } else {
         displayRouteData = route;
@@ -1720,11 +1776,17 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
 
     ref.listen<LatLng>(userLocationProvider, (previous, next) {
       final currentNavStatus = ref.read(navigationStatusProvider);
-      if (currentNavStatus == NavigationStatus.navigating) {
-        // 1. Follow user's real-time position on map
-        ref.read(mapCenterProvider.notifier).state = next;
+      final isTracking = ref.read(isTrackingUserProvider);
 
-        // 2. Check if reached destination
+      if (isTracking ||
+          currentNavStatus == NavigationStatus.navigating ||
+          previous == null ||
+          (previous.latitude == 28.6139 && previous.longitude == 77.2090)) {
+        ref.read(mapCenterProvider.notifier).state = next;
+      }
+
+      if (currentNavStatus == NavigationStatus.navigating) {
+        // 1. Check if reached destination
         final dest = ref.read(activeDestinationProvider);
         if (dest != null) {
           final distance = Geolocator.distanceBetween(
@@ -1733,19 +1795,18 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
             dest.location.latitude,
             dest.location.longitude,
           );
-          if (distance < 15) {
+          if (distance < 20.0) {
             _stopNavigation();
             _showReachedDestinationDialog();
             return;
           }
         }
 
-        // 3. Dynamically update instruction index based on proximity to route coordinates
+        // 2. Intelligent Step Advancement & Off-route calculation
         final routeAsync = ref.read(routeDataProvider);
         final route = routeAsync.valueOrNull;
         if (route != null && route.coordinates.isNotEmpty) {
           final totalCoords = route.coordinates.length;
-          final totalInstructions = route.instructions.isNotEmpty ? route.instructions.length : 1;
 
           int closestIndex = 0;
           double minDistance = double.infinity;
@@ -1762,13 +1823,59 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
             }
           }
 
-          // If user deviates too far from the calculated road route, trigger auto-rerouting
-          if (minDistance > 65.0) {
-            debugPrint('[Reroute] User went off-route (distance: $minDistance m). Recalculating route...');
-            ref.invalidate(routeDataProvider);
+          // Intelligent Off-Route Detection with Debounce (Threshold: 45m, 3 consecutive GPS ticks)
+          if (minDistance > 45.0) {
+            _offRouteCounter++;
+            debugPrint('[OffRoute] Off-route tick $_offRouteCounter/3 (distance: ${minDistance.toStringAsFixed(1)} m)');
+            if (_offRouteCounter >= 3) {
+              _offRouteCounter = 0;
+              debugPrint('[Reroute] User confirmed off-route. Recalculating route...');
+              ref.read(isReroutingProvider.notifier).state = true;
+              ref.invalidate(routeDataProvider);
+              Future.delayed(const Duration(seconds: 2), () {
+                if (mounted) ref.read(isReroutingProvider.notifier).state = false;
+              });
+            }
           } else {
-            int instructionIndex = ((closestIndex / totalCoords) * totalInstructions).floor().clamp(0, totalInstructions - 1);
-            ref.read(navigationIndexProvider.notifier).state = instructionIndex;
+            _offRouteCounter = 0;
+
+            // Advanced Step Advancing based on structured NavigationStep targets or polyline progress
+            final currentStepIdx = ref.read(navigationIndexProvider);
+            if (route.steps.isNotEmpty) {
+              int nextStepIdx = currentStepIdx;
+              if (currentStepIdx < route.steps.length - 1) {
+                final targetStep = route.steps[currentStepIdx];
+                final distToStepEnd = Geolocator.distanceBetween(
+                  next.latitude,
+                  next.longitude,
+                  targetStep.endLocation.latitude,
+                  targetStep.endLocation.longitude,
+                );
+                final distToNextStepStart = Geolocator.distanceBetween(
+                  next.latitude,
+                  next.longitude,
+                  route.steps[currentStepIdx + 1].startLocation.latitude,
+                  route.steps[currentStepIdx + 1].startLocation.longitude,
+                );
+
+                if (distToStepEnd < 30.0 || distToNextStepStart < 25.0) {
+                  nextStepIdx = currentStepIdx + 1;
+                }
+              }
+
+              final ratioIndex = ((closestIndex / totalCoords) * route.steps.length).floor().clamp(0, route.steps.length - 1);
+              if (ratioIndex > nextStepIdx) {
+                nextStepIdx = ratioIndex;
+              }
+
+              if (nextStepIdx != currentStepIdx) {
+                ref.read(navigationIndexProvider.notifier).state = nextStepIdx;
+              }
+            } else {
+              final totalInstructions = route.instructions.isNotEmpty ? route.instructions.length : 1;
+              int instructionIndex = ((closestIndex / totalCoords) * totalInstructions).floor().clamp(0, totalInstructions - 1);
+              ref.read(navigationIndexProvider.notifier).state = instructionIndex;
+            }
           }
         }
       }
@@ -1831,7 +1938,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
           ),
         ),
 
-        // 2. Top Header Overlay
+        // 2. Top Header Overlay & Navigation Banner
         Positioned(
           top: topOffset,
           left: context.w(16),
@@ -1839,42 +1946,69 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildSearchBar(l10n),
-              SizedBox(height: context.h(12)),
-
-              _buildTravelModeRow(travelMode, l10n),
-              SizedBox(height: context.h(8)),
-              _buildAlertsBanner(alerts),
-              if (isSearchFocused && searchQuery.trim().isNotEmpty && ref.watch(activeDestinationProvider) == null)
-                ref.watch(autocompletePredictionsProvider(searchQuery)).when(
-                  data: (predictions) => _buildSearchSuggestions(predictions),
-                  loading: () => Container(
-                    margin: EdgeInsets.only(top: context.h(8)),
-                    padding: EdgeInsets.symmetric(vertical: context.h(20)),
+              if (navStatus == NavigationStatus.navigating && displayRouteData != null) ...[
+                _buildTopNavigationBanner(displayRouteData, activeInstructionIndex),
+                if (ref.watch(isReroutingProvider))
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.95),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
+                      color: Colors.amber.shade800,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Rerouting...',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                         ),
                       ],
                     ),
-                    child: const Center(
-                      child: Text(
-                        "Searching...",
-                        style: TextStyle(
-                          color: _primaryDark,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                  ),
+              ] else ...[
+                _buildSearchBar(l10n),
+                SizedBox(height: context.h(12)),
+                _buildTravelModeRow(travelMode, l10n),
+                SizedBox(height: context.h(8)),
+                _buildAlertsBanner(alerts),
+                if ((isSearchFocused || _searchController.text.trim().isNotEmpty) && searchQuery.trim().isNotEmpty && ref.watch(activeDestinationProvider) == null)
+                  ref.watch(autocompletePredictionsProvider(searchQuery)).when(
+                    data: (predictions) => _buildSearchSuggestions(predictions),
+                    loading: () => Container(
+                      margin: EdgeInsets.only(top: context.h(8)),
+                      padding: EdgeInsets.symmetric(vertical: context.h(20)),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.95),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: Text(
+                          "Searching...",
+                          style: TextStyle(
+                            color: _primaryDark,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
+                    error: (_, __) => const SizedBox.shrink(),
                   ),
-                  error: (_, __) => const SizedBox.shrink(),
-                ),
+              ],
             ],
           ),
         ),
@@ -2506,5 +2640,155 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
         });
       }
     });
+  }
+
+  Widget _buildTopNavigationBanner(RouteData route, int stepIndex) {
+    if (route.steps.isEmpty) return const SizedBox.shrink();
+    final currentStepIndex = stepIndex.clamp(0, route.steps.length - 1);
+    final currentStep = route.steps[currentStepIndex];
+
+    IconData maneuverIcon;
+    switch (currentStep.maneuverType) {
+      case ManeuverType.straight:
+        maneuverIcon = Icons.arrow_upward_rounded;
+        break;
+      case ManeuverType.slightLeft:
+        maneuverIcon = Icons.turn_slight_left_rounded;
+        break;
+      case ManeuverType.left:
+        maneuverIcon = Icons.turn_left_rounded;
+        break;
+      case ManeuverType.sharpLeft:
+        maneuverIcon = Icons.turn_sharp_left_rounded;
+        break;
+      case ManeuverType.slightRight:
+        maneuverIcon = Icons.turn_slight_right_rounded;
+        break;
+      case ManeuverType.right:
+        maneuverIcon = Icons.turn_right_rounded;
+        break;
+      case ManeuverType.sharpRight:
+        maneuverIcon = Icons.turn_sharp_right_rounded;
+        break;
+      case ManeuverType.uturn:
+        maneuverIcon = Icons.u_turn_left_rounded;
+        break;
+      case ManeuverType.roundabout:
+        maneuverIcon = Icons.rotate_right_rounded;
+        break;
+      case ManeuverType.exit:
+        maneuverIcon = Icons.alt_route_rounded;
+        break;
+      case ManeuverType.merge:
+        maneuverIcon = Icons.merge_type_rounded;
+        break;
+      case ManeuverType.fork:
+        maneuverIcon = Icons.fork_right_rounded;
+        break;
+      case ManeuverType.flyover:
+        maneuverIcon = Icons.call_split_rounded;
+        break;
+      case ManeuverType.destination:
+        maneuverIcon = Icons.place_rounded;
+        break;
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xff2B1564),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xff2B1564).withOpacity(0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.18),
+              shape: BoxShape.circle,
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  maneuverIcon,
+                  color: Colors.white,
+                  size: 26,
+                ),
+                if (currentStep.roundaboutExitIndex != null)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        color: Colors.amber,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${currentStep.roundaboutExitIndex}',
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  currentStep.formattedDistance,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'PublicSans',
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  currentStep.instruction,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.95),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'PublicSans',
+                  ),
+                ),
+                if (currentStep.roadName.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    currentStep.roadName,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.75),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

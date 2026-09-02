@@ -635,12 +635,16 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     // Listen to explicit recenter trigger events
     ref.listen<int>(recenterTriggerProvider, (previous, next) {
       if (next > 0) {
+        final mapCenter = ref.read(mapCenterProvider);
         final userLoc = ref.read(userLocationProvider);
+        final targetLoc = (mapCenter.latitude != 28.6139 || mapCenter.longitude != 77.2090)
+            ? mapCenter
+            : userLoc;
         if (isOnline && mapEngine == MapEngine.googleMaps && _googleMapController != null) {
           _googleMapController!.animateCamera(
             gmaps.CameraUpdate.newCameraPosition(
               gmaps.CameraPosition(
-                target: _toGoogleLatLng(userLoc),
+                target: _toGoogleLatLng(targetLoc),
                 zoom: 16.5,
                 tilt: 0.0,
                 bearing: 0.0,
@@ -649,7 +653,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
           );
         } else {
           try {
-            _animateOsmMap(userLoc, 16.5, 0.0);
+            _animateOsmMap(targetLoc, 16.5, 0.0);
           } catch (e) {
             debugPrint('[Recenter] Failed to recenter OSM: $e');
           }
@@ -750,17 +754,36 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
               }
             },
             polylines: {
-              if (widget.activeRoute != null && widget.activeRoute!.coordinates.isNotEmpty)
-                gmaps.Polyline(
-                  polylineId: const gmaps.PolylineId('routing_line'),
-                  points: widget.activeRoute!.coordinates.map(_toGoogleLatLng).toList(),
-                  color: const Color(0xFF2563EB), // Vibrant Electric Blue navigation route
-                  width: 7,
-                  jointType: gmaps.JointType.round,
-                  startCap: gmaps.Cap.roundCap,
-                  endCap: gmaps.Cap.roundCap,
-                  patterns: const [],
-                ),
+              if (widget.activeRoute != null) ...[
+                // Alternative Routes (Neutral Gray)
+                for (int i = 0; i < widget.activeRoute!.options.length; i++)
+                  if (i != widget.activeRoute!.selectedOptionIndex)
+                    gmaps.Polyline(
+                      polylineId: gmaps.PolylineId('alt_route_$i'),
+                      points: widget.activeRoute!.options[i].coordinates.map(_toGoogleLatLng).toList(),
+                      color: const Color(0xFF9E9E9E).withOpacity(0.7),
+                      width: 5,
+                      jointType: gmaps.JointType.round,
+                      startCap: gmaps.Cap.roundCap,
+                      endCap: gmaps.Cap.roundCap,
+                      consumeTapEvents: true,
+                      onTap: () {
+                        ref.read(selectedRouteIndexProvider.notifier).state = i;
+                      },
+                    ),
+
+                // Primary Active Route (Deep Purple / Vibrant Electric Blue)
+                if (widget.activeRoute!.coordinates.isNotEmpty)
+                  gmaps.Polyline(
+                    polylineId: const gmaps.PolylineId('routing_line_primary'),
+                    points: widget.activeRoute!.coordinates.map(_toGoogleLatLng).toList(),
+                    color: const Color(0xff2B1564),
+                    width: 7,
+                    jointType: gmaps.JointType.round,
+                    startCap: gmaps.Cap.roundCap,
+                    endCap: gmaps.Cap.roundCap,
+                  ),
+              ],
             },
             markers: _buildGoogleMarkers(currentLocation, widget.activeDestination),
             circles: _buildGoogleCircles(widget.places),

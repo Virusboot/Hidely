@@ -12,6 +12,7 @@ import '../../services/api_service.dart';
 import '../../domain/repositories/map_repository.dart';
 import '../models/nearby_place.dart';
 import '../models/route_data.dart';
+import '../models/navigation_step.dart';
 
 class MapRepositoryImpl implements MapRepository {
   final LocalStorageService _storage;
@@ -119,6 +120,32 @@ class MapRepositoryImpl implements MapRepository {
 
   @override
   Future<List<Map<String, String>>> getAutocompletePredictions(String input) async {
+    if (input.trim().isEmpty) return [];
+    final List<Map<String, String>> predictions = [];
+    final Set<String> addedNames = {};
+
+    // 1. Instant local places & creator posts matching
+    try {
+      final queryLower = input.trim().toLowerCase();
+      final localPlaces = await getNearbyPlaces(query: input);
+      for (final place in localPlaces) {
+        if (place.name.toLowerCase().contains(queryLower) || place.description.toLowerCase().contains(queryLower)) {
+          final desc = place.name;
+          if (!addedNames.contains(desc.toLowerCase())) {
+            addedNames.add(desc.toLowerCase());
+            predictions.add({
+              'description': desc,
+              'place_id': place.id.startsWith('post_') ? '' : place.id,
+              'subtitle': place.description.isNotEmpty ? place.description : 'Hidden Place',
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[Autocomplete] Local search lookup failed: $e');
+    }
+
+    // 2. Google Places Autocomplete API
     try {
       const apiKey = AppConstants.googleMapsApiKey;
       final url = Uri.parse(
@@ -127,24 +154,62 @@ class MapRepositoryImpl implements MapRepository {
         '&components=country:in'
         '&key=$apiKey'
       );
-      final response = await http.get(url).timeout(const Duration(seconds: 15));
+      final response = await http.get(url).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['status'] == 'OK' && data['predictions'] != null) {
-          final List<Map<String, String>> predictions = [];
           for (final pred in data['predictions']) {
-            predictions.add({
-              'description': pred['description'] as String? ?? '',
-              'place_id': pred['place_id'] as String? ?? '',
-            });
+            final desc = pred['description'] as String? ?? '';
+            if (desc.isNotEmpty && !addedNames.contains(desc.toLowerCase())) {
+              addedNames.add(desc.toLowerCase());
+              predictions.add({
+                'description': desc,
+                'place_id': pred['place_id'] as String? ?? '',
+                'subtitle': 'Search Location',
+              });
+            }
           }
-          return predictions;
         }
       }
     } catch (e) {
-      debugPrint('Autocomplete failed: $e');
+      debugPrint('Autocomplete Google API failed: $e');
     }
-    return [];
+
+    // 3. Fallback: OpenStreetMap Nominatim search for dynamic location suggestions
+    if (predictions.length < 3) {
+      try {
+        final fallbackUrl = Uri.parse(
+          'https://nominatim.openstreetmap.org/search'
+          '?q=${Uri.encodeComponent(input)}'
+          '&format=json'
+          '&limit=5'
+        );
+        final res = await http.get(
+          fallbackUrl,
+          headers: {'User-Agent': 'HidelyApp/1.0'},
+        ).timeout(const Duration(seconds: 8));
+        if (res.statusCode == 200) {
+          final list = json.decode(res.body);
+          if (list is List) {
+            for (final item in list) {
+              final dispName = item['display_name'] as String? ?? '';
+              if (dispName.isNotEmpty && !addedNames.contains(dispName.toLowerCase())) {
+                addedNames.add(dispName.toLowerCase());
+                predictions.add({
+                  'description': dispName,
+                  'place_id': '',
+                  'subtitle': 'Location Result',
+                });
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('[Autocomplete] Nominatim fallback error: $e');
+      }
+    }
+
+    return predictions;
   }
 
   @override
@@ -608,98 +673,132 @@ class MapRepositoryImpl implements MapRepository {
     final isOnline = connectivity.any((result) => result != ConnectivityResult.none);
 
     if (isOnline) {
-      // 1. Google Directions API for all modes (walking, driving, transit)
+      // 1. Google Directions API with departure_time=now, traffic_model=best_guess & alternatives=true
       try {
         const apiKey = AppConstants.googleMapsApiKey;
-        final googleMode = mode == 'transit' ? 'transit' : mode == 'driving' ? 'driving' : mode == 'bicycling' ? 'bicycling' : 'walking';
+        final googleMode = mode == 'transit'
+            ? 'transit'
+            : mode == 'driving'
+                ? 'driving'
+                : mode == 'bicycling'
+                    ? 'bicycling'
+                    : 'walking';
         final googleLang = language ?? 'en';
+        final departureParam = mode == 'driving' ? '&departure_time=now&traffic_model=best_guess' : '';
         final url = Uri.parse(
           'https://maps.googleapis.com/maps/api/directions/json'
           '?origin=${start.latitude},${start.longitude}'
           '&destination=${end.latitude},${end.longitude}'
           '&mode=$googleMode'
           '&language=$googleLang'
+          '&alternatives=true'
+          '$departureParam'
           '&key=$apiKey'
         );
 
         final response = await http.get(url).timeout(const Duration(seconds: 15));
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
-          if (data['status'] == 'OK' && data['routes'] != null && data['routes'].isNotEmpty) {
-            final route = data['routes'][0];
-            final legs = route['legs'][0];
-            final distanceKm = (legs['distance']['value'] as num) / 1000.0;
-            final durationMin = ((legs['duration']['value'] as num) / 60.0).round();
-            
-            List<LatLng> points = [];
-            if (legs['steps'] != null) {
-              for (final step in legs['steps']) {
-                if (step['polyline'] != null && step['polyline']['points'] != null) {
-                  final stepPoints = _decodePolyline(step['polyline']['points'] as String);
-                  points.addAll(stepPoints);
-                }
-              }
-            }
-            if (points.isEmpty) {
-              final encodedPolyline = route['overview_polyline']['points'] as String;
-              points = _decodePolyline(encodedPolyline);
-            }
+          if (data['status'] == 'OK' && data['routes'] != null && (data['routes'] as List).isNotEmpty) {
+            final routesList = data['routes'] as List;
+            final List<RouteOption> routeOptions = [];
 
-            List<String> instructions = [];
-            if (legs['steps'] != null) {
-              for (final step in legs['steps']) {
-                final travelMode = (step['travel_mode'] as String? ?? '').toLowerCase();
-                final htmlInstruction = step['html_instructions'] as String? ?? '';
-                String cleanInstruction = htmlInstruction.replaceAll(RegExp(r'<[^>]*>'), '');
+            for (int rIdx = 0; rIdx < routesList.length; rIdx++) {
+              final route = routesList[rIdx];
+              final legs = route['legs'][0];
+              final distanceKm = (legs['distance']['value'] as num) / 1000.0;
+              final durationMin = ((legs['duration']['value'] as num) / 60.0).round();
+              final durationInTrafficMin = legs['duration_in_traffic'] != null
+                  ? ((legs['duration_in_traffic']['value'] as num) / 60.0).round()
+                  : null;
+              final summary = route['summary'] as String? ?? (rIdx == 0 ? 'Fastest Route' : 'Alternative $rIdx');
 
-                if (travelMode == 'transit' && step['transit_details'] != null) {
-                  final transit = step['transit_details'];
-                  final line = transit['line'];
-                  final lineName = line?['short_name'] ?? line?['name'] ?? '';
-                  final vehicleType = line?['vehicle']?['name'] ?? 'Bus / Metro / Train';
-                  final depStop = transit['departure_stop']?['name'] ?? '';
-                  final arrStop = transit['arrival_stop']?['name'] ?? '';
-                  final numStops = transit['num_stops'] ?? 0;
-
-                  String modeDesc = 'Board $vehicleType';
-                  if (lineName.isNotEmpty) modeDesc += ' ($lineName)';
-                  if (depStop.isNotEmpty && arrStop.isNotEmpty) {
-                    modeDesc += ' from $depStop to $arrStop ($numStops stops)';
-                  } else if (depStop.isNotEmpty) {
-                    modeDesc += ' from $depStop';
-                  }
-                  cleanInstruction = modeDesc;
-                } else if (mode == 'transit' && travelMode == 'walking') {
-                  if (instructions.isEmpty) {
-                    cleanInstruction = 'Take local Auto / Cab / E-Rickshaw to nearest bus stand or station.';
-                  } else {
-                    cleanInstruction = 'Change to local Auto / E-Rickshaw for final stretch to destination.';
+              List<LatLng> points = [];
+              if (legs['steps'] != null) {
+                for (final step in legs['steps']) {
+                  if (step['polyline'] != null && step['polyline']['points'] != null) {
+                    final stepPoints = _decodePolyline(step['polyline']['points'] as String);
+                    points.addAll(stepPoints);
                   }
                 }
+              }
+              if (points.isEmpty && route['overview_polyline'] != null) {
+                points = _decodePolyline(route['overview_polyline']['points'] as String);
+              }
 
-                if (cleanInstruction.trim().isNotEmpty) {
-                  instructions.add(cleanInstruction.trim());
+              final List<NavigationStep> navSteps = [];
+              final List<String> instructions = [];
+
+              if (legs['steps'] != null) {
+                for (final step in legs['steps']) {
+                  final htmlInstruction = step['html_instructions'] as String? ?? '';
+                  String cleanInstruction = htmlInstruction.replaceAll(RegExp(r'<[^>]*>'), '');
+                  final stepDistM = (step['distance']['value'] as num).toDouble();
+                  final stepDurSec = (step['duration']['value'] as num).toInt();
+                  final startLoc = LatLng(step['start_location']['lat'] as double, step['start_location']['lng'] as double);
+                  final endLoc = LatLng(step['end_location']['lat'] as double, step['end_location']['lng'] as double);
+
+                  final rawManeuver = step['maneuver'] as String?;
+                  final maneuverType = ManeuverType.fromString(rawManeuver);
+
+                  String roadName = '';
+                  final matchRoad = RegExp(r'(?:onto|on)\s+([A-Za-z0-9\s]+)').firstMatch(cleanInstruction);
+                  if (matchRoad != null && matchRoad.group(1) != null) {
+                    roadName = matchRoad.group(1)!.trim();
+                  }
+
+                  int? roundaboutExit;
+                  if (maneuverType == ManeuverType.roundabout || cleanInstruction.toLowerCase().contains('roundabout')) {
+                    final exitMatch = RegExp(r'(\d+)(?:st|nd|rd|th)?\s+exit').firstMatch(cleanInstruction.toLowerCase());
+                    if (exitMatch != null) {
+                      roundaboutExit = int.tryParse(exitMatch.group(1) ?? '');
+                    }
+                  }
+
+                  navSteps.add(
+                    NavigationStep(
+                      startLocation: startLoc,
+                      endLocation: endLoc,
+                      distanceMeters: stepDistM,
+                      durationSeconds: stepDurSec,
+                      maneuverType: maneuverType,
+                      instruction: cleanInstruction.trim(),
+                      roadName: roadName,
+                      roundaboutExitIndex: roundaboutExit,
+                    ),
+                  );
+
+                  if (cleanInstruction.trim().isNotEmpty) {
+                    instructions.add(cleanInstruction.trim());
+                  }
                 }
               }
-            }
-            if (instructions.isEmpty) {
-              instructions = mode == 'transit'
-                  ? [
-                      'Take local Auto / Cab to nearest transit hub (e.g. Anand Vihar ISBT / Metro).',
-                      'Board Bus / Metro / Train towards destination route.',
-                      'Switch to local Auto / E-Rickshaw for final connection to destination.'
-                    ]
-                  : [
-                      language == 'es' ? 'Proceda al destino.' : language == 'de' ? 'Fahren Sie zum Ziel fort.' : 'Proceed to destination.'
-                    ];
+
+              routeOptions.add(
+                RouteOption(
+                  id: 'google_route_$rIdx',
+                  summary: summary,
+                  coordinates: points,
+                  distanceKm: double.parse(distanceKm.toStringAsFixed(2)),
+                  durationMin: durationMin > 0 ? durationMin : 1,
+                  durationInTrafficMin: durationInTrafficMin,
+                  steps: navSteps,
+                  instructions: instructions,
+                ),
+              );
             }
 
+            final primaryOpt = routeOptions.first;
             return RouteData(
-              coordinates: points,
-              distanceKm: double.parse(distanceKm.toStringAsFixed(2)),
-              durationMin: durationMin > 0 ? durationMin : 1,
-              elevationGainM: mode == 'walking' ? (distanceKm * 20).round() : (distanceKm * 5).round(),
-              instructions: instructions,
+              coordinates: primaryOpt.coordinates,
+              distanceKm: primaryOpt.distanceKm,
+              durationMin: primaryOpt.durationMin,
+              durationInTrafficMin: primaryOpt.durationInTrafficMin,
+              elevationGainM: mode == 'walking' ? (primaryOpt.distanceKm * 20).round() : (primaryOpt.distanceKm * 5).round(),
+              instructions: primaryOpt.instructions,
+              steps: primaryOpt.steps,
+              options: routeOptions,
+              selectedOptionIndex: 0,
             );
           } else {
             debugPrint('[Repository] Google Directions API status not OK: ${data['status']}. Falling back to OSRM.');
@@ -709,27 +808,16 @@ class MapRepositoryImpl implements MapRepository {
         debugPrint('[Repository] Google Directions API request failed: $e. Falling back to OSRM.');
       }
 
-      // 2. OSRM Fallback for Driving, Bicycling & Walking
+      // 2. OSRM Fallback with steps=true&annotations=true
       if (mode != 'transit') {
         try {
-          final String osmProfile;
-          final String fallbackProfile;
-          if (mode == 'driving') {
-            osmProfile = 'routed-car';
-            fallbackProfile = 'driving';
-          } else if (mode == 'bicycling') {
-            osmProfile = 'routed-bike';
-            fallbackProfile = 'bicycle';
-          } else {
-            osmProfile = 'routed-foot';
-            fallbackProfile = 'foot';
-          }
+          final String osmProfile = mode == 'driving' ? 'routed-car' : mode == 'bicycling' ? 'routed-bike' : 'routed-foot';
+          final String fallbackProfile = mode == 'driving' ? 'driving' : mode == 'bicycling' ? 'bicycle' : 'foot';
 
-          // Primary: openstreetmap.de (natively supports car/bike/foot profiles)
           final url = Uri.parse(
             'https://routing.openstreetmap.de/$osmProfile/route/v1/$fallbackProfile/'
             '${start.longitude},${start.latitude};${end.longitude},${end.latitude}'
-            '?overview=full&geometries=geojson',
+            '?overview=full&geometries=geojson&steps=true&annotations=true',
           );
 
           http.Response response;
@@ -738,16 +826,11 @@ class MapRepositoryImpl implements MapRepository {
             if (response.statusCode != 200) {
               throw Exception('OSM Routing Server returned ${response.statusCode}');
             }
-            final data = json.decode(response.body);
-            if (data['routes'] == null || (data['routes'] as List).isEmpty) {
-              throw Exception('OSM Routing Server returned empty routes');
-            }
           } catch (_) {
-            // Backup fallback: project-osrm.org (only supports driving)
             final backupUrl = Uri.parse(
               'https://router.project-osrm.org/route/v1/driving/'
               '${start.longitude},${start.latitude};${end.longitude},${end.latitude}'
-              '?overview=full&geometries=geojson',
+              '?overview=full&geometries=geojson&steps=true&annotations=true',
             );
             response = await http.get(backupUrl).timeout(const Duration(seconds: 12));
           }
@@ -767,41 +850,90 @@ class MapRepositoryImpl implements MapRepository {
               final double durationSec = (route['duration'] as num).toDouble();
               final int durationMin = (durationSec / 60.0).round();
 
+              final List<NavigationStep> osrmSteps = [];
+              final List<String> instructions = [];
+
+              if (route['legs'] != null && (route['legs'] as List).isNotEmpty) {
+                final legs = route['legs'][0];
+                if (legs['steps'] != null) {
+                  for (final step in legs['steps']) {
+                    final stepDistM = (step['distance'] as num).toDouble();
+                    final stepDurSec = (step['duration'] as num).toInt();
+                    final stepName = step['name'] as String? ?? '';
+                    final maneuver = step['maneuver'] ?? {};
+                    final typeStr = maneuver['type'] as String? ?? 'turn';
+                    final modifier = maneuver['modifier'] as String? ?? '';
+                    final exitNum = maneuver['exit']?.toString();
+
+                    final maneuverType = ManeuverType.fromString('$typeStr $modifier');
+
+                    final startCoord = step['maneuver']['location'] as List;
+                    final startLoc = LatLng(startCoord[1] as double, startCoord[0] as double);
+
+                    String text = '';
+                    if (typeStr == 'roundabout' || typeStr == 'rotary') {
+                      text = exitNum != null
+                          ? 'Enter roundabout and take exit $exitNum'
+                          : 'Enter roundabout';
+                    } else if (typeStr == 'arrive') {
+                      text = 'Arrive at destination';
+                    } else {
+                      final action = modifier.isNotEmpty ? '$typeStr $modifier' : typeStr;
+                      text = stepName.isNotEmpty
+                          ? 'In ${stepDistM.round()}m, $action onto $stepName'
+                          : 'In ${stepDistM.round()}m, $action';
+                    }
+
+                    osrmSteps.add(
+                      NavigationStep(
+                        startLocation: startLoc,
+                        endLocation: startLoc,
+                        distanceMeters: stepDistM,
+                        durationSeconds: stepDurSec,
+                        maneuverType: maneuverType,
+                        instruction: text,
+                        roadName: stepName,
+                        exitNumber: exitNum,
+                        roundaboutExitIndex: int.tryParse(exitNum ?? ''),
+                      ),
+                    );
+                    instructions.add(text);
+                  }
+                }
+              }
+
+              if (osrmSteps.isEmpty) {
+                instructions.addAll(_generateInstructionsForPoints(points, language));
+              }
+
+              final primaryOpt = RouteOption(
+                id: 'osrm_route_0',
+                summary: 'OSRM Route',
+                coordinates: points,
+                distanceKm: double.parse(distanceKm.toStringAsFixed(2)),
+                durationMin: durationMin > 0 ? durationMin : 1,
+                steps: osrmSteps,
+                instructions: instructions,
+              );
+
               return RouteData(
                 coordinates: points,
                 distanceKm: double.parse(distanceKm.toStringAsFixed(2)),
                 durationMin: durationMin > 0 ? durationMin : 1,
                 elevationGainM: mode == 'walking' ? (distanceKm * 20).round() : (distanceKm * 5).round(),
-                instructions: _generateInstructionsForPoints(points, language),
+                instructions: instructions,
+                steps: osrmSteps,
+                options: [primaryOpt],
+                selectedOptionIndex: 0,
               );
             }
           }
         } catch (e) {
           debugPrint('[Repository] Online OSRM routing failed: $e.');
         }
-      } else {
-        // Fallback for online transit: generate rich multi-modal transit roadmap steps
-        final distanceKm = const Distance().as(LengthUnit.Meter, start, end) / 1000.0;
-        final int durationMin = ((distanceKm / 25.0) * 60).round().clamp(10, 180);
-        final String mainHub = distanceKm > 20 ? 'Anand Vihar ISBT / Railway Junction' : 'Central Bus Terminal / Metro Station';
-
-        return RouteData(
-          coordinates: [start, end],
-          distanceKm: double.parse(distanceKm.toStringAsFixed(1)),
-          durationMin: durationMin,
-          elevationGainM: 0,
-          instructions: [
-            'Take local Auto / Cab from current location to $mainHub.',
-            'Board Bus / Train / Metro from $mainHub towards destination route.',
-            'De-board at major interchange station.',
-            'Switch to local Auto / E-Rickshaw for final stretch to destination.',
-            'Arrive at target destination.'
-          ],
-        );
       }
     }
 
-    // Fallback when network APIs fail or offline: produce straight line bearing path
     final distanceKm = const Distance().as(LengthUnit.Meter, start, end) / 1000.0;
     final int durationMin = (distanceKm / 0.08).round().clamp(1, 1440);
     return RouteData(
@@ -809,13 +941,7 @@ class MapRepositoryImpl implements MapRepository {
       distanceKm: double.parse(distanceKm.toStringAsFixed(2)),
       durationMin: durationMin > 0 ? durationMin : 1,
       elevationGainM: (distanceKm * 10).round(),
-      instructions: [
-        language == 'es'
-            ? 'Proceda en línea recta hacia el destino.'
-            : language == 'de'
-                ? 'Fahren Sie auf direktem Weg zum Ziel.'
-                : 'Proceed along direct path towards destination.'
-      ],
+      instructions: ['Proceed towards destination.'],
     );
   }
 
