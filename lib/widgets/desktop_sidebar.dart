@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hidely_new/config/responsive_breakpoints.dart';
 import 'package:hidely_new/screens/create_post_screen.dart';
 import 'package:hidely_new/screens/leaderboard_screen.dart';
+import 'package:hidely_new/screens/notification_screen.dart';
 import 'package:hidely_new/screens/settings_and_privacy_screen.dart';
 import 'package:hidely_new/screens/login_screen.dart';
 import 'package:hidely_new/services/auth_service.dart';
@@ -123,6 +124,19 @@ class DesktopSidebar extends StatelessWidget {
                     );
                   },
                 ),
+                if (!isGuest)
+                  _buildActionItem(
+                    context,
+                    icon: Icons.notifications_outlined,
+                    label: 'Notifications',
+                    isCompact: isCompact,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const NotificationScreen()),
+                      );
+                    },
+                  ),
                 _buildActionItem(
                   context,
                   icon: Icons.emoji_events_rounded,

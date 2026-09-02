@@ -241,180 +241,185 @@ class _FeedScreenState extends State<FeedScreen> {
       ),
       child: Scaffold(
         backgroundColor: const Color(0xffF6F9FC),
-        body: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xffE0F2FE),
-                Color(0xffFFFFFF),
-              ],
+        body: Builder(builder: (context) {
+          final bool isDesktopOrTablet = ResponsiveBreakpoints.isDesktopOrTablet(context);
+          return Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xffE0F2FE),
+                  Color(0xffFFFFFF),
+                ],
+              ),
             ),
-          ),
-          child: SafeArea(
-            child: ResponsiveContainer(
-              maxWidth: 680.0,
-              child: Stack(
-                children: [
-                _feedPosts.isEmpty && _isLoading
-                    ? ListView.builder(
-                        itemCount: 4,
-                        itemBuilder: (context, index) => const SkeletonFeedCard(),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadFeed,
-                        color: const Color(0xff2B1564),
-                        child: ListView.builder(
-                          cacheExtent: 1500.0,
-                          physics: const AlwaysScrollableScrollPhysics(
-                            parent: BouncingScrollPhysics(),
-                          ),
-                          itemCount: _feedPosts.length + 3,
-                          itemBuilder: (context, index) {
-                            if (index == 0) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16.0, vertical: 12.0),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    GestureDetector(
-                                      onTap: () {
-                                        // Upload requires login
-                                        if (AuthService().isGuest) {
-                                          showLoginRequiredSheet(context, reason: 'upload a post');
-                                          return;
-                                        }
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => const CreateMediaScreen(),
+            child: SafeArea(
+              child: ResponsiveContainer(
+                maxWidth: 680.0,
+                child: Stack(
+                  children: [
+                  _feedPosts.isEmpty && _isLoading
+                      ? ListView.builder(
+                          itemCount: 4,
+                          itemBuilder: (context, index) => const SkeletonFeedCard(),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _loadFeed,
+                          color: const Color(0xff2B1564),
+                          child: ListView.builder(
+                            cacheExtent: 1500.0,
+                            physics: const AlwaysScrollableScrollPhysics(
+                              parent: BouncingScrollPhysics(),
+                            ),
+                            itemCount: _feedPosts.length + 3,
+                            itemBuilder: (context, index) {
+                              if (index == 0) {
+                                // On desktop/web: top bar is in sidebar — hide here
+                                if (isDesktopOrTablet) return const SizedBox.shrink();
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16.0, vertical: 12.0),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () {
+                                          // Upload requires login
+                                          if (AuthService().isGuest) {
+                                            showLoginRequiredSheet(context, reason: 'upload a post');
+                                            return;
+                                          }
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => const CreateMediaScreen(),
+                                            ),
+                                          );
+                                        },
+                                        child: const Icon(Icons.add,
+                                            color: Color(0xff1C0D5A), size: 26),
+                                      ),
+                                      Image.asset(
+                                        'assets/images/logo_horizontal_color.png',
+                                        height: 32,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            const Text(
+                                          'hidely',
+                                          style: TextStyle(
+                                            color: Color(0xff1C0D5A),
+                                            fontSize: 26,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: -0.5,
                                           ),
-                                        );
-                                      },
-                                      child: const Icon(Icons.add,
-                                          color: Color(0xff1C0D5A), size: 26),
-                                    ),
-                                    Image.asset(
-                                      'assets/images/logo_horizontal_color.png',
-                                      height: 32,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (context, error, stackTrace) =>
-                                          const Text(
-                                        'hidely',
-                                        style: TextStyle(
-                                          color: Color(0xff1C0D5A),
-                                          fontSize: 26,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: -0.5,
                                         ),
                                       ),
-                                    ),
-                                    GestureDetector(
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                              builder: (context) =>
-                                                  const NotificationScreen()),
-                                        ).then((_) => _loadUnreadCount());
-                                      },
-                                      child: Stack(
-                                        clipBehavior: Clip.none,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(0.7),
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                  color: Colors.white.withOpacity(0.5)),
+                                      GestureDetector(
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    const NotificationScreen()),
+                                          ).then((_) => _loadUnreadCount());
+                                        },
+                                        child: Stack(
+                                          clipBehavior: Clip.none,
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withOpacity(0.7),
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                    color: Colors.white.withOpacity(0.5)),
+                                              ),
+                                              child: const Icon(
+                                                  Icons.notifications_none_outlined,
+                                                  color: Color(0xff1C0D5A),
+                                                  size: 22),
                                             ),
-                                            child: const Icon(
-                                                Icons.notifications_none_outlined,
-                                                color: Color(0xff1C0D5A),
-                                                size: 22),
-                                          ),
-                                          if (_unreadNotificationCount > 0)
-                                            Positioned(
-                                              top: -2,
-                                              right: -2,
-                                              child: Container(
-                                                constraints: const BoxConstraints(
-                                                  minWidth: 17,
-                                                  minHeight: 17,
-                                                ),
-                                                padding: const EdgeInsets.symmetric(
-                                                    horizontal: 4),
-                                                decoration: const BoxDecoration(
-                                                  color: Color(0xFFE91E63),
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: Center(
-                                                  child: Text(
-                                                    _unreadNotificationCount > 99
-                                                        ? '99+'
-                                                        : '$_unreadNotificationCount',
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 10,
-                                                      fontWeight: FontWeight.bold,
+                                            if (_unreadNotificationCount > 0)
+                                              Positioned(
+                                                top: -2,
+                                                right: -2,
+                                                child: Container(
+                                                  constraints: const BoxConstraints(
+                                                    minWidth: 17,
+                                                    minHeight: 17,
+                                                  ),
+                                                  padding: const EdgeInsets.symmetric(
+                                                      horizontal: 4),
+                                                  decoration: const BoxDecoration(
+                                                    color: Color(0xFFE91E63),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      _unreadNotificationCount > 99
+                                                          ? '99+'
+                                                          : '$_unreadNotificationCount',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
                                               ),
-                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              } else if (index == 1) {
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const SizedBox(height: 8),
+                                    SizedBox(
+                                      height: 105,
+                                      child: ListView(
+                                        scrollDirection: Axis.horizontal,
+                                        physics: const BouncingScrollPhysics(),
+                                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                        children: [
+                                          _buildStoryItem(context, "Waterfall",
+                                              "assets/images/explore_2.png"),
+                                          _buildStoryItem(context, "Mountains",
+                                              "assets/images/onboarding_1.jpg"),
+                                          _buildStoryItem(context, "Rivers",
+                                              "assets/images/onboarding_3.jpg"),
+                                          _buildStoryItem(
+                                              context, "Temples", "assets/images/explore_5.png"),
+                                          _buildStoryItem(
+                                              context, "Forts", "assets/images/explore_7.png"),
                                         ],
                                       ),
                                     ),
+                                    const SizedBox(height: 10),
                                   ],
-                                ),
-                              );
-                            } else if (index == 1) {
-                              return Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const SizedBox(height: 8),
-                                  SizedBox(
-                                    height: 105,
-                                    child: ListView(
-                                      scrollDirection: Axis.horizontal,
-                                      physics: const BouncingScrollPhysics(),
-                                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                                      children: [
-                                        _buildStoryItem(context, "Waterfall",
-                                            "assets/images/explore_2.png"),
-                                        _buildStoryItem(context, "Mountains",
-                                            "assets/images/onboarding_1.jpg"),
-                                        _buildStoryItem(context, "Rivers",
-                                            "assets/images/onboarding_3.jpg"),
-                                        _buildStoryItem(
-                                            context, "Temples", "assets/images/explore_5.png"),
-                                        _buildStoryItem(
-                                            context, "Forts", "assets/images/explore_7.png"),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                ],
-                              );
-                            } else if (index == _feedPosts.length + 2) {
-                              return SizedBox(height: 120 + MediaQuery.of(context).padding.bottom);
-                            } else {
-                              final postData = _feedPosts[index - 2];
-                              return _buildMediaPostCard(context, postData);
-                            }
-                          },
+                                );
+                              } else if (index == _feedPosts.length + 2) {
+                                return SizedBox(height: 120 + MediaQuery.of(context).padding.bottom);
+                              } else {
+                                final postData = _feedPosts[index - 2];
+                                return _buildMediaPostCard(context, postData);
+                              }
+                            },
+                          ),
                         ),
-                      ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        }),
       ),
     );
   }
