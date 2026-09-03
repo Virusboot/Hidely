@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'main_wrapper.dart';
@@ -89,37 +91,99 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     }
   }
 
+  Future<String?> _reverseGeocode(double lat, double lon) async {
+    if (!kIsWeb) {
+      try {
+        List<Placemark> marks = await placemarkFromCoordinates(lat, lon);
+        if (marks.isNotEmpty) {
+          final mark = marks[0];
+          final name = mark.name ?? '';
+          final subLocality = mark.subLocality ?? '';
+          final locality = mark.locality ?? '';
+          final country = mark.country ?? '';
+          
+          String locationStr = '';
+          if (subLocality.isNotEmpty && locality.isNotEmpty && subLocality != locality) {
+            locationStr = "$subLocality, $locality";
+          } else if (locality.isNotEmpty) {
+            locationStr = locality;
+          } else if (name.isNotEmpty) {
+            locationStr = name;
+          }
+          if (country.isNotEmpty) {
+            locationStr = locationStr.isNotEmpty ? "$locationStr, $country" : country;
+          }
+          if (locationStr.isNotEmpty) return locationStr;
+        }
+      } catch (e) {
+        debugPrint("Native reverse geocoding failed: $e");
+      }
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lon'),
+        headers: {'User-Agent': 'HidelyApp/1.0'},
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final address = data['address'];
+        if (address != null) {
+          final city = address['city'] ?? address['town'] ?? address['village'] ?? address['county'] ?? address['state'];
+          final country = address['country'] ?? '';
+          if (city != null && city.toString().isNotEmpty) {
+            return country.isNotEmpty ? "$city, $country" : city.toString();
+          }
+        }
+        if (data['display_name'] != null) {
+          final parts = data['display_name'].toString().split(',');
+          if (parts.length >= 2) {
+            return "${parts[0].trim()}, ${parts[parts.length - 1].trim()}";
+          }
+          return data['display_name'].toString();
+        }
+      }
+    } catch (e) {
+      debugPrint("Reverse geocode web fallback error: $e");
+    }
+    return null;
+  }
+
   Future<void> _fetchLocation() async {
+    if (mounted) setState(() => _location = "Fetching location...");
+    
+    // 1. Try EXIF metadata from photo
     try {
       final bytes = widget.imageBytes ?? (widget.selectedImage != null ? await widget.selectedImage!.readAsBytes() : null);
-      if (bytes == null) return;
-      final tags = await readExifFromBytes(bytes);
-      
-      if (tags.isNotEmpty) {
-        final latRef = tags['GPS GPSLatitudeRef']?.toString();
-        final latTag = tags['GPS GPSLatitude'];
-        final lonRef = tags['GPS GPSLongitudeRef']?.toString();
-        final lonTag = tags['GPS GPSLongitude'];
+      if (bytes != null) {
+        final tags = await readExifFromBytes(bytes);
+        if (tags.isNotEmpty) {
+          final latRef = tags['GPS GPSLatitudeRef']?.toString();
+          final latTag = tags['GPS GPSLatitude'];
+          final lonRef = tags['GPS GPSLongitudeRef']?.toString();
+          final lonTag = tags['GPS GPSLongitude'];
 
-        if (latRef != null && latTag != null && lonRef != null && lonTag != null) {
-          final lat = _convertTagToDouble(latTag, latRef);
-          final lon = _convertTagToDouble(lonTag, lonRef);
-          
-          if (lat != null && lon != null) {
-            _latitude = lat;
-            _longitude = lon;
-            List<Placemark> marks = await placemarkFromCoordinates(lat, lon);
-            if (marks.isNotEmpty && mounted) {
-              _updateLocationState(marks[0]);
-              return;
+          if (latRef != null && latTag != null && lonRef != null && lonTag != null) {
+            final lat = _convertTagToDouble(latTag, latRef);
+            final lon = _convertTagToDouble(lonTag, lonRef);
+            if (lat != null && lon != null) {
+              _latitude = lat;
+              _longitude = lon;
+              final locName = await _reverseGeocode(lat, lon);
+              if (locName != null && mounted) {
+                setState(() => _location = locName);
+                return;
+              }
             }
           }
         }
       }
     } catch (e) {
-      debugPrint("EXIF location read failed/not present: $e");
+      debugPrint("EXIF location read failed: $e");
     }
 
+    // 2. Try Device/Browser Geolocation
     try {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -127,106 +191,42 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
       }
 
       if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
-        // Try to get a high-accuracy position within 100 meters
-        // Stream positions and accept the first one with accuracy <= 100m
-        Position? bestPos;
-
+        Position? position;
         try {
-          await for (final pos in Geolocator.getPositionStream(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.bestForNavigation,
-              distanceFilter: 0,
+          position = await Geolocator.getCurrentPosition(
+            locationSettings: LocationSettings(
+              accuracy: kIsWeb ? LocationAccuracy.high : LocationAccuracy.best,
+              timeLimit: const Duration(seconds: 10),
             ),
-          ).timeout(const Duration(seconds: 8))) {
-            if (bestPos == null || pos.accuracy < bestPos.accuracy) {
-              bestPos = pos;
-            }
-            // Lock position as soon as we get sub-15 meter pinpoint accuracy
-            if (pos.accuracy <= 15.0) {
-              break;
-            }
-          }
+          );
         } catch (_) {
-          // Timeout or stream error — use best position captured
+          try {
+            position = await Geolocator.getLastKnownPosition();
+          } catch (_) {}
         }
 
-        // Fallback: if stream gave nothing, try a direct single fix
-        bestPos ??= await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.bestForNavigation,
-          ),
-        ).timeout(const Duration(seconds: 6)).catchError((_) async =>
-          Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high,
-            ),
-          ));
-
-        _latitude = bestPos.latitude;
-        _longitude = bestPos.longitude;
-        debugPrint('[Location] Pinpoint Accuracy: ${bestPos.accuracy.toStringAsFixed(1)}m');
-
-        List<Placemark> marks = await placemarkFromCoordinates(bestPos.latitude, bestPos.longitude);
-        if (marks.isNotEmpty && mounted) {
-          _updateLocationState(marks[0]);
+        if (position != null) {
+          _latitude = position.latitude;
+          _longitude = position.longitude;
+          final locName = await _reverseGeocode(position.latitude, position.longitude);
+          if (locName != null && mounted) {
+            setState(() => _location = locName);
+            return;
+          } else if (mounted) {
+            setState(() => _location = "${position!.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}");
+            return;
+          }
         }
-      } else {
-        if (mounted) setState(() => _location = "Permission denied");
       }
+
+      if (mounted) setState(() => _location = "Tap to add location");
     } catch (e) {
-      if (mounted) setState(() => _location = "Location access failed");
+      debugPrint("Device location error: $e");
+      if (mounted) setState(() => _location = "Tap to add location");
     }
   }
 
-  void _updateLocationState(Placemark mark) {
-    final name = mark.name ?? '';
-    final subLocality = mark.subLocality ?? '';
-    final thoroughfare = mark.thoroughfare ?? '';
-    final subThoroughfare = mark.subThoroughfare ?? '';
-    final locality = mark.locality ?? '';
-    final subAdministrativeArea = mark.subAdministrativeArea ?? '';
-    final country = mark.country ?? '';
-    
-    List<String> parts = [];
 
-    // 1. Street or Building Name / Number
-    if (thoroughfare.isNotEmpty && !thoroughfare.contains('+')) {
-      if (subThoroughfare.isNotEmpty && !thoroughfare.contains(subThoroughfare)) {
-        parts.add("$subThoroughfare $thoroughfare");
-      } else {
-        parts.add(thoroughfare);
-      }
-    } else if (name.isNotEmpty &&
-        !name.contains('+') &&
-        double.tryParse(name) == null &&
-        name.toLowerCase() != locality.toLowerCase() &&
-        name.toLowerCase() != subLocality.toLowerCase()) {
-      parts.add(name);
-    }
-
-    // 2. SubLocality / Sector / Block / Neighborhood
-    if (subLocality.isNotEmpty && !parts.contains(subLocality) && subLocality.toLowerCase() != locality.toLowerCase()) {
-      parts.add(subLocality);
-    }
-
-    // 3. Locality / City
-    if (locality.isNotEmpty && !parts.contains(locality)) {
-      parts.add(locality);
-    } else if (subAdministrativeArea.isNotEmpty && !parts.contains(subAdministrativeArea)) {
-      parts.add(subAdministrativeArea);
-    }
-
-    if (parts.isEmpty && country.isNotEmpty) {
-      parts.add(country);
-    }
-
-    String formattedLoc = parts.join(", ");
-    if (formattedLoc.isEmpty) {
-      formattedLoc = "Unknown Location";
-    }
-
-    setState(() => _location = formattedLoc);
-  }
 
   double? _convertTagToDouble(IfdTag tag, String ref) {
     try {
@@ -595,12 +595,76 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     );
   }
 
+  Future<void> _showManualLocationDialog() async {
+    final controller = TextEditingController(
+      text: (_location == "Location access failed" || _location == "Tap to add location" || _location == "Fetching location...") ? "" : _location,
+    );
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.location_on, color: Color(0xff2B1564)),
+            SizedBox(width: 8),
+            Text("Add Location", style: TextStyle(color: Color(0xff1C0D5A), fontWeight: FontWeight.bold, fontSize: 18)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: "Enter location (e.g. Manali, India)",
+                filled: true,
+                fillColor: const Color(0xffF1F5F9),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _fetchLocation();
+              },
+              icon: const Icon(Icons.my_location, color: Color(0xff2B1564), size: 18),
+              label: const Text("Use Current Location", style: TextStyle(color: Color(0xff2B1564), fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xff2B1564),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text("Set Location", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty && mounted) {
+      setState(() {
+        _location = result;
+      });
+    }
+  }
+
   Widget _buildLocationSection() => ListTile(
-    onTap: () {},
+    onTap: _showManualLocationDialog,
     leading: const Icon(Icons.location_on_outlined, color: Colors.black87),
     title: const Text("Add Location", style: TextStyle(fontSize: 16)),
     subtitle: _location != "Fetching location..." 
-        ? Text(_location, style: const TextStyle(color: Color(0xff5D3EBC), fontSize: 13))
+        ? Text(_location, style: const TextStyle(color: Color(0xff5D3EBC), fontSize: 13, fontWeight: FontWeight.w600))
         : null,
     trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
   );
