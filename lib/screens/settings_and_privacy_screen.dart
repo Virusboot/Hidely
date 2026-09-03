@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'main_wrapper.dart';
 import 'login_screen.dart';
 import 'edit_profile_screen.dart';
 import 'change_password_screen.dart';
@@ -403,7 +404,7 @@ class _SettingsAndPrivacyScreenState
                         if (mounted) {
                           Navigator.pushAndRemoveUntil(
                             context,
-                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            MaterialPageRoute(builder: (_) => const MainWrapper(initialIndex: 0)),
                             (route) => false,
                           );
                         }
@@ -504,14 +505,16 @@ class _SettingsAndPrivacyScreenState
                   const SizedBox(width: 12),
                   Expanded(
                     child: GestureDetector(
-                      onTap: () {
+                      onTap: () async {
                         Navigator.pop(ctx);
-                        AuthService().logout();
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(builder: (_) => const LoginScreen()),
-                          (route) => false,
-                        );
+                        await AuthService().logout();
+                        if (context.mounted) {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(builder: (_) => const MainWrapper(initialIndex: 0)),
+                            (route) => false,
+                          );
+                        }
                       },
                       child: Container(
                         height: 46,
