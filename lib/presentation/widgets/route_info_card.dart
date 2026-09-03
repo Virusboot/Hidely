@@ -59,18 +59,18 @@ class RouteInfoCard extends StatelessWidget {
 
     if (days > 0) {
       if (hours > 0 && minutes > 0) {
-        return '$days day${days > 1 ? 's' : ''} $hours hr $minutes min';
+        return '${days}d ${hours}h ${minutes}m';
       } else if (hours > 0) {
-        return '$days day${days > 1 ? 's' : ''} $hours hr';
+        return '${days}d ${hours}h';
       } else if (minutes > 0) {
-        return '$days day${days > 1 ? 's' : ''} $minutes min';
+        return '${days}d ${minutes}m';
       }
-      return '$days day${days > 1 ? 's' : ''}';
+      return '${days}d';
     } else {
       if (minutes > 0) {
-        return '$hours hr $minutes min';
+        return '${hours}h ${minutes}m';
       }
-      return '$hours hr';
+      return '${hours}h';
     }
   }
 

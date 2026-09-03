@@ -198,14 +198,13 @@ class MainWrapperState extends State<MainWrapper> {
                     child: Positioned(
                       left: 16,
                       right: 16,
-                      bottom: 0,
+                      bottom: kIsWeb ? 12.0 : (MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom + 4.0 : 16.0),
                       child: SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 20.0),
-                          child: Container(
-                            height: 66,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.95),
+                        bottom: !kIsWeb,
+                        child: Container(
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.95),
                               borderRadius: BorderRadius.circular(35),
                               boxShadow: [
                                 BoxShadow(
@@ -239,7 +238,6 @@ class MainWrapperState extends State<MainWrapper> {
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
       ),

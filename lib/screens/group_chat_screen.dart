@@ -1,8 +1,11 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/services/api_service.dart';
+import 'package:hidely_new/services/chat_socket_service.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import 'package:hidely_new/screens/outgoing_call_screen.dart';
 
 /// Trip Itinerary Details Model for Groups
@@ -155,6 +158,112 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     }
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _showNewMessageUserSearchSheet() {
+    final TextEditingController userSearchCtrl = TextEditingController();
+    List usersList = [];
+    bool isLoading = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('New Message', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A))),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Color(0xff1C0D5A)),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: userSearchCtrl,
+                onChanged: (val) async {
+                  if (val.trim().length >= 2) {
+                    setModalState(() => isLoading = true);
+                    final res = await ApiService().searchUsers(query: val.trim());
+                    setModalState(() {
+                      isLoading = false;
+                      if (res.success && res.data != null && res.data!['users'] != null) {
+                        usersList = res.data!['users'];
+                      }
+                    });
+                  }
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search username or name...',
+                  prefixIcon: const Icon(Icons.search, color: Color(0xff1C0D5A)),
+                  filled: true,
+                  fillColor: const Color(0xffF1F5F9),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : usersList.isEmpty
+                        ? const Center(child: Text('Search for a traveler to start messaging', style: TextStyle(color: Colors.black45)))
+                        : ListView.builder(
+                            itemCount: usersList.length,
+                            itemBuilder: (ctx, idx) {
+                              final u = usersList[idx];
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundImage: NetworkImage(u['profile_picture'] ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'),
+                                ),
+                                title: Text(u['name'] ?? u['username'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                subtitle: Text('@${u['username'] ?? ''}'),
+                                onTap: () async {
+                                  Navigator.pop(ctx);
+                                  final token = AuthService().token;
+                                  if (token != null) {
+                                    final res = await ApiService().getOrCreateDirectChat(token: token, targetUserId: u['id']);
+                                    if (res.success && res.data != null && res.data!['conversationId'] != null) {
+                                      final convId = res.data!['conversationId'].toString();
+                                      final newDirectChat = ChatItem(
+                                        id: convId,
+                                        name: u['name'] ?? u['username'] ?? 'User',
+                                        avatar: u['profile_picture'] ?? 'assets/images/user1.jpg',
+                                        lastMessage: 'Tap to send a message...',
+                                        time: 'Just now',
+                                        unreadCount: 0,
+                                        isGroup: false,
+                                      );
+                                      openDirectChat(newDirectChat);
+                                    }
+                                  }
+                                },
+                              );
+                            },
+                          ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showFilterSheet() {
@@ -491,6 +600,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.edit_note_rounded, color: Color(0xff1C0D5A), size: 26),
+            tooltip: 'New Message',
+            onPressed: _showNewMessageUserSearchSheet,
+          ),
+          IconButton(
             icon: Icon(
               Icons.tune_rounded,
               color: _selectedFilter != 'All' ? const Color(0xff2563EB) : const Color(0xff1C0D5A),
@@ -543,7 +657,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   Widget _buildSearchAndFilterBar() {
     return Padding(
-      padding: const EdgeInsets.only(left: 4.0, right: 4.0, top: 6.0, bottom: 8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Container(
         height: 48,
         width: double.infinity,
@@ -641,7 +755,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 100),
       itemCount: items.length + 1,
       itemBuilder: (context, index) {
         if (index == 0) {
@@ -654,7 +768,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           onTap: () => _openChat(chat),
           behavior: HitTestBehavior.opaque,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
             child: Row(
               children: [
                 // Avatar with online status dot
@@ -788,46 +902,152 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     return [];
   }
 
+  StreamSubscription? _msgSub;
+  StreamSubscription? _typingSub;
+  bool _isOtherUserTyping = false;
+
   @override
   void initState() {
     super.initState();
     if (!_messagesHistory.containsKey(widget.chat.id)) {
-      _messagesHistory[widget.chat.id] = _getDummyMessages(widget.chat);
+      _messagesHistory[widget.chat.id] = [];
     }
     _messages = _messagesHistory[widget.chat.id]!;
+    _loadRealMessages();
+    _setupSocketListeners();
+  }
+
+  void _loadRealMessages() async {
+    final token = AuthService().token;
+    if (token == null || token.isEmpty) return;
+
+    ChatSocketService().connect(token);
+
+    final int? convId = int.tryParse(widget.chat.id);
+    if (convId != null) {
+      ChatSocketService().joinConversation(convId);
+
+      final res = await ApiService().getChatMessages(token: token, conversationId: convId);
+      if (res.success && res.data != null && res.data!['messages'] != null) {
+        final List rawMsgs = res.data!['messages'];
+        final currentUserId = AuthService().userId;
+
+        setState(() {
+          _messages = rawMsgs.map((m) {
+            final senderId = m['sender_id'];
+            final isMe = (senderId != null && currentUserId != null && senderId == currentUserId);
+            return ChatMessage(
+              id: m['id'].toString(),
+              senderName: isMe ? 'You' : (m['sender_name'] ?? 'User'),
+              senderAvatar: m['sender_profile_picture'] ?? 'assets/images/user1.jpg',
+              text: m['text'] ?? '',
+              time: m['created_at'] != null && m['created_at'].toString().length >= 16 ? m['created_at'].toString().substring(11, 16) : 'Just now',
+              isMe: isMe,
+              attachmentType: m['type'] != 'text' ? m['type'] : null,
+              attachmentData: m['attachments'] != null && (m['attachments'] as List).isNotEmpty
+                  ? {'url': m['attachments'][0]['url']}
+                  : (m['shared_entity_type'] != null
+                      ? {'type': m['shared_entity_type'], 'id': m['shared_entity_id']}
+                      : null),
+            );
+          }).toList();
+        });
+
+        ApiService().markChatConversationAsRead(token: token, conversationId: convId);
+      }
+    }
+  }
+
+  void _setupSocketListeners() {
+    _msgSub = ChatSocketService().onNewMessage.listen((data) {
+      final int? convId = int.tryParse(widget.chat.id);
+      if (data['conversation_id'] == convId) {
+        final senderId = data['sender_id'];
+        final currentUserId = AuthService().userId;
+        final isMe = (senderId != null && currentUserId != null && senderId == currentUserId);
+
+        setState(() {
+          _messages.add(
+            ChatMessage(
+              id: data['id'].toString(),
+              senderName: isMe ? 'You' : (data['sender_name'] ?? 'User'),
+              senderAvatar: data['sender_profile_picture'] ?? 'assets/images/user1.jpg',
+              text: data['text'] ?? '',
+              time: 'Just now',
+              isMe: isMe,
+              attachmentType: data['type'] != 'text' ? data['type'] : null,
+              attachmentData: data['attachments'] != null && (data['attachments'] as List).isNotEmpty
+                  ? {'url': data['attachments'][0]['url']}
+                  : null,
+            ),
+          );
+        });
+
+        if (convId != null && !isMe) {
+          final token = AuthService().token;
+          if (token != null) {
+            ApiService().markChatConversationAsRead(token: token, conversationId: convId);
+          }
+        }
+      }
+    });
+
+    _typingSub = ChatSocketService().onTypingStatus.listen((data) {
+      final int? convId = int.tryParse(widget.chat.id);
+      if (data['conversationId'] == convId) {
+        setState(() {
+          _isOtherUserTyping = data['isTyping'] ?? false;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _msgSub?.cancel();
+    _typingSub?.cancel();
+    final int? convId = int.tryParse(widget.chat.id);
+    if (convId != null) {
+      ChatSocketService().leaveConversation(convId);
+    }
     _msgController.dispose();
     super.dispose();
   }
 
-  void _sendMessage() {
+  void _sendMessage() async {
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
 
-    final now = TimeOfDay.now();
-    final timeStr = '${now.hourOfPeriod == 0 ? 12 : now.hourOfPeriod}:${now.minute.toString().padLeft(2, '0')} ${now.period == DayPeriod.am ? 'AM' : 'PM'}';
+    _msgController.clear();
+    final int? convId = int.tryParse(widget.chat.id);
+    final token = AuthService().token;
 
-    setState(() {
-      _messages.add(
-        ChatMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          senderName: 'You',
-          senderAvatar:
-              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-          text: text,
-          time: timeStr,
-          isMe: true,
-        ),
+    if (convId != null && token != null && token.isNotEmpty) {
+      ChatSocketService().stopTyping(convId);
+      await ApiService().sendChatMessage(
+        token: token,
+        conversationId: convId,
+        type: 'text',
+        text: text,
       );
-      _msgController.clear();
-
-      // Update chat list preview
-      widget.chat.lastMessage = 'You: $text';
-      widget.chat.time = timeStr;
-    });
+    } else {
+      final now = TimeOfDay.now();
+      final timeStr = '${now.hourOfPeriod == 0 ? 12 : now.hourOfPeriod}:${now.minute.toString().padLeft(2, '0')} ${now.period == DayPeriod.am ? 'AM' : 'PM'}';
+      setState(() {
+        _messages.add(
+          ChatMessage(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            senderName: 'You',
+            senderAvatar: AuthService().userProfilePicture.isNotEmpty ? AuthService().userProfilePicture : 'assets/images/user1.jpg',
+            text: text,
+            time: timeStr,
+            isMe: true,
+          ),
+        );
+        widget.chat.lastMessage = 'You: $text';
+        widget.chat.time = timeStr;
+      });
+    }
     HapticFeedback.lightImpact();
   }
 
@@ -1198,18 +1418,20 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                     ],
                   ),
                   Text(
-                    widget.chat.isGroup
-                        ? '${widget.chat.memberCount ?? 1} Travelers • ${widget.chat.destination ?? ''}'
-                        : widget.chat.isOnline
-                            ? 'Active Now 🟢'
-                            : 'Offline',
+                    _isOtherUserTyping
+                        ? 'typing... 💬'
+                        : widget.chat.isGroup
+                            ? '${widget.chat.memberCount ?? 1} Travelers • ${widget.chat.destination ?? ''}'
+                            : widget.chat.isOnline
+                                ? 'Active Now 🟢'
+                                : 'Offline',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontFamily: 'PublicSans',
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: widget.chat.themeColor,
+                      color: _isOtherUserTyping ? const Color(0xff2563EB) : widget.chat.themeColor,
                     ),
                   ),
                 ],

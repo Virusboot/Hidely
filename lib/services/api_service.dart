@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'image_compression_service.dart';
+import 'package:hidely_new/services/auth_service.dart';
 
 import '../config/config.dart';
 
@@ -501,7 +502,6 @@ class ApiService {
     }
   }
 
-  /// Create a new travel post (multipart)
   Future<ApiResult> createPost({
     required String token,
     required String caption,
@@ -512,6 +512,17 @@ class ApiService {
     String? filename,
     double? latitude,
     double? longitude,
+    double? locationAccuracyMeters,
+    String? locationSource,
+    String? locationCapturedAt,
+    String? canonicalName,
+    String? normalizedName,
+    String? landmarkType,
+    String? city,
+    String? state,
+    String? country,
+    double? aiConfidence,
+    String? duplicateClusterId,
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/posts');
@@ -523,6 +534,17 @@ class ApiService {
 
       if (latitude != null) request.fields['latitude'] = latitude.toString();
       if (longitude != null) request.fields['longitude'] = longitude.toString();
+      if (locationAccuracyMeters != null) request.fields['location_accuracy_meters'] = locationAccuracyMeters.toString();
+      if (locationSource != null) request.fields['location_source'] = locationSource;
+      if (locationCapturedAt != null) request.fields['location_captured_at'] = locationCapturedAt;
+      if (canonicalName != null) request.fields['canonical_name'] = canonicalName;
+      if (normalizedName != null) request.fields['normalized_name'] = normalizedName;
+      if (landmarkType != null) request.fields['landmark_type'] = landmarkType;
+      if (city != null) request.fields['city'] = city;
+      if (state != null) request.fields['state'] = state;
+      if (country != null) request.fields['country'] = country;
+      if (aiConfidence != null) request.fields['ai_confidence'] = aiConfidence.toString();
+      if (duplicateClusterId != null) request.fields['duplicate_cluster_id'] = duplicateClusterId;
 
       if (kIsWeb || imageBytes != null) {
         final bytes = imageBytes ?? (image != null ? await image.readAsBytes() : Uint8List(0));
@@ -837,11 +859,11 @@ class ApiService {
     }
   }
 
-  /// Fetch notifications for current user
-  Future<ApiResult> getNotifications({required String token}) async {
+  /// Fetch notifications for current user (paginated)
+  Future<ApiResult> getNotifications({required String token, int page = 1, int limit = 30}) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/notifications'),
+        Uri.parse('$baseUrl/api/notifications?page=$page&limit=$limit'),
         headers: {
           'Authorization': 'Bearer $token',
         },
@@ -851,6 +873,26 @@ class ApiService {
         return ApiResult(success: true, message: 'Notifications loaded.', data: body);
       } else {
         return ApiResult(success: false, message: body['error'] ?? 'Failed to load notifications.', error: body['error']);
+      }
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
+  /// Mark single notification as read
+  Future<ApiResult> markSingleNotificationAsRead({required String token, required int notificationId}) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/notifications/$notificationId/read'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 15));
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(success: true, message: 'Notification marked as read.', data: body);
+      } else {
+        return ApiResult(success: false, message: body['error'] ?? 'Failed to mark notification read.', error: body['error']);
       }
     } catch (e) {
       return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
@@ -974,11 +1016,11 @@ class ApiService {
     }
   }
 
-  /// Get leaderboard rankings
-  Future<ApiResult> getLeaderboard() async {
+  /// Get leaderboard rankings (period: weekly, monthly, all_time)
+  Future<ApiResult> getLeaderboard({String period = 'all_time'}) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/users/leaderboard'),
+        Uri.parse('$baseUrl/api/gamification/leaderboard?period=$period'),
       );
       final body = jsonDecode(response.body);
 
@@ -1001,6 +1043,94 @@ class ApiService {
         message: 'Could not connect to server.',
         error: e.toString(),
       );
+    }
+  }
+
+  /// Get authenticated user's points, level, rank, badges, and progress
+  Future<ApiResult> getUserGamificationProfile() async {
+    try {
+      final token = AuthService().token;
+      if (token == null) return ApiResult(success: false, message: 'Not authenticated.');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/gamification/me'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return ApiResult(success: true, message: 'Gamification profile loaded.', data: body);
+      }
+      return ApiResult(success: false, message: body['error'] ?? 'Error loading profile.');
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
+  /// Get user points transaction history
+  Future<ApiResult> getPointHistory({int page = 1, int limit = 30}) async {
+    try {
+      final token = AuthService().token;
+      if (token == null) return ApiResult(success: false, message: 'Not authenticated.');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/gamification/points/history?page=$page&limit=$limit'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return ApiResult(success: true, message: 'Point history loaded.', data: body);
+      }
+      return ApiResult(success: false, message: body['error'] ?? 'Error loading point history.');
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
+  /// Get all available badges with user earned status
+  Future<ApiResult> getBadges() async {
+    try {
+      final token = AuthService().token;
+      final headers = token != null ? {'Authorization': 'Bearer $token'} : <String, String>{};
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/gamification/badges'),
+        headers: headers,
+      );
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return ApiResult(success: true, message: 'Badges loaded.', data: body);
+      }
+      return ApiResult(success: false, message: body['error'] ?? 'Error loading badges.');
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
+  /// Set primary featured badge
+  Future<ApiResult> setFeaturedBadge(int? badgeId) async {
+    try {
+      final token = AuthService().token;
+      if (token == null) return ApiResult(success: false, message: 'Not authenticated.');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/gamification/badges/featured'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'badgeId': badgeId}),
+      );
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return ApiResult(success: true, message: body['message'] ?? 'Featured badge updated.');
+      }
+      return ApiResult(success: false, message: body['error'] ?? 'Error updating featured badge.');
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
     }
   }
 
@@ -1030,6 +1160,127 @@ class ApiService {
         message: 'Could not connect to server.',
         error: e.toString(),
       );
+    }
+  }
+
+  /// Get Direct Messaging Inbox Conversations
+  Future<ApiResult> getChatConversations({required String token, bool archived = false}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/chat/conversations?archived=$archived');
+      final response = await http.get(uri, headers: {
+        'Authorization': 'Bearer $token',
+      });
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(success: true, message: 'Conversations loaded.', data: body);
+      }
+      return ApiResult(success: false, message: body['error'] ?? 'Failed to load conversations.');
+    } catch (e) {
+      return ApiResult(success: false, message: 'Connection error.', error: e.toString());
+    }
+  }
+
+  /// Get or Create Direct Chat with target user
+  Future<ApiResult> getOrCreateDirectChat({required String token, required int targetUserId}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/chat/direct');
+      final response = await http.post(
+        uri,
+        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+        body: jsonEncode({'targetUserId': targetUserId}),
+      );
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(success: true, message: 'Direct conversation ready.', data: body);
+      }
+      return ApiResult(success: false, message: body['error'] ?? 'Failed to start direct conversation.');
+    } catch (e) {
+      return ApiResult(success: false, message: 'Connection error.', error: e.toString());
+    }
+  }
+
+  /// Get Conversation Messages
+  Future<ApiResult> getChatMessages({required String token, required int conversationId, int limit = 50}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/chat/conversations/$conversationId/messages?limit=$limit');
+      final response = await http.get(uri, headers: {'Authorization': 'Bearer $token'});
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(success: true, message: 'Messages loaded.', data: body);
+      }
+      return ApiResult(success: false, message: body['error'] ?? 'Failed to load messages.');
+    } catch (e) {
+      return ApiResult(success: false, message: 'Connection error.', error: e.toString());
+    }
+  }
+
+  /// Send Direct Message (Text, Media File, Shared Post/Place/Location)
+  Future<ApiResult> sendChatMessage({
+    required String token,
+    required int conversationId,
+    String type = 'text',
+    String text = '',
+    int? replyToMessageId,
+    String? sharedEntityType,
+    String? sharedEntityId,
+    File? mediaFile,
+    double? latitude,
+    double? longitude,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/chat/conversations/$conversationId/messages');
+      final request = http.MultipartRequest('POST', uri)
+        ..headers['Authorization'] = 'Bearer $token'
+        ..fields['type'] = type
+        ..fields['text'] = text;
+
+      if (replyToMessageId != null) request.fields['reply_to_message_id'] = replyToMessageId.toString();
+      if (sharedEntityType != null) request.fields['shared_entity_type'] = sharedEntityType;
+      if (sharedEntityId != null) request.fields['shared_entity_id'] = sharedEntityId;
+      if (latitude != null) request.fields['latitude'] = latitude.toString();
+      if (longitude != null) request.fields['longitude'] = longitude.toString();
+
+      if (mediaFile != null && !kIsWeb) {
+        request.files.add(await http.MultipartFile.fromPath('media', mediaFile.path));
+      }
+
+      final streamedRes = await request.send();
+      final response = await http.Response.fromStream(streamedRes);
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 201) {
+        return ApiResult(success: true, message: 'Message sent.', data: body);
+      }
+      return ApiResult(success: false, message: body['error'] ?? 'Failed to send message.');
+    } catch (e) {
+      return ApiResult(success: false, message: 'Connection error.', error: e.toString());
+    }
+  }
+
+  /// Toggle Message Emoji Reaction
+  Future<ApiResult> toggleChatMessageReaction({required String token, required int messageId, required String emoji}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/chat/messages/$messageId/reactions');
+      final response = await http.post(
+        uri,
+        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+        body: jsonEncode({'emoji': emoji}),
+      );
+      final body = jsonDecode(response.body);
+      return ApiResult(success: response.statusCode == 200, message: body['error'] ?? 'Reaction updated.');
+    } catch (e) {
+      return ApiResult(success: false, message: 'Connection error.', error: e.toString());
+    }
+  }
+
+  /// Mark Conversation as Read
+  Future<ApiResult> markChatConversationAsRead({required String token, required int conversationId}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/chat/conversations/$conversationId/read');
+      final response = await http.patch(uri, headers: {'Authorization': 'Bearer $token'});
+      final body = jsonDecode(response.body);
+      return ApiResult(success: response.statusCode == 200, message: 'Conversation read.', data: body);
+    } catch (e) {
+      return ApiResult(success: false, message: 'Connection error.', error: e.toString());
     }
   }
 }

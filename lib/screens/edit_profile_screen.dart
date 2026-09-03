@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
+import 'package:hidely_new/widgets/profile_photo_cropper_dialog.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -94,16 +95,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 85,
-        maxWidth: 800,
-        maxHeight: 800,
+        imageQuality: 95,
+        maxWidth: 1600,
+        maxHeight: 1600,
       );
-      if (image != null) {
-        final bytes = await image.readAsBytes();
-        setState(() {
-          _selectedImageBytes = bytes;
-          _selectedImagePath = image.path;
-        });
+      if (image != null && mounted) {
+        final initialBytes = await image.readAsBytes();
+        final croppedBytes = await ProfilePhotoCropperDialog.cropProfilePhoto(
+          context: context,
+          imageBytes: initialBytes,
+          imagePath: image.path,
+        );
+        if (croppedBytes != null) {
+          setState(() {
+            _selectedImageBytes = croppedBytes;
+            _selectedImagePath = image.path;
+          });
+        }
       }
     } catch (e) {
       debugPrint("Error picking profile image: $e");

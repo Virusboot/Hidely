@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'creator_profile_screen.dart';
-import 'user_profile_screen.dart';
+import 'package:hidely_new/models/gamification_models.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/widgets/user_avatar.dart';
+import 'user_profile_screen.dart';
+import 'points_history_screen.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
@@ -12,22 +14,69 @@ class LeaderboardScreen extends StatefulWidget {
   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
 }
 
-class _LeaderboardScreenState extends State<LeaderboardScreen> {
+class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   bool _isLoading = true;
-  List<dynamic> _users = [];
+  String _selectedPeriod = 'all_time';
+  List<LeaderboardUser> _users = [];
+  LeaderboardUser? _currentUserRank;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        final periods = ['weekly', 'monthly', 'all_time'];
+        setState(() {
+          _selectedPeriod = periods[_tabController.index];
+          _isLoading = true;
+        });
+        _loadLeaderboardData();
+      }
+    });
     _loadLeaderboardData();
   }
 
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadLeaderboardData() async {
-    final result = await ApiService().getLeaderboard();
+    final result = await ApiService().getLeaderboard(period: _selectedPeriod);
     if (mounted) {
       if (result.success) {
+        final rawList = result.data?['leaderboard'] as List? ?? [];
+        final parsedUsers = rawList.asMap().entries.map((entry) {
+          return LeaderboardUser.fromJson(entry.value as Map<String, dynamic>, entry.key + 1);
+        }).toList();
+
+        final currentUserIdStr = AuthService().userId;
+        LeaderboardUser? myRank;
+        if (currentUserIdStr != null) {
+          final myId = int.tryParse(currentUserIdStr);
+          if (myId != null) {
+            myRank = parsedUsers.firstWhere(
+              (u) => u.id == myId,
+              orElse: () => LeaderboardUser(
+                rank: parsedUsers.length + 1,
+                id: myId,
+                name: AuthService().userName ?? 'You',
+                username: AuthService().userUsername ?? 'me',
+                profilePicture: AuthService().userProfilePicture,
+                points: 0,
+                level: 1,
+                levelName: 'New Explorer',
+              ),
+            );
+          }
+        }
+
         setState(() {
-          _users = result.data?['leaderboard'] as List? ?? [];
+          _users = parsedUsers;
+          _currentUserRank = myRank;
           _isLoading = false;
         });
       } else {
@@ -40,536 +89,303 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final top1 = _users.isNotEmpty ? _users[0] : null;
+    final top2 = _users.length > 1 ? _users[1] : null;
+    final top3 = _users.length > 2 ? _users[2] : null;
+    final restUsers = _users.length > 3 ? _users.sublist(3) : <LeaderboardUser>[];
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
+        statusBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xffE6F4FE), Color(0xffFFFFFF)],
+        backgroundColor: const Color(0xff1C0D5A),
+        appBar: AppBar(
+          backgroundColor: const Color(0xff1C0D5A),
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: const Text(
+            "Leaderboard",
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+          ),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.history_rounded, color: Colors.white),
+              tooltip: "Points Activity",
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const PointsHistoryScreen()));
+              },
+            ),
+          ],
+          bottom: TabBar(
+            controller: _tabController,
+            indicatorColor: const Color(0xffFFB800),
+            indicatorWeight: 3,
+            labelColor: const Color(0xffFFB800),
+            unselectedLabelColor: Colors.white60,
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            tabs: const [
+              Tab(text: "Weekly"),
+              Tab(text: "Monthly"),
+              Tab(text: "All Time"),
+            ],
           ),
         ),
-        child: SafeArea(
-          child: _isLoading
-              ? const SizedBox.shrink()
-              : Column(
-                  children: [
-                    // 1. Custom Premium Header
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xffFFB800)))
+            : Stack(
+                children: [
+                  RefreshIndicator(
+                    onRefresh: _loadLeaderboardData,
+                    color: const Color(0xff2B1564),
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Column(
                         children: [
-                          GestureDetector(
-                            onTap: () => Navigator.pop(context),
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.06),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
+                          const SizedBox(height: 16),
+                          // 1. Top 3 Podium Section
+                          if (_users.isNotEmpty) _buildTopPodium(top1, top2, top3),
+                          const SizedBox(height: 24),
+
+                          // 2. Ranked Users List Container
+                          Container(
+                            width: double.infinity,
+                            constraints: BoxConstraints(
+                              minHeight: MediaQuery.of(context).size.height * 0.5,
+                            ),
+                            decoration: const BoxDecoration(
+                              color: Color(0xffF8FAFC),
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                            ),
+                            padding: const EdgeInsets.only(top: 20, left: 16, right: 16, bottom: 90),
+                            child: restUsers.isEmpty
+                                ? const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(32.0),
+                                      child: Text(
+                                        "No other explorers ranked yet.",
+                                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                                      ),
+                                    ),
+                                  )
+                                : ListView.separated(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: restUsers.length,
+                                    separatorBuilder: (_, __) => const Divider(height: 16, color: Color(0xffF1F5F9)),
+                                    itemBuilder: (context, idx) {
+                                      final user = restUsers[idx];
+                                      return _buildUserTile(user);
+                                    },
                                   ),
-                                ],
-                              ),
-                              child: Center(child: Image.asset('assets/images/back_icon.png', color: const Color(0xff432C81), width: 20.0, height: 20.0)),
-                            ),
-                          ),
-                          const Text(
-                            "Leaderboard",
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xff1C0D5A),
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          // Filter button on the right
-                          GestureDetector(
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Filters updated to Global ranking."),
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            },
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.06),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.tune_rounded,
-                                  color: Color(0xff432C81),
-                                  size: 20,
-                                ),
-                              ),
-                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10),
+                  ),
 
-                    // 3. Podium and Rankings List
-                    Expanded(
-                      child: _users.isEmpty
-                          ? const Center(child: Text("No rankings found."))
-                          : ListView(
-                              physics: const BouncingScrollPhysics(),
-                              padding: const EdgeInsets.only(bottom: 24),
-                              children: [
-                                // Podium section (top 3)
-                                _buildPodiumSection(),
-
-                                const SizedBox(height: 32),
-
-                                // Discovery Rankings list
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                                  child: Text(
-                                    "DISCOVERY RANKINGS",
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xff718096),
-                                      letterSpacing: 0.8,
-                                    ),
-                                  ),
-                                ),
-
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                                  child: Column(
-                                    children: _buildRankItemsList(),
-                                  ),
-                                ),
-                              ],
-                            ),
+                  // Sticky Bottom Current User Rank Card
+                  if (_currentUserRank != null)
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: 16,
+                      child: _buildStickyMyRankCard(_currentUserRank!),
                     ),
-                  ],
-                ),
-        ),
+                ],
+              ),
       ),
-    ),);
+    );
   }
 
-
-  Widget _buildPodiumSection() {
-    final dynamic rank1User = _users.isNotEmpty ? _users[0] : null;
-    final dynamic rank2User = _users.length > 1 ? _users[1] : null;
-    final dynamic rank3User = _users.length > 2 ? _users[2] : null;
-
-    return SizedBox(
-      height: 220,
+  Widget _buildTopPodium(LeaderboardUser? top1, LeaderboardUser? top2, LeaderboardUser? top3) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Rank 2 (left)
-          if (rank2User != null)
-            _buildPodiumItem(
-              name: rank2User['username'] ?? rank2User['name'] ?? '',
-              points: rank2User['points'] ?? 0,
-              rankType: "Gold",
-              rank: "2",
-              imageUrl: rank2User['profile_picture'] ?? '',
-              height: 120,
-              isCurrentUser: rank2User['id']?.toString() == AuthService().userId || rank2User['username'] == AuthService().userUsername,
-            )
-          else
-            const SizedBox(width: 90),
-          const SizedBox(width: 16),
-          // Rank 1 (center)
-          if (rank1User != null)
-            _buildPodiumItem(
-              name: rank1User['username'] ?? rank1User['name'] ?? '',
-              points: rank1User['points'] ?? 0,
-              rankType: "Diamonds",
-              rank: "1",
-              imageUrl: rank1User['profile_picture'] ?? '',
-              height: 150,
-              isFirst: true,
-              isCurrentUser: rank1User['id']?.toString() == AuthService().userId || rank1User['username'] == AuthService().userUsername,
-            )
-          else
-            const SizedBox(width: 90),
-          const SizedBox(width: 16),
-          // Rank 3 (right)
-          if (rank3User != null)
-            _buildPodiumItem(
-              name: rank3User['username'] ?? rank3User['name'] ?? '',
-              points: rank3User['points'] ?? 0,
-              rankType: "Silver",
-              rank: "3",
-              imageUrl: rank3User['profile_picture'] ?? '',
-              height: 120,
-              isCurrentUser: rank3User['id']?.toString() == AuthService().userId || rank3User['username'] == AuthService().userUsername,
-            )
-          else
-            const SizedBox(width: 90),
+          // 2nd Place (Left)
+          if (top2 != null) Expanded(child: _buildPodiumSlot(top2, 2, 130, const Color(0xffC0C0C0))),
+          // 1st Place (Center - Highest)
+          if (top1 != null) Expanded(child: _buildPodiumSlot(top1, 1, 160, const Color(0xffFFD700))),
+          // 3rd Place (Right)
+          if (top3 != null) Expanded(child: _buildPodiumSlot(top3, 3, 110, const Color(0xffCD7F32))),
         ],
       ),
     );
   }
 
-  Widget _buildPodiumItem({
-    required String name,
-    required int points,
-    required String rankType,
-    required String rank,
-    required String imageUrl,
-    required double height,
-    bool isFirst = false,
-    bool isCurrentUser = false,
-  }) {
-    final double avatarRadius = isFirst ? 40.0 : 30.0;
-    final double avatarBottom = isFirst ? 32.0 : 0.0;
-
+  Widget _buildPodiumSlot(LeaderboardUser user, int rank, double height, Color crownColor) {
     return GestureDetector(
       onTap: () {
-        if (isCurrentUser) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const UserProfileScreen(isFromLeaderboard: true),
-            ),
-          ).then((_) => _loadLeaderboardData());
-        } else {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CreatorProfileScreen(
-                username: name,
-                avatarPath: imageUrl,
-                rank: rankType,
-              ),
-            ),
-          );
-        }
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const UserProfileScreen(isFromLeaderboard: true)),
+        );
       },
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            height: 160.0,
-            width: 90,
-            child: Stack(
-              alignment: Alignment.bottomCenter,
-              clipBehavior: Clip.none,
-              children: [
-                if (isFirst)
-                  Positioned(
-                    top: 0,
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 26,
-                          height: 52,
-                          decoration: const BoxDecoration(
-                            color: Color(0xff432C81),
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
-                          ),
-                          child: const Icon(
-                            Icons.military_tech,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  Positioned(
-                    bottom: avatarBottom + 20.0,
-                    child: Container(
-                      width: 26,
-                      height: 90,
-                      decoration: const BoxDecoration(
-                        color: Color(0xff432C81),
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-                      ),
-                    ),
+          // Crown/Medal Badge
+          Icon(
+            rank == 1 ? Icons.workspace_premium_rounded : Icons.military_tech_rounded,
+            color: crownColor,
+            size: rank == 1 ? 32 : 26,
+          ),
+          const SizedBox(height: 4),
+
+          // Avatar Box
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                padding: EdgeInsets.all(rank == 1 ? 3 : 2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: crownColor, width: rank == 1 ? 3 : 2),
+                  boxShadow: [
+                    BoxShadow(color: crownColor.withOpacity(0.4), blurRadius: 12, spreadRadius: 2),
+                  ],
+                ),
+                child: UserAvatar(
+                  avatarUrl: user.profilePicture,
+                  displayName: user.name,
+                  radius: rank == 1 ? 34 : 28,
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: crownColor,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                Positioned(
-                  bottom: avatarBottom,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(2.5),
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Color(0xff432C81),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white,
-                          ),
-                          child: _buildAvatar(imageUrl, avatarRadius, isHighlighted: isCurrentUser),
-                        ),
-                      ),
-                      if (isFirst)
-                        Positioned(
-                          bottom: -8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xff432C81),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white, width: 1.5),
-                            ),
-                            child: const Text(
-                              "RANK 1",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.4,
-                              ),
-                            ),
-                          ),
-                        )
-                      else
-                        Positioned(
-                          top: -8,
-                          child: Container(
-                            width: 22,
-                            height: 22,
-                            decoration: BoxDecoration(
-                              color: const Color(0xffE2DCF7),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: const Color(0xff432C81), width: 1.5),
-                            ),
-                            child: Center(
-                              child: Text(
-                                rank,
-                                style: const TextStyle(
-                                  color: Color(0xff432C81),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
+                  child: Text(
+                    "#$rank",
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11, color: Colors.black),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
+
+          // Name
           Text(
-            isCurrentUser ? "You" : name,
+            user.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: const Color(0xff1C0D5A),
-              fontSize: isFirst ? 16 : 14,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
           ),
-          const SizedBox(height: 2),
+
+          // Points
           Text(
-            "$points XP",
-            style: TextStyle(
-              color: isFirst ? const Color(0xff432C81) : Colors.black45,
-              fontSize: isFirst ? 13 : 11,
-              fontWeight: FontWeight.w600,
-            ),
+            "${user.points} pts",
+            style: TextStyle(color: crownColor, fontWeight: FontWeight.w800, fontSize: 12),
           ),
         ],
       ),
     );
   }
 
-  List<Widget> _buildRankItemsList() {
-    final List<Widget> listItems = [];
-    if (_users.length <= 3) return listItems;
-
-    for (int i = 3; i < _users.length; i++) {
-      final user = _users[i];
-      final isCurrentUser = user['id']?.toString() == AuthService().userId || user['username'] == AuthService().userUsername;
-      listItems.add(
-        _buildRankItem(
-          rank: "${i + 1}",
-          name: isCurrentUser ? "You (Explorer)" : (user['username'] ?? user['name'] ?? ''),
-          level: "Level ${((user['points'] ?? 0) / 450).floor() + 1} Discovery",
-          xp: "${user['points'] ?? 0} XP",
-          imageUrl: user['profile_picture'] ?? '',
-          isHighlighted: isCurrentUser,
-          isRising: i == 3,
-        ),
-      );
-    }
-    return listItems;
-  }
-
-  Widget _buildRankItem({
-    required String rank,
-    required String name,
-    required String level,
-    required String xp,
-    required String imageUrl,
-    bool isHighlighted = false,
-    bool isRising = false,
-  }) {
-    final textColor = isHighlighted ? Colors.white : const Color(0xff1C0D5A);
-    final subTextColor = isHighlighted ? Colors.white.withOpacity(0.7) : Colors.black45;
-
+  Widget _buildUserTile(LeaderboardUser user) {
     return GestureDetector(
       onTap: () {
-        if (isHighlighted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const UserProfileScreen(isFromLeaderboard: true),
-            ),
-          ).then((_) => _loadLeaderboardData());
-        } else {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CreatorProfileScreen(
-                username: name.replaceAll(" (Explorer)", ""),
-                avatarPath: imageUrl,
-                rank: (int.tryParse(rank) ?? 0) == 1 
-                    ? "Diamonds" 
-                    : ((int.tryParse(rank) ?? 0) == 2 
-                        ? "Gold" 
-                        : ((int.tryParse(rank) ?? 0) == 3 
-                            ? "Silver" 
-                            : "Explorer")),
-              ),
-            ),
-          );
-        }
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const UserProfileScreen(isFromLeaderboard: true)),
+        );
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isHighlighted ? const Color(0xff432C81) : Colors.white,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: isHighlighted
-              ? [
-                  BoxShadow(
-                    color: const Color(0xff432C81).withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+          ],
         ),
         child: Row(
           children: [
+            // Rank Number
             SizedBox(
-              width: 24,
+              width: 32,
               child: Text(
-                rank,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                "#${user.rank}",
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xff1C0D5A)),
               ),
             ),
             const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.all(1.5),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isHighlighted ? Colors.white : Colors.transparent,
-                  width: 1.5,
-                ),
-              ),
-              child: _buildAvatar(imageUrl, 22, isHighlighted: isHighlighted),
-            ),
+
+            // Avatar
+            UserAvatar(avatarUrl: user.profilePicture, displayName: user.name, radius: 22),
             const SizedBox(width: 12),
+
+            // Name & Level
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    name,
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          user.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Color(0xff1C0D5A)),
+                        ),
+                      ),
+                      if (user.isVerified) ...[
+                        const SizedBox(width: 4),
+                        const Icon(Icons.verified_rounded, size: 15, color: Color(0xff3B82F6)),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    level,
-                    style: TextStyle(
-                      color: subTextColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xff2B1564).withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          "Lvl ${user.level} · ${user.levelName}",
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xff2B1564)),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
+
+            // Points & Rank Movement
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  xp,
+                  "${user.points} pts",
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xff2B1564)),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  user.rankChange,
                   style: TextStyle(
-                    color: isHighlighted ? Colors.white : const Color(0xff432C81),
-                    fontSize: 15,
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
+                    color: user.rankChange.startsWith('↑') ? const Color(0xff10B981) : Colors.grey,
                   ),
                 ),
-                if (isRising)
-                  Container(
-                    margin: const EdgeInsets.only(top: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xffFEF3C7),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      "RISING",
-                      style: TextStyle(
-                        color: Color(0xffB25E00),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
               ],
             ),
           ],
@@ -578,64 +394,54 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
-  Widget _buildAvatar(String imagePath, double radius, {bool isHighlighted = false}) {
-    final bool isNetwork = imagePath.startsWith("http") || imagePath.startsWith("uploads");
-    final bool hasImage = imagePath.isNotEmpty;
-
-    String resolvedUrl = imagePath;
-    if (imagePath.startsWith('http')) {
-      if (imagePath.contains('localhost') || imagePath.contains('127.0.0.1')) {
-        try {
-          final uri = Uri.parse(imagePath);
-          final baseUri = Uri.parse(ApiService().baseUrl);
-          resolvedUrl = uri.replace(
-            scheme: baseUri.scheme,
-            host: baseUri.host,
-            port: baseUri.hasPort ? baseUri.port : null,
-          ).toString();
-        } catch (_) {}
-      }
-    } else {
-      resolvedUrl = '${ApiService().baseUrl}/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}';
-    }
-
-    final double diameter = radius * 2;
-    if (!hasImage) {
-      return ClipOval(
-        child: Container(
-          width: diameter,
-          height: diameter,
-          color: isHighlighted ? const Color(0xff432C81) : const Color(0xffCBD5E1),
-          alignment: Alignment.center,
-          child: Icon(Icons.account_circle, color: isHighlighted ? Colors.white : Colors.white70, size: radius * 1.2),
-        ),
-      );
-    }
-
-    return ClipOval(
-      child: SizedBox(
-        width: diameter,
-        height: diameter,
-        child: isNetwork
-            ? Image.network(
-                resolvedUrl,
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-                width: diameter,
-                height: diameter,
-                errorBuilder: (ctx, err, stack) => Container(
-                  color: isHighlighted ? const Color(0xff432C81) : const Color(0xffCBD5E1),
-                  alignment: Alignment.center,
-                  child: Icon(Icons.account_circle, color: isHighlighted ? Colors.white : Colors.white70, size: radius * 1.2),
+  Widget _buildStickyMyRankCard(LeaderboardUser myRank) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xff2B1564),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xffFFB800),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              "#${myRank.rank}",
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.black),
+            ),
+          ),
+          const SizedBox(width: 12),
+          UserAvatar(avatarUrl: myRank.profilePicture, displayName: myRank.name, radius: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "Your Current Rank",
+                  style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500),
                 ),
-              )
-            : Image.asset(
-                imagePath,
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-                width: diameter,
-                height: diameter,
-              ),
+                Text(
+                  "${myRank.points} Points · Lvl ${myRank.level}",
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 16),
+        ],
       ),
     );
   }

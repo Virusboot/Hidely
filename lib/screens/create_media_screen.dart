@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/services/location_capture_service.dart';
 import 'post_details_screen.dart';
 import 'create_reel_screen.dart';
 
@@ -116,12 +117,17 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
     );
     if (f != null && mounted) {
       final bytes = await f.readAsBytes();
-      setState(() {
-        _selectedFileBytes = bytes;
-        _selectedFileName = f.name;
-        _selectedFile = File(f.path);
-        _selectedAsset = null;
-      });
+      final capLoc = await LocationCaptureService().captureCameraLocation();
+      if (!mounted) return;
+      Navigator.push(context, MaterialPageRoute(
+        builder: (context) => PostDetailsScreen(
+          selectedImage: File(f.path),
+          imageBytes: bytes,
+          filename: f.name,
+          mediaSource: MediaSource.camera,
+          initialCapturedLocation: capLoc,
+        ),
+      ));
     }
   }
 
@@ -201,13 +207,14 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
                             child: ElevatedButton(
                               onPressed: () {
                                 if (_selectedFileBytes != null || _selectedFile != null) {
-                                  Navigator.push(context, MaterialPageRoute(
-                                    builder: (context) => PostDetailsScreen(
-                                      selectedImage: _selectedFile,
-                                      imageBytes: _selectedFileBytes,
-                                      filename: _selectedFileName,
-                                    ),
-                                  ));
+                                   Navigator.push(context, MaterialPageRoute(
+                                     builder: (context) => PostDetailsScreen(
+                                       selectedImage: _selectedFile,
+                                       imageBytes: _selectedFileBytes,
+                                       filename: _selectedFileName,
+                                       mediaSource: MediaSource.gallery,
+                                     ),
+                                   ));
                                 } else {
                                   _snack(
                                     _currentModeIndex == 0 ? 'Select a photo first.' : 'Select a video first.',

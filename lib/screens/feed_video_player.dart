@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -26,21 +27,26 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   Future<void> _initializePlayer() async {
-    final bool isLocal = widget.videoUrl.startsWith('/') || widget.videoUrl.startsWith('file://') || widget.videoUrl.contains('cache/');
+    final bool isLocal = !kIsWeb && (widget.videoUrl.startsWith('/') || widget.videoUrl.startsWith('file://') || widget.videoUrl.contains('cache/'));
 
     if (isLocal) {
       _controller = VideoPlayerController.file(File(widget.videoUrl));
     } else {
-      final String resolvedUrl = widget.videoUrl.startsWith('http')
+      final String resolvedUrl = widget.videoUrl.startsWith('http') || widget.videoUrl.startsWith('blob:')
           ? widget.videoUrl
-          : '${ApiService().baseUrl}/${widget.videoUrl}';
+          : (widget.videoUrl.startsWith('/') ? '${ApiService().baseUrl}${widget.videoUrl}' : '${ApiService().baseUrl}/${widget.videoUrl}');
       _controller = VideoPlayerController.networkUrl(Uri.parse(resolvedUrl));
     }
 
     try {
       await _controller!.initialize();
       await _controller!.setLooping(true);
-      await _controller!.setVolume(1.0);
+      if (kIsWeb) {
+        _isMuted = true;
+        await _controller!.setVolume(0.0);
+      } else {
+        await _controller!.setVolume(1.0);
+      }
       if (mounted) {
         setState(() {
           _isInitialized = true;
@@ -55,6 +61,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   @override
   void dispose() {
     try {
+      _controller?.setVolume(0.0);
       _controller?.pause();
       _controller?.dispose();
     } catch (e) {

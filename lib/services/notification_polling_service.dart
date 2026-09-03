@@ -24,7 +24,7 @@ class NotificationPollingService {
     if (_isInitialized) return;
 
     // Initialize local notifications
-    const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher_new');
     const DarwinInitializationSettings iosSettings = DarwinInitializationSettings();
     const InitializationSettings initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
 
@@ -116,11 +116,18 @@ class NotificationPollingService {
   }
 
   Future<void> _showLocalNotification(Map<String, dynamic> notif) async {
+    final actorId = notif['actor_id']?.toString();
+    final currentUserId = AuthService().userId;
+    if (actorId != null && actorId == currentUserId.toString()) {
+      // Skip local notification if action was done by current user
+      return;
+    }
+
     final type = notif['type'] ?? 'notification';
     final actorName = notif['actor_name'] ?? notif['actor_username'] ?? 'Someone';
     
     String title = 'Hidely';
-    String body = notif['body'] ?? '$actorName interacted with your profile.';
+    String body = notif['body'] ?? notif['text'] ?? '$actorName interacted with your profile.';
 
     if (type == 'like' || type == 'new_like') {
       title = 'New Like ❤️';
@@ -134,12 +141,15 @@ class NotificationPollingService {
     } else if (type == 'message' || type == 'new_message') {
       title = 'New Message 📩';
       body = '$actorName sent you a message.';
+    } else if (type == 'new_post') {
+      title = 'New Post 📸';
+      body = notif['text'] ?? '$actorName posted a new travel post.';
     } else if (type == 'official_hidely_post') {
       title = 'Official Hidely Spot 🌟';
-      body = notif['body'] ?? 'Discover our newly featured secret location in India!';
+      body = notif['body'] ?? notif['text'] ?? 'Discover our newly featured secret location in India!';
     } else if (type == 'weekly_travel_suggestions') {
       title = 'Weekly Travel Suggestions 🏕️';
-      body = notif['body'] ?? 'Explore 3 top hidden weekend getaways handpicked for you!';
+      body = notif['body'] ?? notif['text'] ?? 'Explore 3 top hidden weekend getaways handpicked for you!';
     }
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
@@ -149,6 +159,7 @@ class NotificationPollingService {
       importance: Importance.max,
       priority: Priority.high,
       showWhen: true,
+      icon: '@mipmap/ic_launcher_new',
     );
     const NotificationDetails platformChannelSpecifics = NotificationDetails(android: androidPlatformChannelSpecifics);
 

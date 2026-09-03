@@ -109,11 +109,16 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
   }
 
   Future<void> _speakInstruction(String text) async {
-    final cleanText = text.replaceAll(RegExp(r'<[^>]*>'), '');
-    await _flutterTts.setLanguage("en-US");
-    await _flutterTts.setPitch(1.0);
-    await _flutterTts.setSpeechRate(0.45);
-    await _flutterTts.speak(cleanText);
+    if (kIsWeb) return;
+    try {
+      final cleanText = text.replaceAll(RegExp(r'<[^>]*>'), '');
+      await _flutterTts.setLanguage("en-US");
+      await _flutterTts.setPitch(1.0);
+      await _flutterTts.setSpeechRate(0.45);
+      await _flutterTts.speak(cleanText);
+    } catch (e) {
+      debugPrint('[MapScreen] TTS audio error ignored: $e');
+    }
   }
 
   void _stopSpeaking() async {

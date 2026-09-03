@@ -52,6 +52,15 @@ class RouteData {
   bool get hasTrafficData => durationInTrafficMin != null && durationInTrafficMin! > 0;
   int get activeDurationMin => durationInTrafficMin ?? durationMin;
 
+  String get formattedDuration {
+    final mins = activeDurationMin;
+    if (mins < 60) return '$mins min';
+    final hrs = mins ~/ 60;
+    final remainingMins = mins % 60;
+    if (remainingMins == 0) return '${hrs}h';
+    return '${hrs}h ${remainingMins}m';
+  }
+
   RouteOption? get activeOption {
     if (options.isNotEmpty && selectedOptionIndex < options.length) {
       return options[selectedOptionIndex];

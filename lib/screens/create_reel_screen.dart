@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hidely_new/services/media_download_service.dart';
+import 'package:hidely_new/services/location_capture_service.dart';
 import 'post_details_screen.dart';
 
 class CreateReelScreen extends StatefulWidget {
@@ -292,11 +293,18 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
         final navigator = Navigator.of(context);
         // Auto-save recorded video to phone gallery
         await MediaDownloadService.downloadMediaToGallery(context, file.path);
+        
+        // Capture camera recording location
+        final capLoc = await LocationCaptureService().captureCameraLocation();
 
         if (!mounted) return;
         navigator.push(
           MaterialPageRoute(
-            builder: (context) => PostDetailsScreen(selectedImage: File(file.path)),
+            builder: (context) => PostDetailsScreen(
+              selectedImage: File(file.path),
+              mediaSource: MediaSource.camera,
+              initialCapturedLocation: capLoc,
+            ),
           ),
         );
       }
@@ -316,7 +324,10 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => PostDetailsScreen(selectedImage: File(media.path)),
+          builder: (context) => PostDetailsScreen(
+            selectedImage: File(media.path),
+            mediaSource: MediaSource.gallery,
+          ),
         ),
       );
     }

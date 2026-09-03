@@ -4,6 +4,7 @@ import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/screens/single_post_view_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/widgets/user_avatar.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -53,15 +54,41 @@ class _NotificationScreenState extends State<NotificationScreen>
         _isRefreshing = false;
       });
       _fadeController.forward(from: 0);
-
-      if (token.isNotEmpty && _notifications.isNotEmpty) {
-        ApiService().markNotificationsAsRead(token: token);
-      }
     }
   }
 
-  List<dynamic> get _effectiveNotifications {
-    return _notifications;
+  Future<void> _markAllAsRead() async {
+    final token = AuthService().token ?? '';
+    if (token.isEmpty) return;
+
+    final result = await ApiService().markNotificationsAsRead(token: token);
+    if (result.success && mounted) {
+      setState(() {
+        for (var n in _notifications) {
+          n['is_read'] = true;
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('All notifications marked as read.'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _markSingleAsRead(dynamic notification) async {
+    final token = AuthService().token ?? '';
+    if (token.isEmpty) return;
+
+    final notifId = notification['id'] ?? (notification['_id'] is int ? notification['_id'] : int.tryParse(notification['_id']?.toString() ?? '0') ?? 0);
+    if (notifId is int && notifId > 0 && notification['is_read'] != true) {
+      setState(() {
+        notification['is_read'] = true;
+      });
+      ApiService().markSingleNotificationAsRead(token: token, notificationId: notifId);
+    }
   }
 
   String _formatTime(String isoString) {
@@ -71,6 +98,7 @@ class _NotificationScreenState extends State<NotificationScreen>
       if (diff.inSeconds < 60) return 'just now';
       if (diff.inMinutes < 60) return '${diff.inMinutes}m';
       if (diff.inHours < 24) return '${diff.inHours}h';
+      if (diff.inDays == 1) return '1d';
       if (diff.inDays < 7) return '${diff.inDays}d';
       return '${(diff.inDays / 7).floor()}w';
     } catch (_) {
@@ -79,60 +107,76 @@ class _NotificationScreenState extends State<NotificationScreen>
   }
 
   Map<String, List<dynamic>> _groupNotifications() {
-    final list = _effectiveNotifications;
     final now = DateTime.now();
+    final newItems = <dynamic>[];
     final today = <dynamic>[];
+    final yesterday = <dynamic>[];
     final thisWeek = <dynamic>[];
-    final earlier = <dynamic>[];
+    final older = <dynamic>[];
 
-    for (final n in list) {
+    for (final n in _notifications) {
+      final isRead = n['is_read'] == true || n['is_read'] == 1 || n['is_read'] == 'true';
+      if (!isRead) {
+        newItems.add(n);
+        continue;
+      }
       final raw = n['created_at'];
       if (raw == null) {
-        earlier.add(n);
+        older.add(n);
         continue;
       }
       final dt = DateTime.tryParse(raw.toString())?.toLocal();
       if (dt == null) {
-        earlier.add(n);
+        older.add(n);
         continue;
       }
       final diff = now.difference(dt);
-      if (diff.inDays < 1) {
+      if (diff.inHours < 24) {
         today.add(n);
+      } else if (diff.inDays < 2) {
+        yesterday.add(n);
       } else if (diff.inDays < 7) {
         thisWeek.add(n);
       } else {
-        earlier.add(n);
+        older.add(n);
       }
     }
-    return {'Today': today, 'This Week': thisWeek, 'Earlier': earlier};
+    return {
+      'New': newItems,
+      'Today': today,
+      'Yesterday': yesterday,
+      'This Week': thisWeek,
+      'Older': older,
+    };
   }
 
   (IconData, Color) _typeIconAndColor(String? type) {
     switch (type) {
       case 'like':
+      case 'new_like':
         return (Icons.favorite_rounded, const Color(0xFFE91E63));
       case 'comment':
+      case 'new_comment':
         return (Icons.mode_comment_rounded, const Color(0xFF2196F3));
       case 'comment_like':
         return (Icons.favorite_rounded, const Color(0xFFE91E63));
       case 'follow':
+      case 'new_follower':
         return (Icons.person_add_rounded, const Color(0xFF9C27B0));
       case 'new_post':
         return (Icons.photo_camera_rounded, const Color(0xFF00BCD4));
+      case 'official_hidely_post':
+        return (Icons.stars_rounded, const Color(0xFFFF9800));
       case 'points_earned':
         return (Icons.star_rounded, const Color(0xFFFFC107));
       default:
-        return (Icons.notifications_rounded, const Color(0xFF607D8B));
+        return (Icons.notifications_rounded, const Color(0xFF2B1564));
     }
   }
 
   String _buildActionText(dynamic notification) {
     final type = notification['type'] as String?;
-    final actorName = (notification['actor_name'] ??
-            notification['actor_username'] ??
-            'Someone')
-        .toString();
+    final actorName = (notification['actor_name'] ?? notification['actor_username'] ?? 'Someone').toString();
     final text = notification['text']?.toString() ?? '';
 
     if (text.isNotEmpty) {
@@ -144,15 +188,20 @@ class _NotificationScreenState extends State<NotificationScreen>
 
     switch (type) {
       case 'like':
+      case 'new_like':
         return 'liked your post.';
       case 'comment':
+      case 'new_comment':
         return 'commented on your post.';
       case 'comment_like':
         return 'liked your comment.';
       case 'follow':
+      case 'new_follower':
         return 'started following you.';
       case 'new_post':
         return 'shared a new post.';
+      case 'official_hidely_post':
+        return 'posted a new featured hidden place!';
       case 'points_earned':
         return 'You earned points!';
       default:
@@ -238,11 +287,10 @@ class _NotificationScreenState extends State<NotificationScreen>
                             ],
                           ),
                           child: Center(
-                            child: Image.asset(
-                              'assets/images/back_icon.png',
-                              color: const Color(0xff1C0D5A),
-                              width: 18.0,
-                              height: 18.0,
+                            child: const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              color: Color(0xff1C0D5A),
+                              size: 18.0,
                             ),
                           ),
                         ),
@@ -258,6 +306,19 @@ class _NotificationScreenState extends State<NotificationScreen>
                         ),
                       ),
                       const Spacer(),
+                      if (_notifications.any((n) => n['is_read'] != true && n['is_read'] != 1 && n['is_read'] != 'true'))
+                        TextButton.icon(
+                          onPressed: _markAllAsRead,
+                          icon: const Icon(Icons.done_all_rounded, size: 16, color: Color(0xff2B1564)),
+                          label: const Text(
+                            'Mark all read',
+                            style: TextStyle(
+                              color: Color(0xff2B1564),
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       if (_isRefreshing)
                         const SizedBox(
                           width: 20,
@@ -283,9 +344,8 @@ class _NotificationScreenState extends State<NotificationScreen>
                           opacity: _fadeAnim,
                           child: RefreshIndicator(
                             color: const Color(0xff2B1564),
-                            onRefresh: () =>
-                                _loadNotifications(refresh: true),
-                            child: _buildGroupedList(),
+                            onRefresh: () => _loadNotifications(refresh: true),
+                            child: _notifications.isEmpty ? _buildEmptyState() : _buildGroupedList(),
                           ),
                         ),
                 ),
@@ -297,9 +357,61 @@ class _NotificationScreenState extends State<NotificationScreen>
     );
   }
 
+  Widget _buildEmptyState() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Container(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff2B1564).withOpacity(0.06),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.notifications_none_rounded,
+                    size: 54,
+                    color: Color(0xff2B1564),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  "No Notifications Yet",
+                  style: TextStyle(
+                    color: Color(0xff1C0D5A),
+                    fontSize: 19,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "When people like your posts, comment, follow you, or earn points, you'll see them right here.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.black54,
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildGroupedList() {
     final groups = _groupNotifications();
-    final groupOrder = ['Today', 'This Week', 'Earlier'];
+    final groupOrder = ['New', 'Today', 'Yesterday', 'This Week', 'Older'];
     final items = <Widget>[];
 
     for (final groupName in groupOrder) {
@@ -308,13 +420,13 @@ class _NotificationScreenState extends State<NotificationScreen>
 
       items.add(
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
           child: Text(
             groupName,
             style: const TextStyle(
               color: Color(0xff1C0D5A),
               fontSize: 15,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
               letterSpacing: -0.2,
             ),
           ),
@@ -330,57 +442,67 @@ class _NotificationScreenState extends State<NotificationScreen>
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.only(bottom: 32),
       children: items,
     );
   }
 
   Widget _buildNotificationTile(dynamic notification) {
     final type = notification['type'] as String?;
-    final actorName = (notification['actor_name'] ??
-            notification['actor_username'] ??
-            'User')
-        .toString();
+    final actorName = (notification['actor_name'] ?? notification['actor_username'] ?? 'User').toString();
     final actorPic = notification['actor_profile_picture']?.toString();
     final actorUsername = notification['actor_username']?.toString() ?? 'user';
+    final bool isVerified = notification['actor_is_verified'] == true || notification['actor_is_verified'] == 1 || notification['actor_is_verified'] == 'true';
     final postImg = notification['post_image_url']?.toString();
     final postId = notification['post_id'];
-    final isRead = notification['is_read'] == true;
-    final timeAgo = notification['created_at'] != null
-        ? _formatTime(notification['created_at'].toString())
-        : '';
+    final bool isRead = notification['is_read'] == true || notification['is_read'] == 1 || notification['is_read'] == 'true';
+    final timeAgo = notification['created_at'] != null ? _formatTime(notification['created_at'].toString()) : '';
     final actionText = _buildActionText(notification);
     final (typeIcon, typeColor) = _typeIconAndColor(type);
 
-    return GestureDetector(
+    return InkWell(
       onTap: () {
-        if (type == 'follow') {
+        _markSingleAsRead(notification);
+        if (type == 'follow' || type == 'new_follower') {
           _openProfile(actorUsername, actorPic);
-        } else if (type == 'like' || type == 'comment' || postImg != null) {
+        } else if (type == 'like' || type == 'comment' || type == 'new_like' || type == 'new_comment' || postImg != null) {
           _openPost(postId, postImg);
         } else {
           _openProfile(actorUsername, actorPic);
         }
       },
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        color: isRead ? Colors.transparent : const Color(0xffEEF2FF),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Container(
+        color: isRead ? Colors.transparent : const Color(0xffEEF2FF).withOpacity(0.7),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // User Avatar (Tap opens profile)
+            // Instagram Style Gradient Ring Avatar
             GestureDetector(
               onTap: () => _openProfile(actorUsername, actorPic),
               child: Stack(
                 children: [
-                  ClipOval(
+                  Container(
+                    padding: const EdgeInsets.all(2.0),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [Color(0xff833AB4), Color(0xffFD1D1D), Color(0xffF56040)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
                     child: Container(
-                      width: 44,
-                      height: 44,
-                      color: const Color(0xffCBD5E1),
-                      child: _buildAvatar(actorPic, actorName),
+                      padding: const EdgeInsets.all(1.5),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                      ),
+                      child: UserAvatar(
+                        avatarUrl: actorPic,
+                        displayName: actorName,
+                        radius: 20,
+                      ),
                     ),
                   ),
                   Positioned(
@@ -408,40 +530,69 @@ class _NotificationScreenState extends State<NotificationScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: '$actorName ',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xff1C0D5A),
-                            fontSize: 13.5,
-                            height: 1.35,
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '$actorName ',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xff1C0D5A),
+                                  fontSize: 13.5,
+                                  height: 1.35,
+                                ),
+                              ),
+                              TextSpan(
+                                text: actionText,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.black.withOpacity(0.75),
+                                  fontSize: 13.5,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        TextSpan(
-                          text: actionText,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w400,
-                            color: Colors.black.withOpacity(0.7),
-                            fontSize: 13.5,
-                            height: 1.35,
+                      ),
+                      if (isVerified) ...[
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.verified_rounded,
+                          color: Color(0xff3897F0),
+                          size: 14,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Text(
+                        timeAgo,
+                        style: TextStyle(
+                          color: Colors.black.withOpacity(0.45),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (!isRead) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: Color(0xff3897F0),
+                            shape: BoxShape.circle,
                           ),
                         ),
                       ],
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    timeAgo,
-                    style: TextStyle(
-                      color: Colors.black.withOpacity(0.4),
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w400,
-                    ),
+                    ],
                   ),
                 ],
               ),
@@ -450,7 +601,7 @@ class _NotificationScreenState extends State<NotificationScreen>
             const SizedBox(width: 10),
 
             // Right side: Post Image Thumbnail OR Follow Button
-            if (type == 'follow')
+            if (type == 'follow' || type == 'new_follower')
               _FollowButton(actorUsername: actorUsername)
             else if (postImg != null && postImg.isNotEmpty)
               GestureDetector(
@@ -463,58 +614,6 @@ class _NotificationScreenState extends State<NotificationScreen>
             else
               const SizedBox(width: 4),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAvatar(String? picPath, String name) {
-    if (picPath != null && picPath.isNotEmpty) {
-      if (picPath.startsWith('http://') || picPath.startsWith('https://')) {
-        return Image.network(
-          picPath,
-          fit: BoxFit.cover,
-          width: 44,
-          height: 44,
-          errorBuilder: (_, __, ___) => _initialsAvatar(name),
-        );
-      }
-      if (picPath.startsWith('assets/')) {
-        return Image.asset(
-          picPath,
-          fit: BoxFit.cover,
-          width: 44,
-          height: 44,
-          errorBuilder: (_, __, ___) => _initialsAvatar(name),
-        );
-      }
-      final fullUrl = picPath.startsWith('/')
-          ? '${ApiService().baseUrl}$picPath'
-          : '${ApiService().baseUrl}/$picPath';
-      return Image.network(
-        fullUrl,
-        fit: BoxFit.cover,
-        width: 44,
-        height: 44,
-        errorBuilder: (_, __, ___) => _initialsAvatar(name),
-      );
-    }
-    return _initialsAvatar(name);
-  }
-
-  Widget _initialsAvatar(String name) {
-    final char = name.isNotEmpty ? name[0].toUpperCase() : 'U';
-    return Container(
-      width: 44,
-      height: 44,
-      color: const Color(0xff1C0D5A).withOpacity(0.08),
-      alignment: Alignment.center,
-      child: Text(
-        char,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          color: Color(0xff1C0D5A),
-          fontSize: 16,
         ),
       ),
     );
@@ -576,9 +675,19 @@ class _FollowButtonState extends State<_FollowButton> {
   bool _loading = false;
 
   Future<void> _toggle() async {
-    if (_loading) return;
+    if (_loading || widget.actorUsername == null || widget.actorUsername!.isEmpty) return;
     setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 400));
+    final token = AuthService().token ?? '';
+    if (token.isNotEmpty) {
+      final res = await ApiService().toggleFollowCreator(token: token, creatorId: widget.actorUsername!);
+      if (res.success && mounted) {
+        setState(() {
+          _following = !_following;
+          _loading = false;
+        });
+        return;
+      }
+    }
     if (mounted) {
       setState(() {
         _following = !_following;

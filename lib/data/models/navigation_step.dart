@@ -92,6 +92,7 @@ class NavigationStep {
     if (mins < 60) return '$mins min';
     final hrs = mins ~/ 60;
     final remainingMins = mins % 60;
+    if (remainingMins == 0) return '${hrs}h';
     return '${hrs}h ${remainingMins}m';
   }
 }

@@ -1,30 +1,28 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
-import 'main_wrapper.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/ai_service.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:exif/exif.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'package:flutter/foundation.dart';
+import 'package:video_player/video_player.dart';
+import 'main_wrapper.dart';
+import 'package:hidely_new/services/location_capture_service.dart';
 
 class PostDetailsScreen extends StatefulWidget {
   final File? selectedImage;
   final Uint8List? imageBytes;
   final String? filename;
+  final MediaSource mediaSource;
+  final CapturedLocation? initialCapturedLocation;
 
   const PostDetailsScreen({
     super.key,
     this.selectedImage,
     this.imageBytes,
     this.filename,
+    this.mediaSource = MediaSource.gallery,
+    this.initialCapturedLocation,
   });
 
   @override
@@ -43,6 +41,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   double? _latitude;
   double? _longitude;
   Uint8List? _localImageBytes;
+  VideoPlayerController? _videoController;
 
   @override
   void initState() {
@@ -50,6 +49,36 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     _fetchLocation();
     _runAiPlaceDetection();
     _loadLocalImageBytes();
+    _initVideoPreview();
+  }
+
+  void _initVideoPreview() async {
+    final path = (widget.selectedImage != null ? widget.selectedImage!.path : (widget.filename ?? '')).toLowerCase();
+    final bool isVideo = path.contains('.mp4') || path.contains('.mov') || path.contains('.mkv') || path.contains('.avi') || path.contains('/video/');
+    if (!isVideo) return;
+
+    try {
+      if (widget.selectedImage != null && !kIsWeb) {
+        _videoController = VideoPlayerController.file(widget.selectedImage!);
+      } else if (widget.selectedImage != null && kIsWeb) {
+        _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.selectedImage!.path));
+      } else if (widget.filename != null && widget.filename!.isNotEmpty) {
+        final url = widget.filename!.startsWith('http') || widget.filename!.startsWith('blob:')
+            ? widget.filename!
+            : '${ApiService().baseUrl}/${widget.filename!}';
+        _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
+      }
+
+      if (_videoController != null) {
+        await _videoController!.initialize();
+        await _videoController!.setLooping(true);
+        await _videoController!.setVolume(0.0);
+        _videoController!.play();
+        if (mounted) setState(() {});
+      }
+    } catch (e) {
+      debugPrint("Video preview init error: $e");
+    }
   }
 
   Future<void> _loadLocalImageBytes() async {
@@ -73,6 +102,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
 
   @override
   void dispose() {
+    _videoController?.dispose();
     _captionController.dispose();
     super.dispose();
   }
@@ -91,169 +121,53 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     }
   }
 
-  Future<String?> _reverseGeocode(double lat, double lon) async {
-    if (!kIsWeb) {
-      try {
-        List<Placemark> marks = await placemarkFromCoordinates(lat, lon);
-        if (marks.isNotEmpty) {
-          final mark = marks[0];
-          final name = mark.name ?? '';
-          final subLocality = mark.subLocality ?? '';
-          final locality = mark.locality ?? '';
-          final country = mark.country ?? '';
-          
-          String locationStr = '';
-          if (subLocality.isNotEmpty && locality.isNotEmpty && subLocality != locality) {
-            locationStr = "$subLocality, $locality";
-          } else if (locality.isNotEmpty) {
-            locationStr = locality;
-          } else if (name.isNotEmpty) {
-            locationStr = name;
-          }
-          if (country.isNotEmpty) {
-            locationStr = locationStr.isNotEmpty ? "$locationStr, $country" : country;
-          }
-          if (locationStr.isNotEmpty) return locationStr;
-        }
-      } catch (e) {
-        debugPrint("Native reverse geocoding failed: $e");
-      }
-    }
-
-    try {
-      final response = await http.get(
-        Uri.parse('https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lon'),
-        headers: {'User-Agent': 'HidelyApp/1.0'},
-      ).timeout(const Duration(seconds: 5));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final address = data['address'];
-        if (address != null) {
-          final city = address['city'] ?? address['town'] ?? address['village'] ?? address['county'] ?? address['state'];
-          final country = address['country'] ?? '';
-          if (city != null && city.toString().isNotEmpty) {
-            return country.isNotEmpty ? "$city, $country" : city.toString();
-          }
-        }
-        if (data['display_name'] != null) {
-          final parts = data['display_name'].toString().split(',');
-          if (parts.length >= 2) {
-            return "${parts[0].trim()}, ${parts[parts.length - 1].trim()}";
-          }
-          return data['display_name'].toString();
-        }
-      }
-    } catch (e) {
-      debugPrint("Reverse geocode web fallback error: $e");
-    }
-    return null;
-  }
+  CapturedLocation? _capturedLocation;
 
   Future<void> _fetchLocation() async {
-    if (mounted) setState(() => _location = "Fetching location...");
-    
-    // 1. Try EXIF metadata from photo
-    try {
-      final bytes = widget.imageBytes ?? (widget.selectedImage != null ? await widget.selectedImage!.readAsBytes() : null);
-      if (bytes != null) {
-        final tags = await readExifFromBytes(bytes);
-        if (tags.isNotEmpty) {
-          final latRef = tags['GPS GPSLatitudeRef']?.toString();
-          final latTag = tags['GPS GPSLatitude'];
-          final lonRef = tags['GPS GPSLongitudeRef']?.toString();
-          final lonTag = tags['GPS GPSLongitude'];
-
-          if (latRef != null && latTag != null && lonRef != null && lonTag != null) {
-            final lat = _convertTagToDouble(latTag, latRef);
-            final lon = _convertTagToDouble(lonTag, lonRef);
-            if (lat != null && lon != null) {
-              _latitude = lat;
-              _longitude = lon;
-              final locName = await _reverseGeocode(lat, lon);
-              if (locName != null && mounted) {
-                setState(() => _location = locName);
-                return;
-              }
-            }
-          }
-        }
+    // Gallery media: MUST NOT automatically fetch device GPS location
+    if (widget.mediaSource == MediaSource.gallery) {
+      if (mounted) {
+        setState(() {
+          _location = "Add location (optional)";
+          _latitude = null;
+          _longitude = null;
+          _capturedLocation = null;
+        });
       }
-    } catch (e) {
-      debugPrint("EXIF location read failed: $e");
+      return;
     }
 
-    // 2. Try Device/Browser Geolocation
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
+    // Camera media: Capture high-accuracy current device location
+    if (mounted) setState(() => _location = "Fetching camera location...");
+
+    if (widget.initialCapturedLocation != null) {
+      _capturedLocation = widget.initialCapturedLocation;
+      _latitude = _capturedLocation!.latitude;
+      _longitude = _capturedLocation!.longitude;
+      if (mounted) {
+        setState(() {
+          _location = _capturedLocation!.displayName ?? "Camera Location";
+        });
       }
+      return;
+    }
 
-      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
-        Position? position;
-        try {
-          position = await Geolocator.getCurrentPosition(
-            locationSettings: LocationSettings(
-              accuracy: kIsWeb ? LocationAccuracy.high : LocationAccuracy.best,
-              timeLimit: const Duration(seconds: 10),
-            ),
-          );
-        } catch (_) {
-          try {
-            position = await Geolocator.getLastKnownPosition();
-          } catch (_) {}
-        }
-
-        if (position != null) {
-          _latitude = position.latitude;
-          _longitude = position.longitude;
-          final locName = await _reverseGeocode(position.latitude, position.longitude);
-          if (locName != null && mounted) {
-            setState(() => _location = locName);
-            return;
-          } else if (mounted) {
-            setState(() => _location = "${position!.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}");
-            return;
-          }
-        }
-      }
-
-      if (mounted) setState(() => _location = "Tap to add location");
-    } catch (e) {
-      debugPrint("Device location error: $e");
-      if (mounted) setState(() => _location = "Tap to add location");
+    final capLoc = await LocationCaptureService().captureCameraLocation();
+    if (capLoc != null && mounted) {
+      setState(() {
+        _capturedLocation = capLoc;
+        _latitude = capLoc.latitude;
+        _longitude = capLoc.longitude;
+        _location = capLoc.displayName ?? "${capLoc.latitude.toStringAsFixed(4)}, ${capLoc.longitude.toStringAsFixed(4)}";
+      });
+    } else if (mounted) {
+      setState(() {
+        _location = "Add location (optional)";
+      });
     }
   }
 
 
-
-  double? _convertTagToDouble(IfdTag tag, String ref) {
-    try {
-      final list = tag.values.toList();
-      if (list.length == 3) {
-        double degrees = _ratioToDouble(list[0]);
-        double minutes = _ratioToDouble(list[1]);
-        double seconds = _ratioToDouble(list[2]);
-        
-        double decimal = degrees + (minutes / 60.0) + (seconds / 3600.0);
-        if (ref == 'S' || ref == 'W') {
-          decimal = -decimal;
-        }
-        return decimal;
-      }
-    } catch (e) {
-      debugPrint("Error converting tag: $e");
-    }
-    return null;
-  }
-
-  double _ratioToDouble(dynamic ratio) {
-    if (ratio is Ratio) {
-      return ratio.numerator / ratio.denominator;
-    }
-    return double.tryParse(ratio.toString()) ?? 0.0;
-  }
 
   void _onSharePressed() async {
     if (_isLoading) return;
@@ -305,13 +219,16 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     final result = await ApiService().createPost(
       token: AuthService().token ?? '',
       caption: finalCaption,
-      location: _location == "Fetching location..." || _location == "Location access failed" ? "Unknown Location" : _location,
+      location: (_location == "Fetching location..." || _location == "Location access failed" || _location == "Add location (optional)") ? "Unknown Location" : _location,
       category: _selectedCategory,
       image: widget.selectedImage,
       imageBytes: widget.imageBytes,
       filename: widget.filename,
       latitude: _latitude,
       longitude: _longitude,
+      locationAccuracyMeters: _capturedLocation?.accuracyMeters,
+      locationSource: _capturedLocation?.source ?? (_location != "Add location (optional)" && _location != "Unknown Location" && _location.isNotEmpty ? 'manual' : null),
+      locationCapturedAt: _capturedLocation?.capturedAt.toIso8601String(),
     );
 
     if (!mounted) {
@@ -337,7 +254,6 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
       );
       
       final navigator = Navigator.of(context);
-      await _showNewPlaceNotification();
       
       navigator.pushAndRemoveUntil(
         MaterialPageRoute(settings: const RouteSettings(name: "/main"), builder: (context) => const MainWrapper()),
@@ -354,49 +270,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     }
   }
 
-  Future<void> _showNewPlaceNotification() async {
-    final prefs = await SharedPreferences.getInstance();
-    final notificationsEnabled = prefs.getBool('enable_notifications') ?? true;
-    if (!notificationsEnabled) return;
 
-    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-
-    const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const DarwinInitializationSettings initializationSettingsDarwin = DarwinInitializationSettings(
-      requestAlertPermission: false,
-      requestBadgePermission: false,
-      requestSoundPermission: false,
-    );
-    const InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsDarwin,
-    );
-
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
-    const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
-      'new_place_channel',
-      'New Places',
-      channelDescription: 'Notifications for newly discovered places',
-      importance: Importance.max,
-      priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
-    );
-    
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-    );
-    
-    // Slight delay so the user transitions back to the main screen before the notification pops
-    Future.delayed(const Duration(seconds: 1), () async {
-      await flutterLocalNotificationsPlugin.show(
-        0,
-        'New Hidden Place Found! 🗺️',
-        'A new spot has just been added to the map. Be the first to explore it!',
-        platformChannelSpecifics,
-      );
-    });
-  }
 
   void _openTagPeopleSheet() {
     showModalBottomSheet(
@@ -470,7 +344,11 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     final bytes = _localImageBytes ?? widget.imageBytes;
     bool isAsset = widget.selectedImage != null && widget.selectedImage!.path.contains('assets/');
     final path = (widget.selectedImage != null ? widget.selectedImage!.path : (widget.filename ?? '')).toLowerCase();
-    final bool isVideo = path.endsWith('.mp4') || path.endsWith('.mov') || path.endsWith('.mkv') || path.endsWith('.avi');
+    final bool isVideo = path.contains('.mp4') || path.contains('.mov') || path.contains('.mkv') || path.contains('.avi') || path.contains('/video/');
+
+    final double previewWidth = isVideo ? 96.0 : 64.0;
+    final double previewHeight = isVideo ? 54.0 : 80.0;
+    final double aspectRatio = isVideo ? (16 / 9) : (4 / 5);
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -480,44 +358,68 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
           Stack(
             children: [
               Container(
-                height: 70,
-                width: 70,
+                width: previewWidth,
+                height: previewHeight,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   color: const Color(0xffF1F5F9),
+                  border: Border.all(color: Colors.grey.shade300, width: 1),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: isVideo
-                      ? const Center(
-                          child: Icon(
-                            Icons.play_circle_fill_rounded,
-                            color: Color(0xff2B1564),
-                            size: 32,
-                          ),
-                        )
-                      : (bytes != null
-                          ? Image.memory(bytes, fit: BoxFit.cover)
-                          : (isAsset
-                              ? Image.asset(widget.selectedImage!.path, fit: BoxFit.cover)
-                              : (widget.selectedImage != null && !kIsWeb
-                                  ? Image.file(widget.selectedImage!, fit: BoxFit.cover)
-                                  : const Center(
-                                      child: Icon(
-                                        Icons.image_outlined,
-                                        color: Color(0xff2B1564),
-                                        size: 28,
-                                      ),
-                                    )))),
+                  borderRadius: BorderRadius.circular(9),
+                  child: AspectRatio(
+                    aspectRatio: aspectRatio,
+                    child: isVideo
+                        ? (_videoController != null && _videoController!.value.isInitialized
+                            ? SizedBox.expand(
+                                child: FittedBox(
+                                  fit: BoxFit.cover,
+                                  child: SizedBox(
+                                    width: _videoController!.value.size.width,
+                                    height: _videoController!.value.size.height,
+                                    child: VideoPlayer(_videoController!),
+                                  ),
+                                ),
+                              )
+                            : const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xff2B1564),
+                                ),
+                              ))
+                        : (bytes != null
+                            ? Image.memory(bytes, fit: BoxFit.cover)
+                            : (isAsset
+                                ? Image.asset(widget.selectedImage!.path, fit: BoxFit.cover)
+                                : (widget.selectedImage != null && !kIsWeb
+                                    ? Image.file(widget.selectedImage!, fit: BoxFit.cover)
+                                    : const Center(
+                                        child: Icon(
+                                          Icons.image_outlined,
+                                          color: Color(0xff2B1564),
+                                          size: 28,
+                                        ),
+                                      )))),
+                  ),
                 ),
               ),
+              if (isVideo)
+                const Positioned(
+                  bottom: 4,
+                  right: 4,
+                  child: Icon(
+                    Icons.play_circle_fill_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
             ],
           ),
           const SizedBox(width: 12),
           Expanded(
             child: TextField(
               controller: _captionController,
-              maxLines: 3,
+              maxLines: 4,
               decoration: const InputDecoration(
                 hintText: "Write a caption...",
                 border: InputBorder.none,
@@ -659,15 +561,119 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     }
   }
 
-  Widget _buildLocationSection() => ListTile(
-    onTap: _showManualLocationDialog,
-    leading: const Icon(Icons.location_on_outlined, color: Colors.black87),
-    title: const Text("Add Location", style: TextStyle(fontSize: 16)),
-    subtitle: _location != "Fetching location..." 
-        ? Text(_location, style: const TextStyle(color: Color(0xff5D3EBC), fontSize: 13, fontWeight: FontWeight.w600))
-        : null,
-    trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
-  );
+  Widget _buildLocationSection() {
+    if (_capturedLocation != null) {
+      final isHighConfidence = _capturedLocation!.isHighConfidence;
+      final accMeters = _capturedLocation!.accuracyMeters.round();
+
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isHighConfidence ? const Color(0xffF0FDF4) : const Color(0xffFFFBEB),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isHighConfidence ? const Color(0xffBBF7D0) : const Color(0xffFDE68A),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.my_location_rounded,
+                  color: isHighConfidence ? const Color(0xff16A34A) : const Color(0xffD97706),
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isHighConfidence ? "Captured Location (High Accuracy)" : "Captured Location (Low Accuracy)",
+                    style: TextStyle(
+                      color: isHighConfidence ? const Color(0xff15803D) : const Color(0xffB45309),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isHighConfidence ? const Color(0xff86EFAC) : const Color(0xffFCD34D),
+                    ),
+                  ),
+                  child: Text(
+                    "± $accMeters m",
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: isHighConfidence ? const Color(0xff15803D) : const Color(0xffB45309),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _location,
+              style: const TextStyle(
+                color: Color(0xff1C0D5A),
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _showManualLocationDialog,
+                  icon: const Icon(Icons.edit_location_alt_rounded, size: 14, color: Color(0xff2B1564)),
+                  label: const Text("Change", style: TextStyle(color: Color(0xff2B1564), fontSize: 12, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    side: const BorderSide(color: Color(0xffCBD5E1)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _capturedLocation = null;
+                      _latitude = null;
+                      _longitude = null;
+                      _location = "Add location (optional)";
+                    });
+                  },
+                  icon: const Icon(Icons.close_rounded, size: 14, color: Colors.redAccent),
+                  label: const Text("Remove", style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    side: const BorderSide(color: Color(0xffFECDD3)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListTile(
+      onTap: _showManualLocationDialog,
+      leading: const Icon(Icons.location_on_outlined, color: Colors.black87),
+      title: const Text("Add Location", style: TextStyle(fontSize: 16)),
+      subtitle: _location != "Fetching location..." && _location != "Add location (optional)"
+          ? Text(_location, style: const TextStyle(color: Color(0xff5D3EBC), fontSize: 13, fontWeight: FontWeight.w600))
+          : null,
+      trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+    );
+  }
 
   Widget _buildTagPeopleSection() {
     final hasTags = _taggedUsernames.isNotEmpty;

@@ -694,7 +694,7 @@ class _FeedScreenState extends State<FeedScreen> {
                 final path = imageUrl.toLowerCase();
                 final bool isLocalVideo = post["image"] is File &&
                     (['.mp4', '.mov', '.mkv', '.avi'].any((ext) => (post["image"] as File).path.toLowerCase().endsWith(ext)));
-                final bool isVideo = isLocalVideo || path.endsWith('.mp4') || path.endsWith('.mov') || path.endsWith('.mkv') || path.endsWith('.avi');
+                final bool isVideo = isLocalVideo || path.contains('.mp4') || path.contains('.mov') || path.contains('.mkv') || path.contains('.avi') || path.contains('.webm') || path.contains('/video/');
 
                 if (isVideo) {
                   return FeedVideoPlayer(

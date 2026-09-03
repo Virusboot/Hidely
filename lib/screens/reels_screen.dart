@@ -48,10 +48,12 @@ class _ReelsScreenState extends State<ReelsScreen> {
           _videoReels = allPosts.where((post) {
             if (AuthService().isPostDeletedLocally(post['id'])) return false;
             final imageUrl = post["image_url"]?.toString().toLowerCase() ?? "";
-            return imageUrl.endsWith('.mp4') ||
-                imageUrl.endsWith('.mov') ||
-                imageUrl.endsWith('.mkv') ||
-                imageUrl.endsWith('.avi');
+            return imageUrl.contains('.mp4') ||
+                imageUrl.contains('.mov') ||
+                imageUrl.contains('.mkv') ||
+                imageUrl.contains('.avi') ||
+                imageUrl.contains('.webm') ||
+                imageUrl.contains('/video/');
           }).toList();
         } else {
           _videoReels = [];

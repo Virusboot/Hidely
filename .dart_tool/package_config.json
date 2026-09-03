@@ -680,6 +680,12 @@
       "languageVersion": "2.17"
     },
     {
+      "name": "logging",
+      "rootUri": "file:///Users/codefliesgd/.pub-cache/hosted/pub.dev/logging-1.3.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.4"
+    },
+    {
       "name": "matcher",
       "rootUri": "file:///Users/codefliesgd/.pub-cache/hosted/pub.dev/matcher-0.12.20",
       "packageUri": "lib/",
@@ -984,6 +990,18 @@
       "rootUri": "file:///Users/codefliesgd/development/flutter/bin/cache/pkg/sky_engine",
       "packageUri": "lib/",
       "languageVersion": "3.11"
+    },
+    {
+      "name": "socket_io_client",
+      "rootUri": "file:///Users/codefliesgd/.pub-cache/hosted/pub.dev/socket_io_client-2.0.3+1",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
+      "name": "socket_io_common",
+      "rootUri": "file:///Users/codefliesgd/.pub-cache/hosted/pub.dev/socket_io_common-2.0.3",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
     },
     {
       "name": "source_span",
