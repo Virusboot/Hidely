@@ -7,10 +7,14 @@ import 'package:hidely_new/services/notification_polling_service.dart';
 
 import 'package:hidely_new/widgets/something_went_wrong_screen.dart';
 
+import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/deep_link_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load saved auth session & token from SharedPreferences before UI mounts
+  await AuthService().init();
 
   // Global Error Handling & Custom Error Screen (>99.5% Crash Free Target)
   FlutterError.onError = (FlutterErrorDetails details) {
