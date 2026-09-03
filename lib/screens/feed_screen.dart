@@ -1029,6 +1029,61 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
     }
   }
 
+  Future<void> _confirmAndDeleteComment(Map<String, dynamic> comment, int index) async {
+    final commentId = comment["id"];
+    if (commentId == null) return;
+    final int parsedId = commentId is int ? commentId : (int.tryParse(commentId.toString()) ?? 0);
+    if (parsedId == 0) return;
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Delete Comment?", style: TextStyle(color: Color(0xff1C0D5A), fontWeight: FontWeight.bold, fontSize: 18)),
+        content: const Text("Are you sure you want to delete this comment? This action cannot be undone.", style: TextStyle(color: Colors.black54, fontSize: 14)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel", style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Delete", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true) {
+      final token = AuthService().token ?? '';
+      final result = await ApiService().deleteComment(token: token, commentId: parsedId);
+      if (result.success && mounted) {
+        setState(() {
+          _comments.removeAt(index);
+        });
+        widget.onCommentAdded?.call();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Comment deleted."),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.message.isNotEmpty ? result.message : "Failed to delete comment."),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -1083,64 +1138,88 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
                             final profilePic = comment["profile_picture"];
                             final timeStr = comment["time"] ?? (comment["created_at"] != null ? _formatTime(comment["created_at"].toString()) : "Now");
 
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 10.0),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  UserAvatar(
-                                    avatarUrl: profilePic,
-                                    displayName: username,
-                                    radius: 18,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text.rich(
-                                          TextSpan(
+                            final currentUserId = AuthService().userId;
+                            final currentUsername = AuthService().userUsername;
+                            final commentUserId = comment["user_id"]?.toString() ?? "";
+                            final commentUsername = comment["username"]?.toString() ?? comment["user"]?.toString() ?? "";
+
+                            final bool isMyComment = (currentUserId.isNotEmpty && commentUserId == currentUserId) ||
+                                (currentUsername.isNotEmpty && commentUsername.toLowerCase() == currentUsername.toLowerCase());
+
+                            return GestureDetector(
+                              onLongPress: isMyComment ? () => _confirmAndDeleteComment(comment, index) : null,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 10.0),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    UserAvatar(
+                                      avatarUrl: profilePic,
+                                      displayName: username,
+                                      radius: 18,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text.rich(
+                                            TextSpan(
+                                              children: [
+                                                TextSpan(
+                                                    text: "$username ",
+                                                    style: const TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                        color: Colors.black87,
+                                                        fontSize: 14)),
+                                                TextSpan(
+                                                    text: commentText,
+                                                    style: const TextStyle(
+                                                        color: Colors.black87,
+                                                        fontSize: 13.5)),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Row(
                                             children: [
-                                              TextSpan(
-                                                  text: "$username ",
+                                              Text(timeStr,
                                                   style: const TextStyle(
+                                                      color: Colors.black38, fontSize: 11)),
+                                              const SizedBox(width: 16),
+                                              GestureDetector(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _replyingToUser = username;
+                                                    _commentController.text = "@$username ";
+                                                  });
+                                                  _focusNode.requestFocus();
+                                                },
+                                                child: const Text("Reply",
+                                                    style: TextStyle(
+                                                        color: Colors.black45,
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.bold)),
+                                              ),
+                                              if (isMyComment) ...[
+                                                const SizedBox(width: 16),
+                                                GestureDetector(
+                                                  onTap: () => _confirmAndDeleteComment(comment, index),
+                                                  child: const Text(
+                                                    "Delete",
+                                                    style: TextStyle(
+                                                      color: Colors.redAccent,
+                                                      fontSize: 12,
                                                       fontWeight: FontWeight.bold,
-                                                      color: Colors.black87,
-                                                      fontSize: 14)),
-                                              TextSpan(
-                                                  text: commentText,
-                                                  style: const TextStyle(
-                                                      color: Colors.black87,
-                                                      fontSize: 13.5)),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ],
                                           ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Text(timeStr,
-                                                style: const TextStyle(
-                                                    color: Colors.black38, fontSize: 11)),
-                                            const SizedBox(width: 16),
-                                            GestureDetector(
-                                              onTap: () {
-                                                setState(() {
-                                                  _replyingToUser = username;
-                                                  _commentController.text = "@$username ";
-                                                });
-                                                _focusNode.requestFocus();
-                                              },
-                                              child: const Text("Reply",
-                                                  style: TextStyle(
-                                                      color: Colors.black45,
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.bold)),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
                                   GestureDetector(
                                     onTap: () async {
                                       if (AuthService().isGuest) {
@@ -1189,8 +1268,9 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
                                   ),
                                 ],
                               ),
-                            );
-                          },
+                            ),
+                          );
+                        },
                         ),
             ),
             if (_replyingToUser != null)

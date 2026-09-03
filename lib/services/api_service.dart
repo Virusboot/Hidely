@@ -735,6 +735,26 @@ class ApiService {
     }
   }
 
+  /// Delete a comment
+  Future<ApiResult> deleteComment({required String token, required int commentId}) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/posts/comment/$commentId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(success: true, message: 'Comment deleted.', data: body);
+      } else {
+        return ApiResult(success: false, message: body['error'] ?? 'Failed to delete comment.', error: body['error']);
+      }
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
   /// Get specific creator details by username
   Future<ApiResult> getCreatorProfile({required String username, String? token}) async {
     try {
