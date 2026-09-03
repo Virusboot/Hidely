@@ -7,6 +7,8 @@ import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/widgets/itinerary_planner_sheet.dart';
 import 'package:hidely_new/widgets/empty_state.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:hidely_new/screens/creator_profile_screen.dart';
+import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ExploreScreen extends StatefulWidget {
@@ -26,6 +28,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   List<String> _selectedCities = ["All"];
 
   List<dynamic> _filteredPosts = [];
+  List<dynamic> _searchResultsUsers = [];
   Timer? _debounceTimer;
 
   // Personalization recommendation state
@@ -131,8 +134,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
       token: token,
     );
 
+    List<dynamic> users = [];
+    if (_searchQuery.trim().isNotEmpty) {
+      final userRes = await ApiService().searchUsers(query: _searchQuery.trim());
+      if (userRes.success) {
+        users = userRes.data?['users'] as List? ?? [];
+      }
+    }
+
     if (mounted) {
       setState(() {
+        _searchResultsUsers = users;
         List<dynamic> posts = result.success ? (result.data?['posts'] as List? ?? []) : [];
 
           
@@ -573,10 +585,89 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 ),
               ),
 
+              // --- Searched Accounts / Creators Section ---
+              if (_searchQuery.trim().isNotEmpty && _searchResultsUsers.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person_search_rounded, color: Color(0xff2B1564), size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Accounts (${_searchResultsUsers.length})",
+                        style: const TextStyle(
+                          color: Color(0xff1C0D5A),
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  height: 95,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: _searchResultsUsers.length,
+                    itemBuilder: (context, idx) {
+                      final u = _searchResultsUsers[idx];
+                      final uname = u['username']?.toString() ?? 'user';
+                      final avatar = u['profile_picture']?.toString() ?? '';
+
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CreatorProfileScreen(username: uname),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: 85,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xffE2E8F0)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.02),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              UserAvatar(avatarUrl: avatar, displayName: uname, radius: 20),
+                              const SizedBox(height: 6),
+                              Text(
+                                "@$uname",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xff1C0D5A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
 
               // --- 3. STAGGERED PINTEREST-STYLE GRID DISPLAY ---
               Expanded(
-                child: _filteredPosts.isEmpty
+                child: (_filteredPosts.isEmpty && _searchResultsUsers.isEmpty)
                     ? EmptyStateWidget(
                         icon: Icons.landscape_outlined,
                         title: "No Hidden Places Found",

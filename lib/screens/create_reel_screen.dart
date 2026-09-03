@@ -343,15 +343,12 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Stack(
-          fit: StackFit.expand,
           children: [
             // 1. Camera Live Preview with Selected Cinematic LUT Filter
             if (_isCameraInitialized && _cameraController != null)
-              FittedBox(
-                fit: BoxFit.cover,
-                child: SizedBox(
-                  width: _cameraController!.value.previewSize?.height ?? 1,
-                  height: _cameraController!.value.previewSize?.width ?? 1,
+              Center(
+                child: AspectRatio(
+                  aspectRatio: 1 / _cameraController!.value.aspectRatio,
                   child: ColorFiltered(
                     colorFilter: ColorFilter.matrix(_luts[_selectedLutIndex]['matrix'] as List<double>),
                     child: CameraPreview(_cameraController!),

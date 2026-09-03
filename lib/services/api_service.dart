@@ -1003,4 +1003,33 @@ class ApiService {
       );
     }
   }
+
+  /// Search users by username or name
+  Future<ApiResult> searchUsers({required String query}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/users/search').replace(queryParameters: {'q': query});
+      final response = await http.get(uri);
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return ApiResult(
+          success: true,
+          message: 'Users fetched successfully.',
+          data: body,
+        );
+      } else {
+        return ApiResult(
+          success: false,
+          message: body['error'] ?? 'Failed to search users.',
+          error: body['error'],
+        );
+      }
+    } catch (e) {
+      return ApiResult(
+        success: false,
+        message: 'Could not connect to server.',
+        error: e.toString(),
+      );
+    }
+  }
 }
