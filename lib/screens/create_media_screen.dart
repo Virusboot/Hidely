@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
@@ -23,6 +24,8 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
 
   // ── Gallery ───────────────────────────────────────────────────────────────
   File? _selectedFile;
+  Uint8List? _selectedFileBytes;
+  String? _selectedFileName;
   final ImagePicker _picker = ImagePicker();
   List<AssetEntity> _recentAssets = [];
   bool _loadingAssets = true;
@@ -183,9 +186,13 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
                             height: 38,
                             child: ElevatedButton(
                               onPressed: () {
-                                if (_selectedFile != null) {
+                                if (_selectedFileBytes != null || _selectedFile != null) {
                                   Navigator.push(context, MaterialPageRoute(
-                                    builder: (context) => PostDetailsScreen(selectedImage: _selectedFile!),
+                                    builder: (context) => PostDetailsScreen(
+                                      selectedImage: _selectedFile,
+                                      imageBytes: _selectedFileBytes,
+                                      filename: _selectedFileName,
+                                    ),
                                   ));
                                 } else {
                                   _snack(
@@ -339,7 +346,15 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
       GestureDetector(
         onTap: () async {
           final f = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
-          if (f != null) setState(() { _selectedFile = File(f.path); _selectedAsset = null; });
+          if (f != null) {
+            final bytes = await f.readAsBytes();
+            setState(() {
+              _selectedFileBytes = bytes;
+              _selectedFileName = f.name;
+              _selectedFile = File(f.path);
+              _selectedAsset = null;
+            });
+          }
         },
         child: Container(
           width: double.infinity,
@@ -348,18 +363,20 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
           child: Stack(
             children: [
               Positioned.fill(
-                child: _selectedFile != null
-                    ? Image.file(_selectedFile!, fit: BoxFit.cover, width: double.infinity, height: double.infinity)
-                    : Container(
-                        color: const Color(0xffCBD5E1).withOpacity(0.4),
-                        child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Icon(Icons.add_photo_alternate_outlined, size: 40, color: Color(0xff2B1564)),
-                          SizedBox(height: 12),
-                          Text('Tap to select photo', style: TextStyle(color: Color(0xff1C0D5A), fontSize: 14, fontWeight: FontWeight.bold)),
-                        ]),
-                      ),
+                child: _selectedFileBytes != null
+                    ? Image.memory(_selectedFileBytes!, fit: BoxFit.cover, width: double.infinity, height: double.infinity)
+                    : (_selectedFile != null && !kIsWeb
+                        ? Image.file(_selectedFile!, fit: BoxFit.cover, width: double.infinity, height: double.infinity)
+                        : Container(
+                            color: const Color(0xffCBD5E1).withOpacity(0.4),
+                            child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Icon(Icons.add_photo_alternate_outlined, size: 40, color: Color(0xff2B1564)),
+                              SizedBox(height: 12),
+                              Text('Tap to select photo', style: TextStyle(color: Color(0xff1C0D5A), fontSize: 14, fontWeight: FontWeight.bold)),
+                            ]),
+                          )),
               ),
-              if (_selectedFile != null)
+              if (_selectedFileBytes != null || (_selectedFile != null && !kIsWeb))
                 Positioned(
                   bottom: 12, right: 12,
                   child: Row(children: [

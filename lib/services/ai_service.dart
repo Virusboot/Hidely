@@ -389,7 +389,7 @@ class AiService {
     required String location,
     required double? latitude,
     required double? longitude,
-    required File imageFile,
+    File? imageFile,
     List<dynamic> existingPlaces = const [],
   }) async {
     if (latitude == null || longitude == null || (latitude == 0.0 && longitude == 0.0)) {
@@ -467,17 +467,19 @@ class AiService {
       );
     }
 
-    final aiResult = await detectPlace(imageFile);
-    if (!aiResult.isValid) {
-      return PlaceVerificationResult(
-        isApproved: false,
-        isDuplicate: false,
-        isWrongLocation: false,
-        isSpam: true,
-        status: 'pending_admin_review',
-        badge: '',
-        reason: 'AI detected non-travel media: ${aiResult.reason}',
-      );
+    if (imageFile != null && !kIsWeb) {
+      final aiResult = await detectPlace(imageFile);
+      if (!aiResult.isValid) {
+        return PlaceVerificationResult(
+          isApproved: false,
+          isDuplicate: false,
+          isWrongLocation: false,
+          isSpam: true,
+          status: 'pending_admin_review',
+          badge: '',
+          reason: 'AI detected non-travel media: ${aiResult.reason}',
+        );
+      }
     }
 
     return PlaceVerificationResult(

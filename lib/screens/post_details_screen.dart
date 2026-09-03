@@ -11,9 +11,19 @@ import 'package:exif/exif.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter/foundation.dart';
+
 class PostDetailsScreen extends StatefulWidget {
-  final File selectedImage;
-  const PostDetailsScreen({super.key, required this.selectedImage});
+  final File? selectedImage;
+  final Uint8List? imageBytes;
+  final String? filename;
+
+  const PostDetailsScreen({
+    super.key,
+    this.selectedImage,
+    this.imageBytes,
+    this.filename,
+  });
 
   @override
   State<PostDetailsScreen> createState() => _PostDetailsScreenState();
@@ -45,20 +55,23 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   }
 
   Future<void> _runAiPlaceDetection() async {
-    final result = await AiService().detectPlace(widget.selectedImage);
+    if (widget.selectedImage != null && !kIsWeb) {
+      final result = await AiService().detectPlace(widget.selectedImage!);
 
-    if (mounted) {
-      setState(() {
-        if (result.isValid && result.category.isNotEmpty) {
-          _selectedCategory = result.category;
-        }
-      });
+      if (mounted) {
+        setState(() {
+          if (result.isValid && result.category.isNotEmpty) {
+            _selectedCategory = result.category;
+          }
+        });
+      }
     }
   }
 
   Future<void> _fetchLocation() async {
     try {
-      final bytes = await widget.selectedImage.readAsBytes();
+      final bytes = widget.imageBytes ?? (widget.selectedImage != null ? await widget.selectedImage!.readAsBytes() : null);
+      if (bytes == null) return;
       final tags = await readExifFromBytes(bytes);
       
       if (tags.isNotEmpty) {
@@ -274,6 +287,8 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
       location: _location == "Fetching location..." || _location == "Location access failed" ? "Unknown Location" : _location,
       category: _selectedCategory,
       image: widget.selectedImage,
+      imageBytes: widget.imageBytes,
+      filename: widget.filename,
       latitude: _latitude,
       longitude: _longitude,
     );
@@ -431,9 +446,8 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   }
 
   Widget _buildCaptionSection() {
-    // Check if path is asset to show preview correctly
-    bool isAsset = widget.selectedImage.path.contains('assets/');
-    final path = widget.selectedImage.path.toLowerCase();
+    bool isAsset = widget.selectedImage != null && widget.selectedImage!.path.contains('assets/');
+    final path = (widget.selectedImage != null ? widget.selectedImage!.path : (widget.filename ?? '')).toLowerCase();
     final bool isVideo = path.endsWith('.mp4') || path.endsWith('.mov') || path.endsWith('.mkv') || path.endsWith('.avi');
 
     return Padding(
@@ -460,9 +474,13 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                             size: 32,
                           ),
                         )
-                      : (isAsset
-                          ? Image.asset(widget.selectedImage.path, fit: BoxFit.cover)
-                          : Image.file(widget.selectedImage, fit: BoxFit.cover)),
+                      : (widget.imageBytes != null
+                          ? Image.memory(widget.imageBytes!, fit: BoxFit.cover)
+                          : (isAsset
+                              ? Image.asset(widget.selectedImage!.path, fit: BoxFit.cover)
+                              : (widget.selectedImage != null && !kIsWeb
+                                  ? Image.file(widget.selectedImage!, fit: BoxFit.cover)
+                                  : const Icon(Icons.image, color: Colors.white)))),
                 ),
               ),
             ],

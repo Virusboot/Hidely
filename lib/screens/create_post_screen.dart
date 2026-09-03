@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
@@ -19,6 +20,8 @@ class CreatePostScreen extends StatefulWidget {
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
   File? _selectedImage;
+  Uint8List? _selectedImageBytes;
+  String? _selectedFileName;
   final ImagePicker _picker = ImagePicker();
 
   List<AssetEntity> _recentAssets = [];
@@ -110,7 +113,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         maxHeight: 1920,
       );
       if (pickedFile != null) {
+        final bytes = await pickedFile.readAsBytes();
         setState(() {
+          _selectedImageBytes = bytes;
+          _selectedFileName = pickedFile.name;
           _selectedImage = File(pickedFile.path);
           _selectedAsset = null;
         });
@@ -142,7 +148,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         imageQuality: 90,
       );
       if (pickedFile != null) {
+        final bytes = await pickedFile.readAsBytes();
         setState(() {
+          _selectedImageBytes = bytes;
+          _selectedFileName = pickedFile.name;
           _selectedImage = File(pickedFile.path);
           _selectedAsset = null;
         });
@@ -233,12 +242,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         height: 38,
                         child: ElevatedButton(
                           onPressed: () {
-                            if (_selectedImage != null) {
+                            if (_selectedImageBytes != null || _selectedImage != null) {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => PostDetailsScreen(
-                                    selectedImage: _selectedImage!,
+                                    selectedImage: _selectedImage,
+                                    imageBytes: _selectedImageBytes,
+                                    filename: _selectedFileName,
                                   ),
                                 ),
                               );
@@ -286,43 +297,48 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       children: [
                         // Selected Image or Placeholder Viewport
                         Positioned.fill(
-                          child: _selectedImage != null
-                              ? Image.file(
-                                  _selectedImage!,
+                          child: _selectedImageBytes != null
+                              ? Image.memory(
+                                  _selectedImageBytes!,
                                   fit: BoxFit.cover,
                                 )
-                              : Container(
-                                  color: const Color(0xffCBD5E1).withOpacity(0.4),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.9),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(
-                                          Icons.add_photo_alternate_outlined,
-                                          size: 40,
-                                          color: Color(0xff2B1564),
-                                        ),
+                              : (_selectedImage != null && !kIsWeb
+                                  ? Image.file(
+                                      _selectedImage!,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Container(
+                                      color: const Color(0xffCBD5E1).withOpacity(0.4),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(16),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withOpacity(0.9),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.add_photo_alternate_outlined,
+                                              size: 40,
+                                              color: Color(0xff2B1564),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          const Text(
+                                            "Tap to select photo from gallery",
+                                            style: TextStyle(
+                                              color: Color(0xff1C0D5A),
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(height: 12),
-                                      const Text(
-                                        "Tap to select photo from gallery",
-                                        style: TextStyle(
-                                          color: Color(0xff1C0D5A),
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                                    )),
                         ),
 
-                        if (_selectedImage != null) ...[
+                        if (_selectedImageBytes != null || (_selectedImage != null && !kIsWeb)) ...[
 
 
                           // Central Target Layer: Pointer Dot & Branded Text Pill Tag Context

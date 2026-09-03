@@ -507,7 +507,9 @@ class ApiService {
     required String caption,
     required String location,
     required String category,
-    required File image,
+    File? image,
+    Uint8List? imageBytes,
+    String? filename,
     double? latitude,
     double? longitude,
   }) async {
@@ -522,29 +524,47 @@ class ApiService {
       if (latitude != null) request.fields['latitude'] = latitude.toString();
       if (longitude != null) request.fields['longitude'] = longitude.toString();
 
-      final ext = image.path.split('.').last.toLowerCase();
-      final isVideo = ['mp4', 'mov', 'avi', 'mkv', 'mpeg'].contains(ext);
-      
-      File finalFile = image;
-      if (!isVideo) {
-        finalFile = await ImageCompressionService.compressImage(
-          image,
-          quality: 80,
-          maxDimension: 1920,
+      if (kIsWeb || imageBytes != null) {
+        final bytes = imageBytes ?? (image != null ? await image.readAsBytes() : Uint8List(0));
+        final name = filename ?? (image != null && image.path.isNotEmpty ? image.path.split('/').last : 'upload.jpg');
+        final ext = name.contains('.') ? name.split('.').last.toLowerCase() : 'jpg';
+        final isVideo = ['mp4', 'mov', 'avi', 'mkv', 'mpeg'].contains(ext);
+        final mediaType = isVideo ? 'video' : 'image';
+        final subType = isVideo ? ext : (ext == 'jpg' ? 'jpeg' : ext);
+
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'image',
+            bytes,
+            filename: name,
+            contentType: MediaType(mediaType, subType),
+          ),
+        );
+      } else if (image != null) {
+        final ext = image.path.split('.').last.toLowerCase();
+        final isVideo = ['mp4', 'mov', 'avi', 'mkv', 'mpeg'].contains(ext);
+        
+        File finalFile = image;
+        if (!isVideo) {
+          finalFile = await ImageCompressionService.compressImage(
+            image,
+            quality: 80,
+            maxDimension: 1920,
+          );
+        }
+        
+        final fileExt = finalFile.path.split('.').last.toLowerCase();
+        final mediaType = isVideo ? 'video' : 'image';
+        final subType = isVideo ? fileExt : (fileExt == 'jpg' ? 'jpeg' : fileExt);
+
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'image',
+            finalFile.path,
+            contentType: MediaType(mediaType, subType),
+          ),
         );
       }
-      
-      final fileExt = finalFile.path.split('.').last.toLowerCase();
-      final mediaType = isVideo ? 'video' : 'image';
-      final subType = isVideo ? fileExt : (fileExt == 'jpg' ? 'jpeg' : fileExt);
-
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'image',
-          finalFile.path,
-          contentType: MediaType(mediaType, subType),
-        ),
-      );
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
