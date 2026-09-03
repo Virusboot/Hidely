@@ -365,22 +365,33 @@ class _LoginScreenState extends State<LoginScreen> {
         controller: controller,
         obscureText: obscureText,
         keyboardType: keyboardType,
+        textAlignVertical: TextAlignVertical.center,
         style: const TextStyle(color: Color(0xff1C0D5A), fontSize: 16),
         decoration: InputDecoration(
+          isDense: true,
           hintText: hintText,
-          hintStyle: TextStyle(color: const Color(0xff1C0D5A).withOpacity(0.4)),
-          prefixIcon: Icon(icon, color: const Color(0xff1C0D5A).withOpacity(0.6)),
+          hintStyle: TextStyle(color: const Color(0xff1C0D5A).withOpacity(0.4), fontSize: 16),
+          prefixIcon: Padding(
+            padding: const EdgeInsets.only(left: 16, right: 12),
+            child: Icon(icon, color: const Color(0xff1C0D5A).withOpacity(0.6), size: 22),
+          ),
+          prefixIconConstraints: const BoxConstraints(minWidth: 50, minHeight: 0),
           suffixIcon: isPassword
               ? GestureDetector(
-            onTap: onSuffixTap,
-            child: Icon(
-              obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-              color: const Color(0xff1C0D5A).withOpacity(0.6),
-            ),
-          )
+                  onTap: onSuffixTap,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Icon(
+                      obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      color: const Color(0xff1C0D5A).withOpacity(0.6),
+                      size: 22,
+                    ),
+                  ),
+                )
               : null,
+          suffixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 0),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          contentPadding: const EdgeInsets.symmetric(vertical: 18),
         ),
       ),
     );

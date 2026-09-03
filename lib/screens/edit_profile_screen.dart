@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/api_service.dart';
@@ -22,6 +23,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   // Profile Image State Variables
   String? _selectedImagePath;
+  Uint8List? _selectedImageBytes;
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
   String? _selectedGender;
@@ -34,21 +36,49 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _usernameController = TextEditingController(text: AuthService().userUsername);
     
     final originalBio = AuthService().userBio;
-    String cleanBio = originalBio;
+    final RegExp linkLineReg = RegExp(r'^([^:\n]+):\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false);
 
-    _bioController = TextEditingController(text: cleanBio);
-    _selectedGender = AuthService().userGender.isNotEmpty ? AuthService().userGender : null;
-
-    // Parse custom title: url lines from original bio
     final lines = originalBio.split('\n');
+    final bioLines = <String>[];
+    final Set<String> seenLinks = {};
+
     for (final line in lines) {
-      final match = RegExp(r'^([^:\n]+):\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false).firstMatch(line.trim());
+      final trimmed = line.trim();
+      final match = linkLineReg.firstMatch(trimmed);
       if (match != null) {
         final key = match.group(1)?.trim() ?? '';
         final val = match.group(2)?.trim() ?? '';
-        _customLinks.add({'title': key, 'url': val});
+        
+        String normVal = val;
+        if (key.toLowerCase() == 'instagram') {
+          if (!normVal.startsWith('http')) {
+            if (normVal.startsWith('@')) normVal = normVal.substring(1);
+            normVal = 'https://instagram.com/$normVal';
+          }
+        } else if (key.toLowerCase() == 'youtube') {
+          if (!normVal.startsWith('http')) {
+            if (normVal.startsWith('@')) normVal = normVal.substring(1);
+            normVal = 'https://youtube.com/@$normVal';
+          }
+        } else if (!normVal.startsWith('http')) {
+          normVal = 'https://$normVal';
+        }
+        final cleanUrl = normVal.toLowerCase().replaceAll(RegExp(r'/$'), '');
+        final linkKey = '${key.toLowerCase()}:$cleanUrl';
+
+        if (!seenLinks.contains(cleanUrl) && !seenLinks.contains(linkKey)) {
+          seenLinks.add(cleanUrl);
+          seenLinks.add(linkKey);
+          _customLinks.add({'title': key, 'url': val});
+        }
+      } else {
+        bioLines.add(line);
       }
     }
+
+    final cleanBio = bioLines.join('\n').trim();
+    _bioController = TextEditingController(text: cleanBio);
+    _selectedGender = AuthService().userGender.isNotEmpty ? AuthService().userGender : null;
   }
 
   @override
@@ -69,7 +99,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         maxHeight: 800,
       );
       if (image != null) {
+        final bytes = await image.readAsBytes();
         setState(() {
+          _selectedImageBytes = bytes;
           _selectedImagePath = image.path;
         });
       }
@@ -179,13 +211,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               ),
                             );
 
-                            String finalBio = bio;
+                            final rawBio = bio;
+                            final RegExp linkLineReg = RegExp(r'^([^:\n]+):\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false);
+                            final cleanBioLines = rawBio.split('\n').where((line) => !linkLineReg.hasMatch(line.trim())).toList();
+                            String finalBio = cleanBioLines.join('\n').trim();
 
                             for (final link in _customLinks) {
                               final title = link['title'] ?? 'Link';
                               final url = link['url'] ?? '';
                               if (url.isNotEmpty) {
-                                finalBio = '$finalBio\n$title: $url';
+                                if (finalBio.isNotEmpty) {
+                                  finalBio = '$finalBio\n$title: $url';
+                                } else {
+                                  finalBio = '$title: $url';
+                                }
                               }
                             }
 
@@ -195,7 +234,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               username: username,
                               gender: _selectedGender,
                               bio: finalBio,
-                              avatar: _selectedImagePath != null ? File(_selectedImagePath!) : null,
+                              avatarBytes: _selectedImageBytes,
+                              avatar: (!kIsWeb && _selectedImagePath != null) ? File(_selectedImagePath!) : null,
                             );
 
                             if (!context.mounted) return;
@@ -268,24 +308,36 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 shape: BoxShape.circle,
                                 border: Border.all(color: const Color(0xff5D3EBC).withOpacity(0.8), width: 2),
                               ),
-                              child: _selectedImagePath != null
+                              child: _selectedImageBytes != null
                                   ? ClipOval(
                                       child: SizedBox(
                                         width: 108,
                                         height: 108,
-                                        child: Image.file(
-                                          File(_selectedImagePath!),
+                                        child: Image.memory(
+                                          _selectedImageBytes!,
                                           fit: BoxFit.cover,
                                           alignment: Alignment.center,
                                         ),
                                       ),
                                     )
-                                  : UserAvatar(
-                                      avatarUrl: AuthService().userProfilePicture,
-                                      displayName: AuthService().userName,
-                                      radius: 54,
-                                      fontSize: 40,
-                                    ),
+                                  : (!kIsWeb && _selectedImagePath != null)
+                                      ? ClipOval(
+                                          child: SizedBox(
+                                            width: 108,
+                                            height: 108,
+                                            child: Image.file(
+                                              File(_selectedImagePath!),
+                                              fit: BoxFit.cover,
+                                              alignment: Alignment.center,
+                                            ),
+                                          ),
+                                        )
+                                      : UserAvatar(
+                                          avatarUrl: AuthService().userProfilePicture,
+                                          displayName: AuthService().userName,
+                                          radius: 54,
+                                          fontSize: 40,
+                                        ),
                             ),
                             const SizedBox(height: 12),
                             const Text(

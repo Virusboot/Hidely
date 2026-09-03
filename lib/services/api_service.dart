@@ -364,6 +364,7 @@ class ApiService {
     String? pronouns,
     String? gender,
     String? bio,
+    Uint8List? avatarBytes,
     File? avatar,
   }) async {
     try {
@@ -377,7 +378,16 @@ class ApiService {
       if (gender != null) request.fields['gender'] = gender;
       if (bio != null) request.fields['bio'] = bio;
 
-      if (avatar != null) {
+      if (avatarBytes != null && avatarBytes.isNotEmpty) {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'avatar',
+            avatarBytes,
+            filename: 'avatar.jpg',
+            contentType: MediaType('image', 'jpeg'),
+          ),
+        );
+      } else if (avatar != null && !kIsWeb) {
         final compressedAvatar = await ImageCompressionService.compressImage(
           avatar,
           quality: 85,
@@ -411,6 +421,7 @@ class ApiService {
         );
       }
     } catch (e) {
+      debugPrint("Update Profile Error: $e");
       return ApiResult(
         success: false,
         message: 'Could not connect to server.',

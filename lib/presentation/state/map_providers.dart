@@ -1,5 +1,4 @@
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
@@ -282,7 +281,7 @@ final mapCenterProvider = StateProvider<LatLng>((ref) {
 // Travel Selection State
 final activeDestinationProvider = StateProvider<NearbyPlace?>((ref) => null);
 final travelModeProvider = StateProvider<String>((ref) {
-  if (!kIsWeb && Platform.isAndroid) {
+  if (defaultTargetPlatform == TargetPlatform.android) {
     return 'bicycling';
   }
   return 'walking';

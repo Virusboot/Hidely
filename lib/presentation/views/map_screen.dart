@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -1364,12 +1365,12 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
     final fallbackUri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
 
     try {
-      if (Platform.isAndroid) {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         if (await canLaunchUrl(googleMapsUri)) {
           await launchUrl(googleMapsUri);
           return;
         }
-      } else if (Platform.isIOS) {
+      } else if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS)) {
         if (await canLaunchUrl(appleMapsUri)) {
           await launchUrl(appleMapsUri);
           return;

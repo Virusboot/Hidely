@@ -50,6 +50,33 @@ class AuthService {
     return _deletedPostIds.contains(postId.toString());
   }
 
+  List<dynamic>? _cachedFeed;
+  List<dynamic>? get cachedFeed => _cachedFeed;
+
+  Future<void> saveCachedFeed(List<dynamic> posts) async {
+    _cachedFeed = posts;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cached_feed_posts', jsonEncode(posts));
+    } catch (_) {}
+  }
+
+  Future<List<dynamic>> loadCachedFeed() async {
+    if (_cachedFeed != null && _cachedFeed!.isNotEmpty) return _cachedFeed!;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final str = prefs.getString('cached_feed_posts');
+      if (str != null && str.isNotEmpty) {
+        final decoded = jsonDecode(str);
+        if (decoded is List) {
+          _cachedFeed = decoded;
+          return decoded;
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
   /// Initialize and load saved session from SharedPreferences
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -57,6 +84,7 @@ class AuthService {
     final userJson = prefs.getString('auth_user');
     final deleted = prefs.getStringList('deleted_post_ids') ?? [];
     _deletedPostIds = Set<String>.from(deleted);
+    await loadCachedFeed();
 
     if (_token != null && userJson != null) {
       try {

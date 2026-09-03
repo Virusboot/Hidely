@@ -31,6 +31,7 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
 
   // Torch Flash state
   bool _isFlashOn = false;
+  bool _useScreenFlash = false;
 
   // Professional Cinematic LUTs
   int _selectedLutIndex = 0;
@@ -160,20 +161,51 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
 
   Future<void> _toggleCamera() async {
     if (_cameras == null || _cameras!.length < 2 || _isRecording) return;
+    if (_isFlashOn && _cameraController != null && _cameraController!.value.isInitialized) {
+      try {
+        await _cameraController!.setFlashMode(FlashMode.off);
+      } catch (_) {}
+    }
     _selectedCameraIndex = (_selectedCameraIndex + 1) % _cameras!.length;
+    _isFlashOn = false;
+    _useScreenFlash = false;
     await _setupCamera(_selectedCameraIndex);
   }
 
   Future<void> _toggleFlash() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
-    try {
-      _isFlashOn = !_isFlashOn;
-      await _cameraController!.setFlashMode(
-        _isFlashOn ? FlashMode.torch : FlashMode.off,
-      );
-      if (mounted) setState(() {});
-    } catch (e) {
-      debugPrint("Flash Error: $e");
+    final nextFlashState = !_isFlashOn;
+    bool hardwareFlashWorked = false;
+
+    if (_cameraController != null && _cameraController!.value.isInitialized) {
+      try {
+        if (nextFlashState) {
+          try {
+            await _cameraController!.setFlashMode(FlashMode.torch);
+            hardwareFlashWorked = true;
+          } catch (_) {
+            try {
+              await _cameraController!.setFlashMode(FlashMode.always);
+              hardwareFlashWorked = true;
+            } catch (_) {
+              hardwareFlashWorked = false;
+            }
+          }
+        } else {
+          try {
+            await _cameraController!.setFlashMode(FlashMode.off);
+            hardwareFlashWorked = true;
+          } catch (_) {}
+        }
+      } catch (e) {
+        debugPrint("Flash Error: $e");
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isFlashOn = nextFlashState;
+        _useScreenFlash = nextFlashState && !hardwareFlashWorked;
+      });
     }
   }
 
@@ -305,6 +337,14 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                 color: const Color(0xff111111),
                 child: const Center(
                   child: CircularProgressIndicator(color: Colors.white),
+                ),
+              ),
+
+            // 2. Screen Flash Overlay (For front camera / web / low-light devices)
+            if (_isFlashOn && _useScreenFlash)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.white.withOpacity(0.85),
                 ),
               ),
 
@@ -449,7 +489,7 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
 
             // 5. Active LUT Filter Name Indicator Pill
             Positioned(
-              bottom: 175,
+              bottom: MediaQuery.of(context).padding.bottom + 205,
               left: 0,
               right: 0,
               child: Center(
@@ -482,11 +522,11 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
 
             // 6. Cinematic LUT Filter Carousel & Controls
             Positioned(
-              bottom: 65,
+              bottom: MediaQuery.of(context).padding.bottom + 115,
               left: 0,
               right: 0,
               child: SizedBox(
-                height: 90,
+                height: 80,
                 child: PageView.builder(
                   controller: _pageController,
                   physics: const BouncingScrollPhysics(),
@@ -513,8 +553,8 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                         children: [
                           AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
-                            width: isSelected ? 62 : 48,
-                            height: isSelected ? 62 : 48,
+                            width: isSelected ? 54 : 42,
+                            height: isSelected ? 54 : 42,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
@@ -534,19 +574,19 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: isSelected ? 18 : 14,
+                                      fontSize: isSelected ? 16 : 13,
                                     ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 3),
                           Text(
                             lutName,
                             style: TextStyle(
                               color: isSelected ? Colors.white : Colors.white70,
-                              fontSize: isSelected ? 11 : 9.5,
+                              fontSize: isSelected ? 10.5 : 9.0,
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             ),
                           ),
@@ -560,7 +600,7 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
 
             // 7. Bottom Record Button & Gallery Media Picker
             Positioned(
-              bottom: MediaQuery.of(context).padding.bottom + 12,
+              bottom: MediaQuery.of(context).padding.bottom + 20,
               left: 30,
               right: 30,
               child: Row(

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -737,7 +738,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
               target: _toGoogleLatLng(currentLocation),
               zoom: 15.5,
             ),
-            myLocationEnabled: true,
+            myLocationEnabled: !kIsWeb,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,

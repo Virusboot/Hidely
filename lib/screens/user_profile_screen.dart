@@ -43,30 +43,52 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     return lines.join('\n').trim();
   }
 
+  String get _displayUsername {
+    final raw = _username.isNotEmpty 
+        ? _username 
+        : (AuthService().userUsername.isNotEmpty ? AuthService().userUsername : '');
+    if (raw.isEmpty) return 'User';
+    return raw.startsWith('@') ? raw : '@$raw';
+  }
+
   List<Map<String, String>> get _allProfileLinks {
     List<Map<String, String>> list = [];
+    final Set<String> seenUrls = {};
     final lines = _bio.split('\n');
     for (var line in lines) {
       final match = RegExp(r'^([^:\n]+):\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false).firstMatch(line.trim());
       if (match != null) {
         String key = match.group(1)?.trim() ?? '';
         String val = match.group(2)?.trim() ?? '';
+        String title = key;
+        String type = 'website';
+
         if (key.toLowerCase() == 'instagram') {
+          title = 'Instagram';
+          type = 'instagram';
           if (!val.startsWith('http')) {
             if (val.startsWith('@')) val = val.substring(1);
             val = 'https://instagram.com/$val';
           }
-          list.add({'title': 'Instagram', 'url': val, 'type': 'instagram'});
         } else if (key.toLowerCase() == 'youtube') {
+          title = 'YouTube';
+          type = 'youtube';
           if (!val.startsWith('http')) {
             if (val.startsWith('@')) val = val.substring(1);
             val = 'https://youtube.com/@$val';
           }
-          list.add({'title': 'YouTube', 'url': val, 'type': 'youtube'});
         } else {
           if (!val.startsWith('http')) val = 'https://$val';
-          list.add({'title': key, 'url': val, 'type': 'website'});
         }
+
+        final cleanUrl = val.toLowerCase().replaceAll(RegExp(r'/$'), '');
+        final dedupeKey = '${title.toLowerCase()}:$cleanUrl';
+
+        if (seenUrls.contains(cleanUrl) || seenUrls.contains(dedupeKey)) continue;
+        seenUrls.add(cleanUrl);
+        seenUrls.add(dedupeKey);
+
+        list.add({'title': title, 'url': val, 'type': type});
       }
     }
     return list;
@@ -308,405 +330,400 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         ),
         child: SafeArea(
           bottom: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // --- 1. TOP BRAND HEADER BAR ---
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0, vertical: 12.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: widget.isFromLeaderboard
-                            ? GestureDetector(
-                                onTap: () => Navigator.pop(context),
-                                child: Center(
-                                  child: Image.asset(
-                                    'assets/images/back_icon.png',
-                                    color: const Color(0xff1C0D5A),
-                                    width: 22.0,
-                                    height: 22.0,
-                                  ),
-                                ),
-                              )
-                            : GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const CreateMediaScreen(),
-                                    ),
-                                  );
-                                },
-                                child: const Icon(
-                                  Icons.add,
-                                  color: Color(0xff1C0D5A),
-                                  size: 26,
-                                ),
+          child: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) {
+              return [
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // --- 1. TOP BRAND HEADER BAR ---
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0, vertical: 12.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: widget.isFromLeaderboard
+                                    ? GestureDetector(
+                                        onTap: () => Navigator.pop(context),
+                                        child: Center(
+                                          child: Image.asset(
+                                            'assets/images/back_icon.png',
+                                            color: const Color(0xff1C0D5A),
+                                            width: 22.0,
+                                            height: 22.0,
+                                          ),
+                                        ),
+                                      )
+                                    : GestureDetector(
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => const CreateMediaScreen(),
+                                            ),
+                                          );
+                                        },
+                                        child: const Icon(
+                                          Icons.add,
+                                          color: Color(0xff1C0D5A),
+                                          size: 26,
+                                        ),
+                                      ),
                               ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        _username.isNotEmpty 
-                            ? _username 
-                            : (AuthService().userUsername.isNotEmpty 
-                                ? AuthService().userUsername 
-                                : 'User'),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            color: Color(0xff1C0D5A),
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -0.3),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const SettingsAndPrivacyScreen(),
-                          ),
-                        ).then((_) => _loadProfileData());
-                      },
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: const BoxDecoration(
-                            color: Colors.white, shape: BoxShape.circle),
-                        child: Center(
-                          child: Image.asset(
-                            'assets/icons/Menu.png',
-                            color: const Color(0xff1C0D5A),
-                            width: 22,
-                            height: 22,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // --- 2. PROFILE PICTURE & STATS (GOLD RANK) ---
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20.0, vertical: 10.0),
-                child: Row(
-                  children: [
-                    Stack(
-                      alignment: Alignment.bottomCenter,
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(3.0),
-                          decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(colors: [
-                                Color(0xff4F46E5),
-                                Color(0xff9333EA)
-                              ])),
-                          child: UserAvatar(
-                            avatarUrl: _profilePic,
-                            displayName: _name.isNotEmpty ? _name : _username,
-                            radius: 42,
-                            fontSize: 32,
-                          ),
-                        ),
-                        Positioned(
-                          bottom: -8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xff2B1564),
-                              borderRadius: BorderRadius.circular(10),
-                              border:
-                                  Border.all(color: Colors.white, width: 1.5),
                             ),
-                            child: Text(
-                              _rankBadge,
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.4),
+                            Expanded(
+                              child: Text(
+                                _displayUsername,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                    color: Color(0xff1C0D5A),
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: -0.3),
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Expanded(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildMetaStatColumn("$_postsCount", "hidelys"),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => FollowListScreen(
-                                    username: _username.isNotEmpty ? _username : AuthService().userUsername,
-                                    initialTab: 0,
-                                    isMe: true,
-                                  ),
-                                ),
-                              ).then((_) => _loadProfileData());
-                            },
-                            child: _buildMetaStatColumn("$_followersCount", "followers"),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => FollowListScreen(
-                                    username: _username.isNotEmpty ? _username : AuthService().userUsername,
-                                    initialTab: 1,
-                                    isMe: true,
-                                  ),
-                                ),
-                              ).then((_) => _loadProfileData());
-                            },
-                            child: _buildMetaStatColumn("$_followingsCount", "following"),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // --- 3. BIO PANEL ---
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 22.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          _name.isNotEmpty ? _name : AuthService().userName,
-                          style: const TextStyle(
-                              color: Color(0xff1C0D5A),
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold),
-                        ),
-                        if (_username == 'hidely_official' || _username == 'hidely') ...[
-                          const SizedBox(width: 4),
-                          const Icon(Icons.verified_rounded, color: Color(0xff2563EB), size: 18),
-                        ],
-                        if (_pronouns.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            '($_pronouns)',
-                            style: const TextStyle(
-                                color: Colors.black38,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600),
-                          ),
-                        ]
-                      ],
-                    ),
-                    if (_cleanBio.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        _cleanBio,
-                        style: TextStyle(
-                            color: const Color(0xff1C0D5A).withOpacity(0.75),
-                            fontSize: 14,
-                            height: 1.35,
-                            fontWeight: FontWeight.w500),
-                      ),
-                    ],
-                    if (_allProfileLinks.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final link in _allProfileLinks)
                             GestureDetector(
-                              onTap: () async {
-                                final uri = Uri.parse(link['url']!);
-                                if (await canLaunchUrl(uri)) {
-                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                }
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const SettingsAndPrivacyScreen(),
+                                  ),
+                                ).then((_) => _loadProfileData());
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xffF1F5F9),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (link['type'] == 'instagram')
-                                      Image.network(
-                                        'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/600px-Instagram_icon.png',
-                                        width: 14,
-                                        height: 14,
-                                      )
-                                    else if (link['type'] == 'youtube')
-                                      Image.network(
-                                        'https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/YouTube_full-color_icon_%282017%29.svg/512px-YouTube_full-color_icon_%282017%29.svg.png',
-                                        width: 16,
-                                        height: 11,
-                                      )
-                                    else
-                                      const Icon(Icons.link_rounded, size: 14, color: Color(0xff2563EB)),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      link['title']!,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                  ],
+                                width: 44,
+                                height: 44,
+                                decoration: const BoxDecoration(
+                                    color: Colors.white, shape: BoxShape.circle),
+                                child: Center(
+                                  child: Image.asset(
+                                    'assets/icons/Menu.png',
+                                    color: const Color(0xff1C0D5A),
+                                    width: 22,
+                                    height: 22,
+                                  ),
                                 ),
                               ),
                             ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-
-
-              const SizedBox(height: 20),
-
-              // --- 4. ACTION BUTTONS ---
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: Row(
-                  children: [
-                    // Edit Profile Button
-                    Expanded(
-                      child: Container(
-                        height: 46,
-                        decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.black12)),
-                        child: TextButton(
-                          onPressed: () async {
-                            // Edit screen se return hone ka wait karo
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) =>
-                                      const EditProfileScreen()),
-                            );
-
-                            // Agar edit hua, toh profile data refresh karo (profile pic + bio sab)
-                            if (result == true) {
-                              _loadProfileData();
-                            }
-                          },
-                          child: const Text("Edit Profile",
-                              style: TextStyle(
-                                  color: Color(0xff1C0D5A),
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // View Leaderboard Button
-                    Expanded(
-                      child: Container(
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: const Color(0xff2B1564), // Primary app filled button color
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
                           ],
                         ),
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const LeaderboardScreen(),
+                      ),
+
+                      // --- 2. PROFILE PICTURE & STATS (GOLD RANK) ---
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20.0, vertical: 10.0),
+                        child: Row(
+                          children: [
+                            Stack(
+                              alignment: Alignment.bottomCenter,
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(3.0),
+                                  decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: LinearGradient(colors: [
+                                        Color(0xff4F46E5),
+                                        Color(0xff9333EA)
+                                      ])),
+                                  child: UserAvatar(
+                                    avatarUrl: _profilePic,
+                                    displayName: _name.isNotEmpty ? _name : _username,
+                                    radius: 42,
+                                    fontSize: 32,
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: -8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xff2B1564),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border:
+                                          Border.all(color: Colors.white, width: 1.5),
+                                    ),
+                                    child: Text(
+                                      _rankBadge,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.4),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Expanded(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  _buildMetaStatColumn("$_postsCount", "hidelys"),
+                                  GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => FollowListScreen(
+                                            username: _username.isNotEmpty ? _username : AuthService().userUsername,
+                                            initialTab: 0,
+                                            isMe: true,
+                                          ),
+                                        ),
+                                      ).then((_) => _loadProfileData());
+                                    },
+                                    child: _buildMetaStatColumn("$_followersCount", "followers"),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => FollowListScreen(
+                                            username: _username.isNotEmpty ? _username : AuthService().userUsername,
+                                            initialTab: 1,
+                                            isMe: true,
+                                          ),
+                                        ),
+                                      ).then((_) => _loadProfileData());
+                                    },
+                                    child: _buildMetaStatColumn("$_followingsCount", "following"),
+                                  ),
+                                ],
                               ),
-                            );
-                          },
-                          child: const Text(
-                            "View Leaderboard",
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold),
-                          ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
-              // --- 5. TABS ROW ---
-              Container(
-                color: Colors.white.withOpacity(0.4),
-                child: TabBar(
-                  controller: _tabController,
-                  dividerColor: Colors.transparent,
-                  dividerHeight: 0.0,
-                  indicatorColor: const Color(0xff2B1564),
-                  labelColor: const Color(0xff2B1564),
-                  unselectedLabelColor: Colors.black38,
-                  tabs: const [
-                    Tab(icon: Icon(Icons.grid_view_rounded, size: 22)),
-                    Tab(icon: Icon(Icons.movie_creation_outlined, size: 22)),
-                    Tab(icon: Icon(Icons.bookmark_border_rounded, size: 22)),
-                  ],
-                ),
-              ),
-
-              // --- 6. MASONRY DISPLAY CANVAS ---
-              Expanded(
-                child: _isLoading && _userPosts.isEmpty
-                    ? const SizedBox.shrink()
-                    : TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildPersonalGridStream(),
-                          const EmptyStateWidget(
-                            icon: Icons.movie_creation_outlined,
-                            title: "No Reels Yet",
-                            description: "Capture and share your cinematic moments!",
-                          ),
-                          _buildSavedGridStream(),
-                        ],
+                      // --- 3. BIO PANEL ---
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 22.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  _name.isNotEmpty ? _name : AuthService().userName,
+                                  style: const TextStyle(
+                                      color: Color(0xff1C0D5A),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                if (_username == 'hidely_official' || _username == 'hidely') ...[
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.verified_rounded, color: Color(0xff2563EB), size: 18),
+                                ],
+                                if (_pronouns.isNotEmpty) ...[
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '($_pronouns)',
+                                    style: const TextStyle(
+                                        color: Colors.black38,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ]
+                              ],
+                            ),
+                            if (_cleanBio.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                _cleanBio,
+                                style: TextStyle(
+                                    color: const Color(0xff1C0D5A).withOpacity(0.75),
+                                    fontSize: 14,
+                                    height: 1.35,
+                                    fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                            if (_allProfileLinks.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final link in _allProfileLinks)
+                                    GestureDetector(
+                                      onTap: () async {
+                                        final uri = Uri.parse(link['url']!);
+                                        if (await canLaunchUrl(uri)) {
+                                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                        }
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xffF1F5F9),
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (link['type'] == 'instagram')
+                                              Image.network(
+                                                'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/600px-Instagram_icon.png',
+                                                width: 14,
+                                                height: 14,
+                                              )
+                                            else if (link['type'] == 'youtube')
+                                              Image.network(
+                                                'https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/YouTube_full-color_icon_%282017%29.svg/512px-YouTube_full-color_icon_%282017%29.svg.png',
+                                                width: 16,
+                                                height: 11,
+                                              )
+                                            else
+                                              const Icon(Icons.link_rounded, size: 14, color: Color(0xff2563EB)),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              link['title']!,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black87,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
+                      const SizedBox(height: 16),
+
+                      // --- 4. ACTION BUTTONS ---
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                        child: Row(
+                          children: [
+                            // Edit Profile Button
+                            Expanded(
+                              child: Container(
+                                height: 46,
+                                decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.black12)),
+                                child: TextButton(
+                                  onPressed: () async {
+                                    final result = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (context) =>
+                                              const EditProfileScreen()),
+                                    );
+
+                                    if (result == true) {
+                                      _loadProfileData();
+                                    }
+                                  },
+                                  child: const Text("Edit Profile",
+                                      style: TextStyle(
+                                          color: Color(0xff1C0D5A),
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // View Leaderboard Button
+                            Expanded(
+                              child: Container(
+                                height: 46,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xff2B1564),
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: const [
+                                    BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+                                  ],
+                                ),
+                                child: TextButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const LeaderboardScreen(),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text(
+                                    "View Leaderboard",
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _SliverTabBarDelegate(
+                    TabBar(
+                      controller: _tabController,
+                      dividerColor: Colors.transparent,
+                      dividerHeight: 0.0,
+                      indicatorColor: const Color(0xff2B1564),
+                      labelColor: const Color(0xff2B1564),
+                      unselectedLabelColor: Colors.black38,
+                      tabs: const [
+                        Tab(icon: Icon(Icons.grid_view_rounded, size: 22)),
+                        Tab(icon: Icon(Icons.movie_creation_outlined, size: 22)),
+                        Tab(icon: Icon(Icons.bookmark_border_rounded, size: 22)),
+                      ],
+                    ),
+                  ),
+                ),
+              ];
+            },
+            body: Padding(
+              padding: EdgeInsets.only(
+                bottom: 90 + MediaQuery.of(context).padding.bottom,
               ),
-              SizedBox(
-                  height: 110 +
-                      MediaQuery.of(context)
-                          .padding
-                          .bottom), // Clearance for the floating bottom nav bar
-            ],
+              child: _isLoading && _userPosts.isEmpty
+                  ? const SizedBox.shrink()
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildPersonalGridStream(),
+                        const EmptyStateWidget(
+                          icon: Icons.movie_creation_outlined,
+                          title: "No Reels Yet",
+                          description: "Capture and share your cinematic moments!",
+                        ),
+                        _buildSavedGridStream(),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),
-    ),);
+    ),
+    );
   }
 
 
@@ -972,5 +989,29 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         );
       },
     );
+  }
+}
+
+class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+  _SliverTabBarDelegate(this.tabBar);
+
+  @override
+  double get minExtent => 48.0;
+
+  @override
+  double get maxExtent => 48.0;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: const Color(0xffFDF7FF),
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) {
+    return false;
   }
 }

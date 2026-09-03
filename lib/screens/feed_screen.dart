@@ -21,6 +21,7 @@ class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
 
   static final List<Map<String, dynamic>> mockPosts = [];
+  static List<dynamic>? _cachedFeedPosts;
 
   // ignore: library_private_types_in_public_api
   static _FeedScreenState? activeState;
@@ -38,7 +39,24 @@ class _FeedScreenState extends State<FeedScreen> {
   void initState() {
     super.initState();
     FeedScreen.activeState = this;
-    _loadFeed();
+
+    final initialCached = AuthService().cachedFeed ?? FeedScreen._cachedFeedPosts;
+    if (initialCached != null && initialCached.isNotEmpty) {
+      _feedPosts = List.from(initialCached);
+      _isLoading = false;
+    } else {
+      _isLoading = true;
+      AuthService().loadCachedFeed().then((diskFeed) {
+        if (mounted && _feedPosts.isEmpty && diskFeed.isNotEmpty) {
+          setState(() {
+            _feedPosts = List.from(diskFeed);
+            _isLoading = false;
+          });
+        }
+      });
+    }
+
+    _loadFeed(showLoading: _feedPosts.isEmpty);
     _loadUnreadCount();
   }
 
@@ -82,10 +100,12 @@ class _FeedScreenState extends State<FeedScreen> {
     super.dispose();
   }
 
-  Future<void> _loadFeed() async {
-    setState(() {
-      _isLoading = true;
-    });
+  Future<void> _loadFeed({bool showLoading = true}) async {
+    if (showLoading && _feedPosts.isEmpty) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     final token = AuthService().token;
     final ApiResult result = await ApiService().getFeedPosts(token: token);
@@ -102,6 +122,11 @@ class _FeedScreenState extends State<FeedScreen> {
 
     final mixedFeed = _mixFeedAlgorithm(serverFeed, []);
     final cleanFeed = mixedFeed.where((p) => !AuthService().isPostDeletedLocally(p['id'])).toList();
+
+    if (cleanFeed.isNotEmpty) {
+      FeedScreen._cachedFeedPosts = cleanFeed;
+      AuthService().saveCachedFeed(cleanFeed);
+    }
 
     setState(() {
       _feedPosts = cleanFeed;

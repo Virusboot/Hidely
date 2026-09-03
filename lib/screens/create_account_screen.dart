@@ -421,9 +421,11 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         controller: controller,
         obscureText: obscureText,
         keyboardType: keyboardType,
+        textAlignVertical: TextAlignVertical.center,
         inputFormatters: maxLength != null ? [LengthLimitingTextInputFormatter(maxLength)] : null,
         style: const TextStyle(color: Color(0xff1C0D5A), fontSize: 16),
         decoration: InputDecoration(
+          isDense: true,
           label: isRequired
               ? Text.rich(
                   TextSpan(
@@ -447,19 +449,28 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           hintText: isRequired ? null : hintText,
           floatingLabelBehavior: FloatingLabelBehavior.never,
           counterText: "",
-          hintStyle: TextStyle(color: const Color(0xff1C0D5A).withOpacity(0.4)),
-          prefixIcon: Icon(icon, color: const Color(0xff1C0D5A).withOpacity(0.6)),
+          hintStyle: TextStyle(color: const Color(0xff1C0D5A).withOpacity(0.4), fontSize: 16),
+          prefixIcon: Padding(
+            padding: const EdgeInsets.only(left: 16, right: 12),
+            child: Icon(icon, color: const Color(0xff1C0D5A).withOpacity(0.6), size: 22),
+          ),
+          prefixIconConstraints: const BoxConstraints(minWidth: 50, minHeight: 0),
           suffixIcon: isPassword
               ? GestureDetector(
-            onTap: onSuffixTap,
-            child: Icon(
-              obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-              color: const Color(0xff1C0D5A).withOpacity(0.6),
-            ),
-          )
+                  onTap: onSuffixTap,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Icon(
+                      obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      color: const Color(0xff1C0D5A).withOpacity(0.6),
+                      size: 22,
+                    ),
+                  ),
+                )
               : null,
+          suffixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 0),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          contentPadding: const EdgeInsets.symmetric(vertical: 18),
         ),
       ),
     );
@@ -467,6 +478,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
   Widget _buildGenderSelector({bool isRequired = true}) {
     return Container(
+      height: 58,
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.7),
         borderRadius: BorderRadius.circular(20),
@@ -475,12 +487,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           width: 1.2,
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(
             Icons.wc_rounded,
             color: const Color(0xff1C0D5A).withOpacity(0.6),
+            size: 22,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -488,6 +502,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               child: DropdownButton<String>(
                 value: _selectedGender,
                 isExpanded: true,
+                alignment: Alignment.centerLeft,
                 hint: isRequired
                     ? Text.rich(
                         TextSpan(
@@ -517,6 +532,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 icon: Icon(
                   Icons.keyboard_arrow_down_rounded,
                   color: const Color(0xff1C0D5A).withOpacity(0.6),
+                  size: 22,
                 ),
                 dropdownColor: Colors.white,
                 borderRadius: BorderRadius.circular(16),
