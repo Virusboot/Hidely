@@ -31,7 +31,6 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
 
   // Torch Flash state
   bool _isFlashOn = false;
-  bool _useScreenFlash = false;
 
   // Professional Cinematic LUTs
   int _selectedLutIndex = 0;
@@ -168,11 +167,26 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
     }
     _selectedCameraIndex = (_selectedCameraIndex + 1) % _cameras!.length;
     _isFlashOn = false;
-    _useScreenFlash = false;
     await _setupCamera(_selectedCameraIndex);
   }
 
   Future<void> _toggleFlash() async {
+    if (_cameras == null || _cameras!.isEmpty) return;
+
+    final bool isBackCamera = _cameras![_selectedCameraIndex].lensDirection == CameraLensDirection.back;
+    if (!isBackCamera) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Flash is only available on the back camera."),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
     final nextFlashState = !_isFlashOn;
     bool hardwareFlashWorked = false;
 
@@ -202,10 +216,22 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
     }
 
     if (mounted) {
-      setState(() {
-        _isFlashOn = nextFlashState;
-        _useScreenFlash = nextFlashState && !hardwareFlashWorked;
-      });
+      if (nextFlashState && !hardwareFlashWorked) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Hardware flashlight is not supported on this camera/device."),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        setState(() {
+          _isFlashOn = false;
+        });
+      } else {
+        setState(() {
+          _isFlashOn = hardwareFlashWorked ? nextFlashState : false;
+        });
+      }
     }
   }
 
@@ -337,14 +363,6 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                 color: const Color(0xff111111),
                 child: const Center(
                   child: CircularProgressIndicator(color: Colors.white),
-                ),
-              ),
-
-            // 2. Screen Flash Overlay (For front camera / web / low-light devices)
-            if (_isFlashOn && _useScreenFlash)
-              Positioned.fill(
-                child: Container(
-                  color: Colors.white.withOpacity(0.85),
                 ),
               ),
 
