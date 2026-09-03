@@ -585,81 +585,173 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 ),
               ),
 
-              // --- Searched Accounts / Creators Section ---
+              // --- Instagram-Style Professional Accounts Search Results List ---
               if (_searchQuery.trim().isNotEmpty && _searchResultsUsers.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 8),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.person_search_rounded, color: Color(0xff2B1564), size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        "Accounts (${_searchResultsUsers.length})",
-                        style: const TextStyle(
-                          color: Color(0xff1C0D5A),
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xffE2E8F0)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                ),
-                SizedBox(
-                  height: 95,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    itemCount: _searchResultsUsers.length,
-                    itemBuilder: (context, idx) {
-                      final u = _searchResultsUsers[idx];
-                      final uname = u['username']?.toString() ?? 'user';
-                      final avatar = u['profile_picture']?.toString() ?? '';
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16, right: 16, top: 14, bottom: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "Accounts",
+                              style: TextStyle(
+                                color: Color(0xff1C0D5A),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            Text(
+                              "${_searchResultsUsers.length} found",
+                              style: TextStyle(
+                                color: const Color(0xff1C0D5A).withOpacity(0.5),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1, color: Color(0xffF1F5F9)),
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _searchResultsUsers.length > 5 ? 5 : _searchResultsUsers.length,
+                        separatorBuilder: (context, index) => const Divider(height: 1, indent: 68, color: Color(0xffF8FAFC)),
+                        itemBuilder: (context, idx) {
+                          final u = _searchResultsUsers[idx];
+                          final uname = u['username']?.toString() ?? 'user';
+                          final name = u['name']?.toString() ?? uname;
+                          final bio = u['bio']?.toString() ?? '';
+                          final avatar = u['profile_picture']?.toString() ?? '';
+                          final bool isVerified = u['is_verified'] == true || u['is_verified'] == 1 || u['is_verified'] == 'true';
 
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => CreatorProfileScreen(username: uname),
+                          return InkWell(
+                            borderRadius: idx == 0
+                                ? const BorderRadius.vertical(top: Radius.circular(0))
+                                : (idx == (_searchResultsUsers.length > 5 ? 4 : _searchResultsUsers.length - 1)
+                                    ? const BorderRadius.vertical(bottom: Radius.circular(20))
+                                    : BorderRadius.zero),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => CreatorProfileScreen(username: uname),
+                                ),
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              child: Row(
+                                children: [
+                                  // Instagram Style Gradient Ring Avatar
+                                  Container(
+                                    padding: const EdgeInsets.all(2.0),
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: LinearGradient(
+                                        colors: [Color(0xff833AB4), Color(0xffFD1D1D), Color(0xffF56040)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                    ),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(1.5),
+                                      decoration: const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white,
+                                      ),
+                                      child: UserAvatar(
+                                        avatarUrl: avatar,
+                                        displayName: uname,
+                                        radius: 22,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                uname,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xff1C0D5A),
+                                                ),
+                                              ),
+                                            ),
+                                            if (isVerified) ...[
+                                              const SizedBox(width: 4),
+                                              const Icon(
+                                                Icons.verified_rounded,
+                                                color: Color(0xff3897F0),
+                                                size: 15,
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          name.isNotEmpty && name.toLowerCase() != uname.toLowerCase() ? name : (bio.isNotEmpty ? bio : "Creator"),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.black.withOpacity(0.5),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xff2B1564),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Text(
+                                      "View",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           );
                         },
-                        child: Container(
-                          width: 85,
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xffE2E8F0)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.02),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              UserAvatar(avatarUrl: avatar, displayName: uname, radius: 20),
-                              const SizedBox(height: 6),
-                              Text(
-                                "@$uname",
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xff1C0D5A),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),
