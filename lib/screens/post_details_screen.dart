@@ -40,12 +40,33 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   // Coordinates
   double? _latitude;
   double? _longitude;
+  Uint8List? _localImageBytes;
 
   @override
   void initState() {
     super.initState();
     _fetchLocation();
     _runAiPlaceDetection();
+    _loadLocalImageBytes();
+  }
+
+  Future<void> _loadLocalImageBytes() async {
+    if (widget.imageBytes != null) {
+      setState(() {
+        _localImageBytes = widget.imageBytes;
+      });
+    } else if (widget.selectedImage != null) {
+      try {
+        final bytes = await widget.selectedImage!.readAsBytes();
+        if (mounted) {
+          setState(() {
+            _localImageBytes = bytes;
+          });
+        }
+      } catch (e) {
+        debugPrint("Error loading image bytes in PostDetailsScreen: $e");
+      }
+    }
   }
 
   @override
@@ -446,6 +467,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   }
 
   Widget _buildCaptionSection() {
+    final bytes = _localImageBytes ?? widget.imageBytes;
     bool isAsset = widget.selectedImage != null && widget.selectedImage!.path.contains('assets/');
     final path = (widget.selectedImage != null ? widget.selectedImage!.path : (widget.filename ?? '')).toLowerCase();
     final bool isVideo = path.endsWith('.mp4') || path.endsWith('.mov') || path.endsWith('.mkv') || path.endsWith('.avi');
@@ -462,7 +484,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                 width: 70,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
-                  color: Colors.black87,
+                  color: const Color(0xffF1F5F9),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
@@ -470,17 +492,23 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                       ? const Center(
                           child: Icon(
                             Icons.play_circle_fill_rounded,
-                            color: Colors.white,
+                            color: Color(0xff2B1564),
                             size: 32,
                           ),
                         )
-                      : (widget.imageBytes != null
-                          ? Image.memory(widget.imageBytes!, fit: BoxFit.cover)
+                      : (bytes != null
+                          ? Image.memory(bytes, fit: BoxFit.cover)
                           : (isAsset
                               ? Image.asset(widget.selectedImage!.path, fit: BoxFit.cover)
                               : (widget.selectedImage != null && !kIsWeb
                                   ? Image.file(widget.selectedImage!, fit: BoxFit.cover)
-                                  : const Icon(Icons.image, color: Colors.white)))),
+                                  : const Center(
+                                      child: Icon(
+                                        Icons.image_outlined,
+                                        color: Color(0xff2B1564),
+                                        size: 28,
+                                      ),
+                                    )))),
                 ),
               ),
             ],

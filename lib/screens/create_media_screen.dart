@@ -94,8 +94,14 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
 
   Future<void> _selectAsset(AssetEntity asset) async {
     final file = await asset.file;
-    if (file != null && mounted) {
-      setState(() { _selectedFile = file; _selectedAsset = asset; });
+    final bytes = await asset.originBytes;
+    if (mounted) {
+      setState(() {
+        _selectedFile = file;
+        _selectedFileBytes = bytes;
+        _selectedFileName = asset.title ?? 'photo.jpg';
+        _selectedAsset = asset;
+      });
     }
   }
 
@@ -108,7 +114,15 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
       maxWidth: 1920,
       maxHeight: 1920,
     );
-    if (f != null) setState(() { _selectedFile = File(f.path); _selectedAsset = null; });
+    if (f != null && mounted) {
+      final bytes = await f.readAsBytes();
+      setState(() {
+        _selectedFileBytes = bytes;
+        _selectedFileName = f.name;
+        _selectedFile = File(f.path);
+        _selectedAsset = null;
+      });
+    }
   }
 
 

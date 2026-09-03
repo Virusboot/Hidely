@@ -37,11 +37,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     _fetchRecentAssets();
     if (widget.selectedImage != null) {
       _selectedImage = widget.selectedImage;
+      _loadImageBytesFromSelectedImage();
     } else {
       // Auto-trigger native image picker if no image is initially selected
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _pickImage();
       });
+    }
+  }
+
+  Future<void> _loadImageBytesFromSelectedImage() async {
+    if (_selectedImage != null) {
+      try {
+        final bytes = await _selectedImage!.readAsBytes();
+        if (mounted) {
+          setState(() {
+            _selectedImageBytes = bytes;
+          });
+        }
+      } catch (e) {
+        debugPrint("Error reading bytes from _selectedImage: $e");
+      }
     }
   }
 
@@ -93,9 +109,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   Future<void> _selectAsset(AssetEntity asset) async {
     try {
       final file = await asset.file;
-      if (file != null && mounted) {
+      final bytes = await asset.originBytes;
+      if (mounted) {
         setState(() {
           _selectedImage = file;
+          _selectedImageBytes = bytes;
+          _selectedFileName = asset.title ?? 'photo.jpg';
           _selectedAsset = asset;
         });
       }
