@@ -60,6 +60,80 @@ class _FeedScreenState extends State<FeedScreen> {
     _loadUnreadCount();
   }
 
+  void _performOptimisticLike(Map<String, dynamic> post) {
+    if (AuthService().isGuest) {
+      showLoginRequiredSheet(context, reason: 'like a post');
+      return;
+    }
+
+    HapticFeedback.lightImpact();
+    final bool currentLiked = post["is_liked"] == true || post["isLiked"] == true;
+    final int currentCount = (post["likes_count"] ?? post["likes"] ?? 0) as int;
+    final int nextCount = currentLiked ? (currentCount > 0 ? currentCount - 1 : 0) : currentCount + 1;
+
+    setState(() {
+      post["is_liked"] = !currentLiked;
+      post["isLiked"] = !currentLiked;
+      post["likes_count"] = nextCount;
+      post["likes"] = nextCount;
+    });
+
+    final id = post["id"];
+    if (id is int) {
+      final token = AuthService().token ?? '';
+      ApiService().toggleLikePost(token: token, postId: id).then((result) {
+        if (result.success && mounted) {
+          setState(() {
+            post["is_liked"] = result.data?["is_liked"] ?? !currentLiked;
+            post["isLiked"] = result.data?["is_liked"] ?? !currentLiked;
+            post["likes_count"] = result.data?["likes_count"] ?? nextCount;
+            post["likes"] = result.data?["likes_count"] ?? nextCount;
+          });
+        } else if (!result.success && mounted) {
+          setState(() {
+            post["is_liked"] = currentLiked;
+            post["isLiked"] = currentLiked;
+            post["likes_count"] = currentCount;
+            post["likes"] = currentCount;
+          });
+        }
+      });
+    }
+  }
+
+  void _performOptimisticSave(Map<String, dynamic> post) {
+    if (AuthService().isGuest) {
+      showLoginRequiredSheet(context, reason: 'save a post');
+      return;
+    }
+
+    HapticFeedback.lightImpact();
+    final bool currentSaved = post["is_bookmarked"] == true || post["isBookmarked"] == true;
+
+    setState(() {
+      post["is_bookmarked"] = !currentSaved;
+      post["isBookmarked"] = !currentSaved;
+    });
+
+    final id = post["id"];
+    if (id is int) {
+      final token = AuthService().token ?? '';
+      ApiService().toggleBookmarkPost(token: token, postId: id).then((result) {
+        if (result.success && mounted) {
+          setState(() {
+            post["is_bookmarked"] = result.data?["is_bookmarked"] ?? !currentSaved;
+            post["isBookmarked"] = result.data?["is_bookmarked"] ?? !currentSaved;
+          });
+        } else if (!result.success && mounted) {
+          setState(() {
+            post["is_bookmarked"] = currentSaved;
+            post["isBookmarked"] = currentSaved;
+          });
+        }
+      });
+    }
+  }
+
   Future<void> _loadUnreadCount() async {
     if (AuthService().isGuest) return;
     final token = AuthService().token ?? '';
@@ -665,30 +739,8 @@ class _FeedScreenState extends State<FeedScreen> {
         Stack(
           children: [
             GestureDetector(
-              onDoubleTap: () async {
-                // Like requires login
-                if (AuthService().isGuest) {
-                  showLoginRequiredSheet(context, reason: 'like a post');
-                  return;
-                }
-                
-                if (id is int) {
-                  final token = AuthService().token ?? '';
-                  final result = await ApiService().toggleLikePost(token: token, postId: id);
-                  if (result.success) {
-                    setState(() {
-                      post["is_liked"] = result.data?["is_liked"] ?? !isLiked;
-                      post["likes_count"] = result.data?["likes_count"] ?? (isLiked ? likes - 1 : likes + 1);
-                    });
-                  }
-                } else {
-                  setState(() {
-                    if (!isLiked) {
-                      post["isLiked"] = true;
-                      post["likes"] = (post["likes"] ?? 0) + 1;
-                    }
-                  });
-                }
+              onDoubleTap: () {
+                _performOptimisticLike(post);
               },
               child: () {
                 final path = imageUrl.toLowerCase();
@@ -708,63 +760,27 @@ class _FeedScreenState extends State<FeedScreen> {
                   maxScale: 4.0,
                   child: AspectRatio(
                     aspectRatio: 4 / 5,
-                    child: Container(
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
                       width: double.infinity,
-                      color: Colors.black12,
-                    child: post["image"] is File
-                        ? Image.file(post["image"] as File, fit: BoxFit.cover)
-                        : (isAsset
-                            ? Image.asset(imageUrl, fit: BoxFit.cover)
-                            : CachedNetworkImage(
-                                imageUrl: imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
-                                fit: BoxFit.cover,
-                                memCacheWidth: 1080,
-                                placeholder: (context, url) => Container(
-                                  color: const Color(0xffF1F5F9),
-                                ),
-                                errorWidget: (context, url, error) => Container(
-                                  color: const Color(0xffCBD5E1),
-                                  child: const Icon(Icons.image, color: Colors.white24, size: 40),
-                                ),
-                              )),
+                      placeholder: (context, url) => Container(
+                        color: Colors.grey.shade100,
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xff2B1564),
+                          ),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: Colors.grey.shade200,
+                        child: const Icon(Icons.broken_image, color: Colors.grey),
+                      ),
                     ),
                   ),
                 );
               }(),
-            ),
-            Positioned(
-              bottom: 16,
-              left: 16,
-              child: GestureDetector(
-                onTap: () {
-                  MapDiscoveryScreen.initialSearchQuery = location;
-                  MapDiscoveryScreen.startNavigationDirectly = false;
-                  final state =
-                      context.findAncestorStateOfType<MainWrapperState>();
-                  if (state != null) {
-                    state.setIndex(1);
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) =>
-                              const MainWrapper(initialIndex: 1)),
-                    );
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.location_on,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
-              ),
             ),
           ],
         ),
@@ -774,28 +790,8 @@ class _FeedScreenState extends State<FeedScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               GestureDetector(
-                onTap: () async {
-                  // Like requires login
-                  if (AuthService().isGuest) {
-                    showLoginRequiredSheet(context, reason: 'like a post');
-                    return;
-                  }
-                  
-                  if (id is int) {
-                    final token = AuthService().token ?? '';
-                    final result = await ApiService().toggleLikePost(token: token, postId: id);
-                    if (result.success) {
-                      setState(() {
-                        post["is_liked"] = result.data?["is_liked"] ?? !isLiked;
-                        post["likes_count"] = result.data?["likes_count"] ?? (isLiked ? likes - 1 : likes + 1);
-                      });
-                    }
-                  } else {
-                    setState(() {
-                      post["isLiked"] = !isLiked;
-                      post["likes"] = (post["likes"] ?? 0) + (isLiked ? -1 : 1);
-                    });
-                  }
+                onTap: () {
+                  _performOptimisticLike(post);
                 },
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -856,26 +852,8 @@ class _FeedScreenState extends State<FeedScreen> {
               ),
               const Spacer(),
               GestureDetector(
-                onTap: () async {
-                  // Bookmark/save requires login
-                  if (AuthService().isGuest) {
-                    showLoginRequiredSheet(context, reason: 'save a post');
-                    return;
-                  }
-                  
-                  if (id is int) {
-                    final token = AuthService().token ?? '';
-                    final result = await ApiService().toggleBookmarkPost(token: token, postId: id);
-                    if (result.success) {
-                      setState(() {
-                        post["is_bookmarked"] = result.data?["is_bookmarked"] ?? !isBookmarked;
-                      });
-                    }
-                  } else {
-                    setState(() {
-                      post["isBookmarked"] = !isBookmarked;
-                    });
-                  }
+                onTap: () {
+                  _performOptimisticSave(post);
                 },
                 child: Icon(
                     isBookmarked

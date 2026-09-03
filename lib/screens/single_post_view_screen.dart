@@ -346,22 +346,37 @@ class _SinglePostViewScreenState extends State<SinglePostViewScreen> {
 
                         // Post Image Preview
                         GestureDetector(
-                          onDoubleTap: () async {
+                          onDoubleTap: () {
                             if (AuthService().isGuest) return;
+                            HapticFeedback.lightImpact();
+                            final bool wasLiked = isLiked;
+                            final int oldLikes = likes;
+                            final int newLikes = wasLiked ? (oldLikes > 0 ? oldLikes - 1 : 0) : oldLikes + 1;
+
+                            setState(() {
+                              _posts[index]["is_liked"] = !wasLiked;
+                              _posts[index]["isLiked"] = !wasLiked;
+                              _posts[index]["likes_count"] = newLikes;
+                              _posts[index]["likes"] = newLikes;
+                            });
+
                             if (id is int) {
                               final token = AuthService().token ?? '';
-                              final result = await ApiService().toggleLikePost(token: token, postId: id);
-                              if (result.success) {
-                                setState(() {
-                                  _posts[index]["is_liked"] = result.data?["is_liked"] ?? !isLiked;
-                                  _posts[index]["likes_count"] = result.data?["likes_count"] ?? (isLiked ? likes - 1 : likes + 1);
-                                });
-                              }
-                            } else {
-                              setState(() {
-                                if (!isLiked) {
-                                  _posts[index]["isLiked"] = true;
-                                  _posts[index]["likes"] = (post["likes"] ?? 0) + 1;
+                              ApiService().toggleLikePost(token: token, postId: id).then((result) {
+                                if (result.success && mounted) {
+                                  setState(() {
+                                    _posts[index]["is_liked"] = result.data?["is_liked"] ?? !wasLiked;
+                                    _posts[index]["isLiked"] = result.data?["is_liked"] ?? !wasLiked;
+                                    _posts[index]["likes_count"] = result.data?["likes_count"] ?? newLikes;
+                                    _posts[index]["likes"] = result.data?["likes_count"] ?? newLikes;
+                                  });
+                                } else if (!result.success && mounted) {
+                                  setState(() {
+                                    _posts[index]["is_liked"] = wasLiked;
+                                    _posts[index]["isLiked"] = wasLiked;
+                                    _posts[index]["likes_count"] = oldLikes;
+                                    _posts[index]["likes"] = oldLikes;
+                                  });
                                 }
                               });
                             }
@@ -436,21 +451,38 @@ class _SinglePostViewScreenState extends State<SinglePostViewScreen> {
                           child: Row(
                             children: [
                               GestureDetector(
-                                onTap: () async {
+                                onTap: () {
                                   if (AuthService().isGuest) return;
+                                  HapticFeedback.lightImpact();
+                                  final bool wasLiked = isLiked;
+                                  final int oldLikes = likes;
+                                  final int newLikes = wasLiked ? (oldLikes > 0 ? oldLikes - 1 : 0) : oldLikes + 1;
+
+                                  setState(() {
+                                    _posts[index]["is_liked"] = !wasLiked;
+                                    _posts[index]["isLiked"] = !wasLiked;
+                                    _posts[index]["likes_count"] = newLikes;
+                                    _posts[index]["likes"] = newLikes;
+                                  });
+
                                   if (id is int) {
                                     final token = AuthService().token ?? '';
-                                    final result = await ApiService().toggleLikePost(token: token, postId: id);
-                                    if (result.success) {
-                                      setState(() {
-                                        _posts[index]["is_liked"] = result.data?["is_liked"] ?? !isLiked;
-                                        _posts[index]["likes_count"] = result.data?["likes_count"] ?? (isLiked ? likes - 1 : likes + 1);
-                                      });
-                                    }
-                                  } else {
-                                    setState(() {
-                                      _posts[index]["isLiked"] = !isLiked;
-                                      _posts[index]["likes"] = (post["likes"] ?? 0) + (isLiked ? -1 : 1);
+                                    ApiService().toggleLikePost(token: token, postId: id).then((result) {
+                                      if (result.success && mounted) {
+                                        setState(() {
+                                          _posts[index]["is_liked"] = result.data?["is_liked"] ?? !wasLiked;
+                                          _posts[index]["isLiked"] = result.data?["is_liked"] ?? !wasLiked;
+                                          _posts[index]["likes_count"] = result.data?["likes_count"] ?? newLikes;
+                                          _posts[index]["likes"] = result.data?["likes_count"] ?? newLikes;
+                                        });
+                                      } else if (!result.success && mounted) {
+                                        setState(() {
+                                          _posts[index]["is_liked"] = wasLiked;
+                                          _posts[index]["isLiked"] = wasLiked;
+                                          _posts[index]["likes_count"] = oldLikes;
+                                          _posts[index]["likes"] = oldLikes;
+                                        });
+                                      }
                                     });
                                   }
                                 },
@@ -477,6 +509,7 @@ class _SinglePostViewScreenState extends State<SinglePostViewScreen> {
                               const SizedBox(width: 16),
                               GestureDetector(
                                 onTap: () {
+                                  if (AuthService().isGuest) return;
                                   showModalBottomSheet(
                                     context: context,
                                     isScrollControlled: true,
@@ -521,19 +554,30 @@ class _SinglePostViewScreenState extends State<SinglePostViewScreen> {
                               ),
                               const Spacer(),
                               GestureDetector(
-                                onTap: () async {
+                                onTap: () {
                                   if (AuthService().isGuest) return;
+                                  HapticFeedback.lightImpact();
+                                  final bool wasSaved = isBookmarked;
+
+                                  setState(() {
+                                    _posts[index]["is_bookmarked"] = !wasSaved;
+                                    _posts[index]["isBookmarked"] = !wasSaved;
+                                  });
+
                                   if (id is int) {
                                     final token = AuthService().token ?? '';
-                                    final result = await ApiService().toggleBookmarkPost(token: token, postId: id);
-                                    if (result.success) {
-                                      setState(() {
-                                        _posts[index]["is_bookmarked"] = result.data?["is_bookmarked"] ?? !isBookmarked;
-                                      });
-                                    }
-                                  } else {
-                                    setState(() {
-                                      _posts[index]["isBookmarked"] = !isBookmarked;
+                                    ApiService().toggleBookmarkPost(token: token, postId: id).then((result) {
+                                      if (result.success && mounted) {
+                                        setState(() {
+                                          _posts[index]["is_bookmarked"] = result.data?["is_bookmarked"] ?? !wasSaved;
+                                          _posts[index]["isBookmarked"] = result.data?["is_bookmarked"] ?? !wasSaved;
+                                        });
+                                      } else if (!result.success && mounted) {
+                                        setState(() {
+                                          _posts[index]["is_bookmarked"] = wasSaved;
+                                          _posts[index]["isBookmarked"] = wasSaved;
+                                        });
+                                      }
                                     });
                                   }
                                 },

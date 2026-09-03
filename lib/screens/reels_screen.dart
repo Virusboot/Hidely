@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/screens/feed_video_player.dart';
@@ -285,17 +286,35 @@ class _ReelsScreenState extends State<ReelsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               GestureDetector(
-                onTap: () async {
+                onTap: () {
                   if (AuthService().isGuest) return;
+                  HapticFeedback.lightImpact();
+                  final bool wasLiked = isLiked;
+                  final int oldLikes = likes;
+                  final int newLikes = wasLiked ? (oldLikes > 0 ? oldLikes - 1 : 0) : oldLikes + 1;
+
+                  // 1. INSTANT OPTIMISTIC UI UPDATE
+                  setState(() {
+                    reel["is_liked"] = !wasLiked;
+                    reel["likes_count"] = newLikes;
+                  });
+
+                  // 2. BACKGROUND API SYNC
                   if (id is int) {
                     final token = AuthService().token ?? '';
-                    final result = await ApiService().toggleLikePost(token: token, postId: id);
-                    if (result.success) {
-                      setState(() {
-                        reel["is_liked"] = result.data?["is_liked"] ?? !isLiked;
-                        reel["likes_count"] = result.data?["likes_count"] ?? (isLiked ? likes - 1 : likes + 1);
-                      });
-                    }
+                    ApiService().toggleLikePost(token: token, postId: id).then((result) {
+                      if (result.success && mounted) {
+                        setState(() {
+                          reel["is_liked"] = result.data?["is_liked"] ?? !wasLiked;
+                          reel["likes_count"] = result.data?["likes_count"] ?? newLikes;
+                        });
+                      } else if (!result.success && mounted) {
+                        setState(() {
+                          reel["is_liked"] = wasLiked;
+                          reel["likes_count"] = oldLikes;
+                        });
+                      }
+                    });
                   }
                 },
                 child: Column(
