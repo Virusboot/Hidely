@@ -53,25 +53,22 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
           return LeaderboardUser.fromJson(entry.value as Map<String, dynamic>, entry.key + 1);
         }).toList();
 
-        final currentUserIdStr = AuthService().userId;
+        final myId = int.tryParse(AuthService().userId);
         LeaderboardUser? myRank;
-        if (currentUserIdStr != null) {
-          final myId = int.tryParse(currentUserIdStr);
-          if (myId != null) {
-            myRank = parsedUsers.firstWhere(
-              (u) => u.id == myId,
-              orElse: () => LeaderboardUser(
-                rank: parsedUsers.length + 1,
-                id: myId,
-                name: AuthService().userName ?? 'You',
-                username: AuthService().userUsername ?? 'me',
-                profilePicture: AuthService().userProfilePicture,
-                points: 0,
-                level: 1,
-                levelName: 'New Explorer',
-              ),
-            );
-          }
+        if (myId != null) {
+          myRank = parsedUsers.firstWhere(
+            (u) => u.id == myId,
+            orElse: () => LeaderboardUser(
+              rank: parsedUsers.length + 1,
+              id: myId,
+              name: AuthService().userName,
+              username: AuthService().userUsername,
+              profilePicture: AuthService().userProfilePicture,
+              points: 0,
+              level: 1,
+              levelName: 'New Explorer',
+            ),
+          );
         }
 
         setState(() {
@@ -100,13 +97,37 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
         statusBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xff1C0D5A),
+        backgroundColor: const Color(0xff2B1564),
         appBar: AppBar(
-          backgroundColor: const Color(0xff1C0D5A),
+          backgroundColor: const Color(0xff2B1564),
           elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-            onPressed: () => Navigator.pop(context),
+          leading: Center(
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.12),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Image.asset(
+                    'assets/images/back_icon.png',
+                    color: const Color(0xff2B1564),
+                    width: 16.0,
+                    height: 16.0,
+                  ),
+                ),
+              ),
+            ),
           ),
           title: const Text(
             "Leaderboard",
@@ -114,12 +135,37 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
           ),
           centerTitle: true,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.history_rounded, color: Colors.white),
-              tooltip: "Points Activity",
-              onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const PointsHistoryScreen()));
-              },
+            Padding(
+              padding: const EdgeInsets.only(right: 12.0),
+              child: Center(
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const PointsHistoryScreen()));
+                  },
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.12),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.history_rounded,
+                        color: Color(0xff2B1564),
+                        size: 20.0,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
           bottom: TabBar(

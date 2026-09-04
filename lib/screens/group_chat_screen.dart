@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/chat_socket_service.dart';
+import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hidely_new/screens/outgoing_call_screen.dart';
 
@@ -28,6 +29,7 @@ class TripItineraryData {
 /// Chat Item Model (Group Trips + Personal 1-on-1 DMs)
 class ChatItem {
   final String id;
+  final String? targetUserId;
   final String name;
   final String avatar;
   String lastMessage;
@@ -35,7 +37,7 @@ class ChatItem {
   final int unreadCount;
   final bool isGroup;
   final bool isOfficial;
-  final bool isOnline;
+  bool isOnline;
   final String? destination;
   final int? memberCount;
   final String? status;
@@ -45,6 +47,7 @@ class ChatItem {
 
   ChatItem({
     required this.id,
+    this.targetUserId,
     required this.name,
     required this.avatar,
     required this.lastMessage,
@@ -104,10 +107,146 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   String _selectedFilter = 'All'; // 'All', 'Groups', 'Direct', 'Official'
   final Set<String> _readChatIds = {};
 
+  final Map<String, bool> _onlineStatusMap = {};
+  List<dynamic> _searchResultsUsers = [];
+  bool _isSearchingUsers = false;
+  StreamSubscription? _presenceSub;
+  StreamSubscription? _globalMsgSub;
+  Timer? _searchDebounce;
+
   @override
   void initState() {
     super.initState();
     GroupChatScreen.activeState = this;
+    _initChatService();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _initChatService() {
+    final token = AuthService().token;
+    if (token != null && token.isNotEmpty) {
+      ChatSocketService().connect(token);
+    }
+    _loadConversations();
+
+    _presenceSub = ChatSocketService().onPresenceUpdate.listen((data) {
+      final userIdStr = data['userId']?.toString();
+      final status = data['status']?.toString();
+      if (userIdStr != null) {
+        final bool isOnline = status == 'online';
+        if (mounted) {
+          setState(() {
+            _onlineStatusMap[userIdStr] = isOnline;
+            for (int i = 0; i < _allChats.length; i++) {
+              if (_allChats[i].targetUserId == userIdStr || _allChats[i].id == userIdStr) {
+                _allChats[i].isOnline = isOnline;
+              }
+            }
+          });
+        }
+      }
+    });
+
+    _globalMsgSub = ChatSocketService().onNewMessage.listen((_) {
+      _loadConversations();
+    });
+  }
+
+  Future<void> _loadConversations() async {
+    final token = AuthService().token;
+    if (token == null || token.isEmpty) return;
+
+    final res = await ApiService().getChatConversations(token: token);
+    if (res.success && res.data != null && res.data!['conversations'] != null) {
+      final List rawConvs = res.data!['conversations'];
+      final currentUserId = AuthService().userId;
+
+      final List<ChatItem> loadedChats = [];
+      for (var conv in rawConvs) {
+        final convId = conv['id'].toString();
+        final isGroup = conv['type'] == 'GROUP';
+        final participants = conv['participants'] as List? ?? [];
+
+        Map<String, dynamic>? otherParticipant;
+        if (!isGroup && participants.isNotEmpty) {
+          for (var p in participants) {
+            final pId = p['id']?.toString();
+            if (pId != null && pId != currentUserId.toString()) {
+              otherParticipant = Map<String, dynamic>.from(p);
+              break;
+            }
+          }
+          otherParticipant ??= Map<String, dynamic>.from(participants.first);
+        }
+
+        final targetId = otherParticipant?['id']?.toString();
+        final name = isGroup
+            ? (conv['name'] ?? 'Group Trip')
+            : (otherParticipant?['name'] ?? otherParticipant?['username'] ?? 'User');
+        final avatar = isGroup
+            ? 'assets/images/user1.jpg'
+            : (otherParticipant?['profile_picture'] ?? 'assets/images/user1.jpg');
+
+        final bool isOnline = targetId != null
+            ? (_onlineStatusMap[targetId] ?? (otherParticipant?['is_online'] == true))
+            : false;
+
+        final lastMsgObj = conv['last_message'];
+        final lastMsgText = lastMsgObj != null ? (lastMsgObj['text'] ?? 'Sent an attachment') : 'No messages yet';
+        final rawTime = lastMsgObj != null ? lastMsgObj['created_at']?.toString() : conv['updated_at']?.toString();
+        final formattedTime = rawTime != null && rawTime.length >= 16 ? rawTime.substring(11, 16) : '';
+
+        loadedChats.add(ChatItem(
+          id: convId,
+          targetUserId: targetId,
+          name: name,
+          avatar: avatar,
+          lastMessage: lastMsgText,
+          time: formattedTime,
+          unreadCount: conv['unread_count'] ?? 0,
+          isGroup: isGroup,
+          isOnline: isOnline,
+        ));
+      }
+
+      if (mounted) {
+        setState(() {
+          _allChats.clear();
+          _allChats.addAll(loadedChats);
+        });
+      }
+    }
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.trim();
+    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
+
+    if (query.length < 2) {
+      if (mounted) {
+        setState(() {
+          _searchResultsUsers = [];
+          _isSearchingUsers = false;
+        });
+      }
+      return;
+    }
+
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () async {
+      if (!mounted) return;
+      setState(() => _isSearchingUsers = true);
+      final res = await ApiService().searchUsers(query: query);
+      if (mounted) {
+        setState(() {
+          _isSearchingUsers = false;
+          if (res.success && res.data != null && res.data!['users'] != null) {
+            _searchResultsUsers = res.data!['users'];
+          } else {
+            _searchResultsUsers = [];
+          }
+        });
+      }
+    });
   }
 
   void openDirectChat(ChatItem chat) {
@@ -156,6 +295,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     if (GroupChatScreen.activeState == this) {
       GroupChatScreen.activeState = null;
     }
+    _presenceSub?.cancel();
+    _globalMsgSub?.cancel();
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -189,9 +331,21 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text('New Message', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A))),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Color(0xff1C0D5A)),
-                    onPressed: () => Navigator.pop(ctx),
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _createNewGroupTripDialog();
+                        },
+                        icon: const Icon(Icons.group_add_rounded, size: 18, color: Color(0xff2563EB)),
+                        label: const Text('New Group', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xff2563EB))),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Color(0xff1C0D5A)),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -575,35 +729,21 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         backgroundColor: Colors.white,
         elevation: 0.5,
         titleSpacing: 16,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                AuthService().userUsername.isNotEmpty
-                    ? AuthService().userUsername
-                    : 'harsh_bhardwaj',
-                style: const TextStyle(
-                  fontFamily: 'PublicSans',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xff1C0D5A),
-                  letterSpacing: -0.4,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 2),
-            const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xff1C0D5A), size: 20),
-          ],
+        title: Text(
+          AuthService().userUsername.isNotEmpty
+              ? AuthService().userUsername
+              : 'harsh_bhardwaj',
+          style: const TextStyle(
+            fontFamily: 'PublicSans',
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: Color(0xff1C0D5A),
+            letterSpacing: -0.4,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_note_rounded, color: Color(0xff1C0D5A), size: 26),
-            tooltip: 'New Message',
-            onPressed: _showNewMessageUserSearchSheet,
-          ),
           IconButton(
             icon: Icon(
               Icons.tune_rounded,
@@ -615,8 +755,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           ),
           IconButton(
             icon: Image.asset('assets/icons/edit.png', width: 24, height: 24, color: const Color(0xff1C0D5A)),
-            tooltip: 'Create Group Trip Squad',
-            onPressed: _createNewGroupTripDialog,
+            tooltip: 'New Message / Squad',
+            onPressed: _showNewMessageUserSearchSheet,
           ),
           const SizedBox(width: 4),
         ],
@@ -697,11 +837,115 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     );
   }
 
+  Widget _buildSearchResultsUsersSection() {
+    if (_searchController.text.trim().length < 2) return const SizedBox.shrink();
+    if (_isSearchingUsers) {
+      return const Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xff2B1564))),
+      );
+    }
+    if (_searchResultsUsers.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 6),
+          child: Text(
+            'Travelers & Profiles',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: Color(0xff1C0D5A),
+              fontFamily: 'PublicSans',
+            ),
+          ),
+        ),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _searchResultsUsers.length,
+          itemBuilder: (ctx, idx) {
+            final u = _searchResultsUsers[idx];
+            final String uId = u['id']?.toString() ?? '';
+            final bool isOnline = _onlineStatusMap[uId] == true;
+
+            return ListTile(
+              leading: Stack(
+                children: [
+                  UserAvatar(
+                    avatarUrl: u['profile_picture'],
+                    displayName: u['name'] ?? u['username'] ?? 'User',
+                    radius: 20,
+                  ),
+                  if (isOnline)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: const Color(0xff22C55E),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              title: Text(
+                u['name'] ?? u['username'] ?? 'User',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xff1C0D5A)),
+              ),
+              subtitle: Text('@${u['username'] ?? ''}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xffEEF2FF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'Message',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xff2563EB)),
+                ),
+              ),
+              onTap: () async {
+                final token = AuthService().token;
+                if (token != null) {
+                  final res = await ApiService().getOrCreateDirectChat(token: token, targetUserId: u['id']);
+                  if (res.success && res.data != null && res.data!['conversationId'] != null) {
+                    final convId = res.data!['conversationId'].toString();
+                    final newDirectChat = ChatItem(
+                      id: convId,
+                      targetUserId: u['id']?.toString(),
+                      name: u['name'] ?? u['username'] ?? 'User',
+                      avatar: u['profile_picture'] ?? 'assets/images/user1.jpg',
+                      lastMessage: 'Tap to send a message...',
+                      time: 'Just now',
+                      unreadCount: 0,
+                      isGroup: false,
+                      isOnline: isOnline,
+                    );
+                    openDirectChat(newDirectChat);
+                  }
+                }
+              },
+            );
+          },
+        ),
+        const Divider(height: 16),
+      ],
+    );
+  }
+
   Widget _buildChatListSection({required List<ChatItem> items, required String emptyMessage}) {
     if (items.isEmpty) {
       return Column(
         children: [
           _buildSearchAndFilterBar(),
+          _buildSearchResultsUsersSection(),
           Expanded(
             child: Center(
               child: Padding(
@@ -759,7 +1003,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       itemCount: items.length + 1,
       itemBuilder: (context, index) {
         if (index == 0) {
-          return _buildSearchAndFilterBar();
+          return Column(
+            children: [
+              _buildSearchAndFilterBar(),
+              _buildSearchResultsUsersSection(),
+            ],
+          );
         }
         final chat = items[index - 1];
         final bool hasUnread = _isUnread(chat);
@@ -904,11 +1153,14 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
 
   StreamSubscription? _msgSub;
   StreamSubscription? _typingSub;
+  StreamSubscription? _presenceSub;
   bool _isOtherUserTyping = false;
+  late bool _isTargetOnline;
 
   @override
   void initState() {
     super.initState();
+    _isTargetOnline = widget.chat.isOnline;
     if (!_messagesHistory.containsKey(widget.chat.id)) {
       _messagesHistory[widget.chat.id] = [];
     }
@@ -966,27 +1218,29 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
         final currentUserId = AuthService().userId;
         final isMe = (senderId != null && currentUserId != null && senderId == currentUserId);
 
-        setState(() {
-          _messages.add(
-            ChatMessage(
-              id: data['id'].toString(),
-              senderName: isMe ? 'You' : (data['sender_name'] ?? 'User'),
-              senderAvatar: data['sender_profile_picture'] ?? 'assets/images/user1.jpg',
-              text: data['text'] ?? '',
-              time: 'Just now',
-              isMe: isMe,
-              attachmentType: data['type'] != 'text' ? data['type'] : null,
-              attachmentData: data['attachments'] != null && (data['attachments'] as List).isNotEmpty
-                  ? {'url': data['attachments'][0]['url']}
-                  : null,
-            ),
-          );
-        });
+        if (!isMe) {
+          setState(() {
+            _messages.add(
+              ChatMessage(
+                id: data['id'].toString(),
+                senderName: data['sender_name'] ?? 'User',
+                senderAvatar: data['sender_profile_picture'] ?? 'assets/images/user1.jpg',
+                text: data['text'] ?? '',
+                time: 'Just now',
+                isMe: false,
+                attachmentType: data['type'] != 'text' ? data['type'] : null,
+                attachmentData: data['attachments'] != null && (data['attachments'] as List).isNotEmpty
+                    ? {'url': data['attachments'][0]['url']}
+                    : null,
+              ),
+            );
+          });
 
-        if (convId != null && !isMe) {
-          final token = AuthService().token;
-          if (token != null) {
-            ApiService().markChatConversationAsRead(token: token, conversationId: convId);
+          if (convId != null) {
+            final token = AuthService().token;
+            if (token != null) {
+              ApiService().markChatConversationAsRead(token: token, conversationId: convId);
+            }
           }
         }
       }
@@ -1000,12 +1254,28 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
         });
       }
     });
+
+    _presenceSub = ChatSocketService().onPresenceUpdate.listen((data) {
+      final userIdStr = data['userId']?.toString();
+      final status = data['status']?.toString();
+      if (userIdStr != null &&
+          (userIdStr == widget.chat.targetUserId || userIdStr == widget.chat.id)) {
+        final bool isOnline = status == 'online';
+        if (mounted) {
+          setState(() {
+            _isTargetOnline = isOnline;
+            widget.chat.isOnline = isOnline;
+          });
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
     _msgSub?.cancel();
     _typingSub?.cancel();
+    _presenceSub?.cancel();
     final int? convId = int.tryParse(widget.chat.id);
     if (convId != null) {
       ChatSocketService().leaveConversation(convId);
@@ -1019,6 +1289,27 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     if (text.isEmpty) return;
 
     _msgController.clear();
+    final now = TimeOfDay.now();
+    final timeStr = '${now.hourOfPeriod == 0 ? 12 : now.hourOfPeriod}:${now.minute.toString().padLeft(2, '0')} ${now.period == DayPeriod.am ? 'AM' : 'PM'}';
+    final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    setState(() {
+      _messages.add(
+        ChatMessage(
+          id: tempId,
+          senderName: 'You',
+          senderAvatar: AuthService().userProfilePicture.isNotEmpty ? AuthService().userProfilePicture : 'assets/images/user1.jpg',
+          text: text,
+          time: timeStr,
+          isMe: true,
+        ),
+      );
+      widget.chat.lastMessage = 'You: $text';
+      widget.chat.time = timeStr;
+    });
+
+    HapticFeedback.lightImpact();
+
     final int? convId = int.tryParse(widget.chat.id);
     final token = AuthService().token;
 
@@ -1030,25 +1321,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
         type: 'text',
         text: text,
       );
-    } else {
-      final now = TimeOfDay.now();
-      final timeStr = '${now.hourOfPeriod == 0 ? 12 : now.hourOfPeriod}:${now.minute.toString().padLeft(2, '0')} ${now.period == DayPeriod.am ? 'AM' : 'PM'}';
-      setState(() {
-        _messages.add(
-          ChatMessage(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            senderName: 'You',
-            senderAvatar: AuthService().userProfilePicture.isNotEmpty ? AuthService().userProfilePicture : 'assets/images/user1.jpg',
-            text: text,
-            time: timeStr,
-            isMe: true,
-          ),
-        );
-        widget.chat.lastMessage = 'You: $text';
-        widget.chat.time = timeStr;
-      });
     }
-    HapticFeedback.lightImpact();
   }
 
   void _showItineraryModal() {
@@ -1255,25 +1528,54 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
 
   Future<void> _pickAndSendImage(ImageSource source) async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: source);
+    final pickedFile = await picker.pickImage(source: source, imageQuality: 85);
     if (pickedFile != null) {
+      final now = TimeOfDay.now();
+      final timeStr = '${now.hourOfPeriod == 0 ? 12 : now.hourOfPeriod}:${now.minute.toString().padLeft(2, '0')} ${now.period == DayPeriod.am ? 'AM' : 'PM'}';
+      final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+
+      final localMsg = ChatMessage(
+        id: tempId,
+        senderName: AuthService().userName.isNotEmpty ? AuthService().userName : 'You',
+        senderAvatar: AuthService().userProfilePicture.isNotEmpty ? AuthService().userProfilePicture : 'assets/images/user1.jpg',
+        text: 'Sent an image 🏞️',
+        time: timeStr,
+        isMe: true,
+        attachmentType: 'image',
+        attachmentData: {
+          'imageFile': pickedFile.path,
+        },
+      );
+
       setState(() {
-        _messages.add(
-          ChatMessage(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            senderName: AuthService().userName.isNotEmpty ? AuthService().userName : 'You',
-            senderAvatar: AuthService().userProfilePicture.isNotEmpty ? AuthService().userProfilePicture : 'assets/images/user1.jpg',
-            text: 'Sent an image 🏞️',
-            time: 'Just now',
-            isMe: true,
-            attachmentType: 'image',
-            attachmentData: {
-              'imageFile': pickedFile.path,
-            },
-          ),
-        );
+        _messages.add(localMsg);
+        widget.chat.lastMessage = 'You: Sent an image 🏞️';
+        widget.chat.time = timeStr;
       });
+
       HapticFeedback.lightImpact();
+
+      final int? convId = int.tryParse(widget.chat.id);
+      final token = AuthService().token;
+      if (convId != null && token != null && token.isNotEmpty) {
+        final res = await ApiService().sendChatMessage(
+          token: token,
+          conversationId: convId,
+          type: 'image',
+          text: 'Sent an image 🏞️',
+          mediaFile: File(pickedFile.path),
+        );
+        if (res.success && res.data != null && res.data!['message'] != null) {
+          final serverMsg = res.data!['message'];
+          final attachments = serverMsg['attachments'] as List? ?? [];
+          if (attachments.isNotEmpty && mounted) {
+            setState(() {
+              localMsg.attachmentData?['imageUrl'] = attachments[0]['url'];
+              localMsg.attachmentData?['url'] = attachments[0]['url'];
+            });
+          }
+        }
+      }
     }
   }
 
@@ -1422,7 +1724,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                         ? 'typing... 💬'
                         : widget.chat.isGroup
                             ? '${widget.chat.memberCount ?? 1} Travelers • ${widget.chat.destination ?? ''}'
-                            : widget.chat.isOnline
+                            : (_isTargetOnline || widget.chat.isOnline)
                                 ? 'Active Now 🟢'
                                 : 'Offline',
                     maxLines: 1,
@@ -1694,6 +1996,68 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
   );
   }
 
+  Widget _buildImageAttachment(ChatMessage msg) {
+    if (msg.attachmentType != 'image') return const SizedBox.shrink();
+
+    final data = msg.attachmentData;
+    final String? localPath = data?['imageFile'];
+    String? imageUrl = data?['imageUrl'] ?? data?['url'] ?? data?['image_url'];
+
+    if (imageUrl != null && !imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+      imageUrl = imageUrl.startsWith('/')
+          ? '${ApiService().baseUrl}$imageUrl'
+          : '${ApiService().baseUrl}/$imageUrl';
+    }
+
+    if (localPath != null && localPath.isNotEmpty && File(localPath).existsSync()) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.file(
+            File(localPath),
+            height: 180,
+            width: double.infinity,
+            fit: BoxFit.cover,
+          ),
+        ),
+      );
+    }
+
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            imageUrl,
+            height: 180,
+            width: double.infinity,
+            fit: BoxFit.cover,
+            errorBuilder: (ctx, err, stack) => Container(
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.black12,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              alignment: Alignment.center,
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.broken_image_rounded, color: Colors.grey, size: 22),
+                  SizedBox(width: 6),
+                  Text('Image unavailable', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
   Widget _buildMessageBubble(ChatMessage msg) {
     return GestureDetector(
       onDoubleTap: () => _toggleHeartReaction(msg),
@@ -1719,25 +2083,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    if (msg.attachmentType == 'image' && (msg.attachmentData?['imageUrl'] != null || msg.attachmentData?['imageFile'] != null)) ...[
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: msg.attachmentData?['imageFile'] != null 
-                        ? Image.file(
-                            File(msg.attachmentData!['imageFile']),
-                            height: 150,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          )
-                        : Image.network(
-                            msg.attachmentData!['imageUrl'],
-                            height: 150,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                      ),
-                      const SizedBox(height: 6),
-                    ],
+                    _buildImageAttachment(msg),
                     if (msg.attachmentType == 'voice') ...[
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1857,6 +2203,8 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                                 ],
                               ],
                             ),
+                            const SizedBox(height: 4),
+                            _buildImageAttachment(msg),
                             const SizedBox(height: 4),
                             Text(
                               msg.text,

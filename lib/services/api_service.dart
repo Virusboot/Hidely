@@ -588,7 +588,7 @@ class ApiService {
         );
       }
 
-      final streamedResponse = await request.send();
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 45));
       final response = await http.Response.fromStream(streamedResponse);
       final body = jsonDecode(response.body);
 

@@ -535,14 +535,19 @@ class _SinglePostViewScreenState extends State<SinglePostViewScreen> {
                               ),
                               const SizedBox(width: 16),
                               GestureDetector(
-                                onTap: () {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    backgroundColor: Colors.transparent,
-                                    builder: (context) => const ShareSheetWidget(),
-                                  );
-                                },
+                                 onTap: () {
+                                   final postIdStr = post["id"]?.toString();
+                                   showModalBottomSheet(
+                                     context: context,
+                                     isScrollControlled: true,
+                                     useSafeArea: true,
+                                     backgroundColor: Colors.transparent,
+                                     builder: (context) => ShareSheetWidget(
+                                       postId: postIdStr,
+                                       shareUrl: postIdStr != null ? 'https://hidely.kittuvirusstudio.in/post/$postIdStr' : null,
+                                     ),
+                                   );
+                                 },
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [

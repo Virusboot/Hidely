@@ -10,6 +10,7 @@ import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/screens/group_chat_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:hidely_new/widgets/report_bottom_sheet.dart';
+import 'package:hidely_new/widgets/video_thumbnail_preview.dart';
 
 class CreatorProfileScreen extends StatefulWidget {
   final String username;
@@ -826,8 +827,9 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                         ),
                       )
                     : isVideo
-                        ? const Center(
-                            child: Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 40),
+                        ? VideoThumbnailPreview(
+                            videoUrl: imagePath,
+                            fit: BoxFit.cover,
                           )
                         : isNetwork
                             ? SizedBox.expand(

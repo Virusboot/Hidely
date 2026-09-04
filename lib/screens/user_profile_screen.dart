@@ -13,10 +13,9 @@ import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:hidely_new/widgets/empty_state.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:hidely_new/widgets/video_thumbnail_preview.dart';
 
 import 'package:hidely_new/models/gamification_models.dart';
-import 'badge_detail_dialog.dart';
-import 'points_history_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final bool isFromLeaderboard;
@@ -600,9 +599,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                       ),
                       const SizedBox(height: 12),
 
-                      // --- Gamification Profile & Badges Card ---
-                      _buildGamificationProfileCard(),
-                      const SizedBox(height: 12),
+
 
                       // --- 4. ACTION BUTTONS ---
                       Padding(
@@ -844,8 +841,9 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                         ),
                       )
                     : isVideo
-                        ? const Center(
-                            child: Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 40),
+                        ? VideoThumbnailPreview(
+                            videoUrl: imagePath,
+                            fit: BoxFit.cover,
                           )
                         : isNetwork
                             ? SizedBox.expand(
@@ -987,159 +985,6 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     );
   }
 
-  Widget _buildGamificationProfileCard() {
-    if (_gamificationProfile == null) return const SizedBox.shrink();
-    final profile = _gamificationProfile!;
-    final currentXp = profile.totalPoints - profile.minXp;
-    final targetXp = profile.nextLevelMinXp - profile.minXp;
-    final double progress = targetXp > 0 ? (currentXp / targetXp).clamp(0.0, 1.0) : 1.0;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.workspace_premium_rounded, color: Color(0xffFFB800), size: 22),
-                    const SizedBox(width: 6),
-                    Text(
-                      "Level ${profile.level} · ${profile.levelName}",
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: Color(0xff1C0D5A),
-                      ),
-                    ),
-                  ],
-                ),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const PointsHistoryScreen()));
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xff2B1564).withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      "${profile.totalPoints} pts >",
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12,
-                        color: Color(0xff2B1564),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 8,
-                backgroundColor: const Color(0xffF1F5F9),
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xff2B1564)),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "${profile.totalPoints} / ${profile.nextLevelMinXp} XP",
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
-                ),
-                Text(
-                  "Rank #${profile.rank}",
-                  style: const TextStyle(fontSize: 11, color: Color(0xff1C0D5A), fontWeight: FontWeight.w800),
-                ),
-              ],
-            ),
-            if (profile.badges.isNotEmpty) ...[
-              const Divider(height: 20, color: Color(0xffF1F5F9)),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "Badges Collection",
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A)),
-                  ),
-                  Text(
-                    "${profile.badges.length} Earned",
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 54,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: profile.badges.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
-                  itemBuilder: (context, idx) {
-                    final badge = profile.badges[idx];
-                    return GestureDetector(
-                      onTap: () {
-                        BadgeDetailDialog.show(context, badge, onFeaturedChanged: () {
-                          _loadProfileData();
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: badge.isFeatured ? const Color(0xff2B1564).withOpacity(0.08) : const Color(0xffF8FAFC),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: badge.isFeatured ? const Color(0xff2B1564) : const Color(0xffE2E8F0),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.stars_rounded, size: 18, color: Color(0xffFFB800)),
-                            const SizedBox(width: 6),
-                            Text(
-                              badge.name,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: badge.isFeatured ? const Color(0xff2B1564) : const Color(0xff1C0D5A),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {

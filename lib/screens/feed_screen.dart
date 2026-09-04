@@ -16,6 +16,7 @@ import 'package:hidely_new/widgets/post_options_bottom_sheet.dart';
 import 'package:hidely_new/widgets/skeleton_loader.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
+import 'dart:async';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -708,14 +709,23 @@ class _FeedScreenState extends State<FeedScreen> {
                                 ),
                               );
                             },
-                            child: Text(
-                              "Suggested For You • $displayLocation ",
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.black54,
-                                  fontWeight: FontWeight.w500),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.location_on_rounded, size: 13, color: Color(0xff2B1564)),
+                                const SizedBox(width: 3),
+                                Expanded(
+                                  child: Text(
+                                    "Suggested For You • $displayLocation ",
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.black54,
+                                        fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -782,6 +792,49 @@ class _FeedScreenState extends State<FeedScreen> {
                 );
               }(),
             ),
+            if (location.isNotEmpty && location != "Unknown")
+              Positioned(
+                bottom: 12,
+                left: 12,
+                child: GestureDetector(
+                  onTap: () {
+                    MapDiscoveryScreen.initialSearchQuery = location;
+                    MapDiscoveryScreen.startNavigationDirectly = false;
+                    if (MainWrapperState.activeState != null) {
+                      MainWrapperState.activeState!.setIndex(1);
+                    } else {
+                      final state = context.findAncestorStateOfType<MainWrapperState>();
+                      if (state != null) {
+                        state.setIndex(1);
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const MainWrapper(initialIndex: 1)),
+                        );
+                      }
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.55),
+                      shape: BoxShape.circle,
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.near_me_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
         Padding(
@@ -838,7 +891,7 @@ class _FeedScreenState extends State<FeedScreen> {
               ),
               const SizedBox(width: 20),
               GestureDetector(
-                onTap: () => _openShareSheet(context),
+                onTap: () => _openShareSheet(context, post: post),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -904,13 +957,18 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  void _openShareSheet(BuildContext context) {
+  void _openShareSheet(BuildContext context, {Map<String, dynamic>? post}) {
+    final postIdStr = post != null ? post['id']?.toString() : null;
+    final shareUrl = postIdStr != null ? 'https://hidely.kittuvirusstudio.in/post/$postIdStr' : null;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const ShareSheetWidget(),
+      builder: (context) => ShareSheetWidget(
+        postId: postIdStr,
+        shareUrl: shareUrl,
+      ),
     );
   }
 }
@@ -1339,7 +1397,9 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
 }
 
 class ShareSheetWidget extends StatefulWidget {
-  const ShareSheetWidget({super.key});
+  final dynamic postId;
+  final String? shareUrl;
+  const ShareSheetWidget({super.key, this.postId, this.shareUrl});
 
   @override
   State<ShareSheetWidget> createState() => _ShareSheetWidgetState();
@@ -1348,40 +1408,164 @@ class ShareSheetWidget extends StatefulWidget {
 class _ShareSheetWidgetState extends State<ShareSheetWidget> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
-
   final List<Map<String, dynamic>> _users = [];
+  bool _isLoading = true;
+  bool _isSending = false;
+  Timer? _searchDebounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsers();
+    _searchController.addListener(_onSearchChanged);
+  }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  // Check if any user is selected
-  bool get _hasSelection => _users.any((u) => u["selected"] == true);
+  Future<void> _loadUsers() async {
+    final token = AuthService().token ?? '';
+    final List<Map<String, dynamic>> loadedUsers = [];
 
-  // Get count of selected users
+    if (token.isNotEmpty) {
+      final res = await ApiService().getFollowing(token: token);
+      if (res.success && res.data != null && res.data!['following'] != null) {
+        final list = res.data!['following'] as List;
+        for (var u in list) {
+          if (u is Map) {
+            loadedUsers.add({
+              'id': u['id'],
+              'name': u['name'] ?? u['username'] ?? 'User',
+              'username': u['username'] ?? 'user',
+              'avatar': u['profile_picture'] ?? 'assets/images/user1.jpg',
+              'selected': false,
+              'color': const Color(0xff5B3EC8),
+            });
+          }
+        }
+      }
+    }
+
+    if (loadedUsers.length < 8) {
+      final lbRes = await ApiService().getLeaderboard();
+      if (lbRes.success && lbRes.data != null && lbRes.data!['leaderboard'] != null) {
+        final lbList = lbRes.data!['leaderboard'] as List;
+        for (var u in lbList) {
+          if (u is Map && !loadedUsers.any((existing) => existing['id'] == u['id'])) {
+            loadedUsers.add({
+              'id': u['id'],
+              'name': u['name'] ?? u['username'] ?? 'Explorer',
+              'username': u['username'] ?? 'user',
+              'avatar': u['avatar_url'] ?? u['profile_picture'] ?? 'assets/images/user1.jpg',
+              'selected': false,
+              'color': const Color(0xff2563EB),
+            });
+          }
+        }
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _users.clear();
+        _users.addAll(loadedUsers);
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _onSearchChanged() {
+    final val = _searchController.text.trim();
+    setState(() {
+      _searchQuery = val;
+    });
+
+    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
+    if (val.length >= 2) {
+      _searchDebounce = Timer(const Duration(milliseconds: 300), () async {
+        final res = await ApiService().searchUsers(query: val);
+        if (res.success && res.data != null && res.data!['users'] != null && mounted) {
+          final searchList = res.data!['users'] as List;
+          setState(() {
+            for (var u in searchList) {
+              if (u is Map && !_users.any((existing) => existing['id'] == u['id'])) {
+                _users.add({
+                  'id': u['id'],
+                  'name': u['name'] ?? u['username'] ?? 'User',
+                  'username': u['username'] ?? 'user',
+                  'avatar': u['profile_picture'] ?? 'assets/images/user1.jpg',
+                  'selected': false,
+                  'color': const Color(0xff9C27B0),
+                });
+              }
+            }
+          });
+        }
+      });
+    }
+  }
+
+  bool get _hasSelection => _users.any((u) => u["selected"] == true);
   int get _selectedCount => _users.where((u) => u["selected"] == true).length;
 
-  void _handleSend() {
-    final selectedNames = _users
-        .where((u) => u["selected"] == true)
-        .map((u) => u["name"])
-        .join(", ");
-        
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Sent successfully to $selectedNames!"),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xff1C0D5A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-    Navigator.pop(context);
+  Future<void> _handleSend() async {
+    if (_isSending) return;
+    setState(() => _isSending = true);
+
+    final selectedUsers = _users.where((u) => u["selected"] == true).toList();
+    final token = AuthService().token ?? '';
+    final String postShareUrl = widget.shareUrl ??
+        (widget.postId != null
+            ? '${ApiService().baseUrl}/post/${widget.postId}'
+            : 'https://hidely.app/explore');
+
+    if (token.isNotEmpty) {
+      for (var u in selectedUsers) {
+        final uId = u['id'];
+        if (uId != null) {
+          final directRes = await ApiService().getOrCreateDirectChat(token: token, targetUserId: uId);
+          if (directRes.success && directRes.data != null && directRes.data!['conversationId'] != null) {
+            final convId = int.tryParse(directRes.data!['conversationId'].toString());
+            if (convId != null) {
+              await ApiService().sendChatMessage(
+                token: token,
+                conversationId: convId,
+                type: 'text',
+                text: 'Check out this post: $postShareUrl',
+                sharedEntityType: 'post',
+                sharedEntityId: widget.postId?.toString(),
+              );
+            }
+          }
+        }
+      }
+    }
+
+    if (mounted) {
+      setState(() => _isSending = false);
+      final names = selectedUsers.map((u) => u["name"]).join(", ");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Sent successfully to $names!"),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xff1C0D5A),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      Navigator.pop(context);
+    }
   }
 
   void _copyLink() {
-    Clipboard.setData(const ClipboardData(text: "https://hidely.app/post/share_id_8924"));
+    final String postShareUrl = widget.shareUrl ??
+        (widget.postId != null
+            ? '${ApiService().baseUrl}/post/${widget.postId}'
+            : 'https://hidely.app/explore');
+    Clipboard.setData(ClipboardData(text: postShareUrl));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Row(
@@ -1401,7 +1585,6 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Filter users based on query
     final filteredUsers = _users.where((user) {
       final name = user["name"].toString().toLowerCase();
       final username = user["username"].toString().toLowerCase();
@@ -1418,7 +1601,6 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
       child: Column(
         children: [
           const SizedBox(height: 10),
-          // Drag Handle
           Container(
             width: 36,
             height: 4.5,
@@ -1428,7 +1610,6 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
             ),
           ),
           const SizedBox(height: 14),
-          // Title
           const Text(
             "Share to",
             style: TextStyle(
@@ -1439,7 +1620,6 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
             ),
           ),
           const SizedBox(height: 14),
-          // Search Bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Container(
@@ -1450,11 +1630,6 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
               ),
               child: TextField(
                 controller: _searchController,
-                onChanged: (val) {
-                  setState(() {
-                    _searchQuery = val;
-                  });
-                },
                 decoration: const InputDecoration(
                   hintText: "Search",
                   hintStyle: TextStyle(color: Colors.black38, fontSize: 15),
@@ -1467,134 +1642,118 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
           ),
           const SizedBox(height: 18),
           
-          // Users Grid / List
           Expanded(
-            child: filteredUsers.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.search_off_rounded, size: 44, color: Colors.black26),
-                        const SizedBox(height: 8),
-                        Text(
-                          "No matches found for '$_searchQuery'",
-                          style: const TextStyle(color: Colors.black45, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  )
-                : GridView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    physics: const BouncingScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      mainAxisSpacing: 16,
-                      crossAxisSpacing: 10,
-                      childAspectRatio: 0.68,
-                    ),
-                    itemCount: filteredUsers.length,
-                    itemBuilder: (context, index) {
-                      final user = filteredUsers[index];
-                      final isSelected = user["selected"] == true;
-
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            user["selected"] = !isSelected;
-                          });
-                        },
-                        behavior: HitTestBehavior.opaque,
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xff2B1564)))
+                : filteredUsers.isEmpty
+                    ? Center(
                         child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Stack(
+                            const Icon(Icons.search_off_rounded, size: 44, color: Colors.black26),
+                            const SizedBox(height: 8),
+                            Text(
+                              "No matches found for '$_searchQuery'",
+                              style: const TextStyle(color: Colors.black45, fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      )
+                    : GridView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        physics: const BouncingScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 4,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 10,
+                          childAspectRatio: 0.68,
+                        ),
+                        itemCount: filteredUsers.length,
+                        itemBuilder: (context, index) {
+                          final user = filteredUsers[index];
+                          final isSelected = user["selected"] == true;
+
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                user["selected"] = !isSelected;
+                              });
+                            },
+                            behavior: HitTestBehavior.opaque,
+                            child: Column(
                               children: [
-                                // Avatar circle
-                                Container(
-                                  width: 62,
-                                  height: 62,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: user["color"].withOpacity(0.15),
-                                    border: Border.all(
-                                      color: isSelected ? const Color(0xff1C0D5A) : Colors.transparent,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(31),
-                                    child: Image.asset(
-                                      user["avatar"],
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) =>
-                                          Center(
-                                        child: Text(
-                                          user["name"].substring(0, 1).toUpperCase(),
-                                          style: TextStyle(
-                                            color: user["color"],
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 20,
-                                          ),
+                                Stack(
+                                  children: [
+                                    Container(
+                                      width: 62,
+                                      height: 62,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: isSelected ? const Color(0xff1C0D5A) : Colors.transparent,
+                                          width: 2.5,
                                         ),
                                       ),
-                                    ),
-                                  ),
-                                ),
-                                // Selection indicator (Insta-style bottom right badge)
-                                Positioned(
-                                  right: 0,
-                                  bottom: 0,
-                                  child: Container(
-                                    width: 22,
-                                    height: 22,
-                                    decoration: BoxDecoration(
-                                      color: isSelected ? const Color(0xff1C0D5A) : Colors.white,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: isSelected ? Colors.transparent : Colors.black26,
-                                        width: 1.5,
+                                      child: UserAvatar(
+                                        avatarUrl: user['avatar'],
+                                        displayName: user['name'],
+                                        radius: 30,
                                       ),
                                     ),
-                                    child: isSelected
-                                        ? const Icon(
-                                            Icons.check,
-                                            color: Colors.white,
-                                            size: 14,
-                                          )
-                                        : null,
+                                    Positioned(
+                                      right: 0,
+                                      bottom: 0,
+                                      child: Container(
+                                        width: 22,
+                                        height: 22,
+                                        decoration: BoxDecoration(
+                                          color: isSelected ? const Color(0xff1C0D5A) : Colors.white,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: isSelected ? Colors.transparent : Colors.black26,
+                                            width: 1.5,
+                                          ),
+                                        ),
+                                        child: isSelected
+                                            ? const Icon(
+                                                Icons.check,
+                                                color: Colors.white,
+                                                size: 14,
+                                              )
+                                            : null,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  user["name"],
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                Text(
+                                  "@${user["username"]}",
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: Colors.black38,
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              user["name"],
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            Text(
-                              "@${user["username"]}",
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                color: Colors.black38,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                          );
+                        },
+                      ),
           ),
           
-          // Action Bottom Panel
           const Divider(height: 1, color: Color(0xffEEEEEE)),
           SafeArea(
             top: false,
@@ -1610,7 +1769,7 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       child: ElevatedButton(
-                        onPressed: _handleSend,
+                        onPressed: _isSending ? null : _handleSend,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xff1C0D5A),
                           foregroundColor: Colors.white,
@@ -1620,13 +1779,19 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: Text(
-                          "Send to $_selectedCount friend${_selectedCount > 1 ? 's' : ''}",
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        child: _isSending
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : Text(
+                                "Send to $_selectedCount friend${_selectedCount > 1 ? 's' : ''}",
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     )
                   : Container(
@@ -1639,26 +1804,10 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
                         physics: const BouncingScrollPhysics(),
                         children: [
                           _buildAppIcon(Icons.link, "Copy Link", const Color(0xff64748B), _copyLink),
-                          _buildAppIcon(Icons.chat_bubble_outline_rounded, "WhatsApp", const Color(0xff25D366), () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Redirecting to WhatsApp..."), duration: Duration(seconds: 1)),
-                            );
-                          }),
-                          _buildAppIcon(Icons.message_outlined, "Messenger", const Color(0xff1877F2), () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Redirecting to Messenger..."), duration: Duration(seconds: 1)),
-                            );
-                          }),
-                          _buildAppIcon(Icons.sms_outlined, "SMS", const Color(0xff475569), () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Opening Messaging..."), duration: Duration(seconds: 1)),
-                            );
-                          }),
-                          _buildAppIcon(Icons.email_outlined, "Email", const Color(0xffEF4444), () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Opening Email client..."), duration: Duration(seconds: 1)),
-                            );
-                          }),
+                          _buildAppIcon(Icons.chat_bubble_outline_rounded, "WhatsApp", const Color(0xff25D366), _copyLink),
+                          _buildAppIcon(Icons.message_outlined, "Messenger", const Color(0xff1877F2), _copyLink),
+                          _buildAppIcon(Icons.sms_outlined, "SMS", const Color(0xff475569), _copyLink),
+                          _buildAppIcon(Icons.email_outlined, "Email", const Color(0xffEF4444), _copyLink),
                         ],
                       ),
                     ),

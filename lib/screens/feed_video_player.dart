@@ -18,7 +18,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _isPlaying = true;
-  bool _isMuted = false;
+  bool _isMuted = true;
 
   @override
   void initState() {
@@ -41,12 +41,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     try {
       await _controller!.initialize();
       await _controller!.setLooping(true);
-      if (kIsWeb) {
-        _isMuted = true;
-        await _controller!.setVolume(0.0);
-      } else {
-        await _controller!.setVolume(1.0);
-      }
+      _isMuted = true;
+      await _controller!.setVolume(0.0);
       if (mounted) {
         setState(() {
           _isInitialized = true;

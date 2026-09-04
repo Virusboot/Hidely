@@ -20,6 +20,7 @@ class _NotificationScreenState extends State<NotificationScreen>
   bool _isRefreshing = false;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnim;
+  final Set<String> _followingUserIds = {};
 
   @override
   void initState() {
@@ -46,14 +47,61 @@ class _NotificationScreenState extends State<NotificationScreen>
     if (refresh) setState(() => _isRefreshing = true);
 
     final token = AuthService().token ?? '';
-    final result = await ApiService().getNotifications(token: token);
+    final results = await Future.wait([
+      ApiService().getNotifications(token: token),
+      ApiService().getFollowing(token: token),
+    ]);
+
+    final notifResult = results[0];
+    final followingResult = results[1];
+
     if (mounted) {
+      final Set<String> updatedFollowing = {};
+      if (followingResult.success && followingResult.data != null) {
+        final list = followingResult.data?['following'] as List? ?? [];
+        for (var user in list) {
+          if (user is Map) {
+            if (user['id'] != null) updatedFollowing.add(user['id'].toString());
+            if (user['_id'] != null) updatedFollowing.add(user['_id'].toString());
+            if (user['username'] != null) {
+              updatedFollowing.add(user['username'].toString().toLowerCase());
+            }
+          }
+        }
+      }
+
       setState(() {
-        _notifications = result.data?['notifications'] ?? [];
+        _notifications = notifResult.data?['notifications'] ?? [];
+        _followingUserIds.clear();
+        _followingUserIds.addAll(updatedFollowing);
         _isLoading = false;
         _isRefreshing = false;
       });
       _fadeController.forward(from: 0);
+    }
+  }
+
+  Future<void> _loadFollowingList() async {
+    final token = AuthService().token ?? '';
+    if (token.isEmpty) return;
+
+    final followingResult = await ApiService().getFollowing(token: token);
+    if (followingResult.success && followingResult.data != null && mounted) {
+      final list = followingResult.data?['following'] as List? ?? [];
+      final Set<String> updatedFollowing = {};
+      for (var user in list) {
+        if (user is Map) {
+          if (user['id'] != null) updatedFollowing.add(user['id'].toString());
+          if (user['_id'] != null) updatedFollowing.add(user['_id'].toString());
+          if (user['username'] != null) {
+            updatedFollowing.add(user['username'].toString().toLowerCase());
+          }
+        }
+      }
+      setState(() {
+        _followingUserIds.clear();
+        _followingUserIds.addAll(updatedFollowing);
+      });
     }
   }
 
@@ -209,9 +257,9 @@ class _NotificationScreenState extends State<NotificationScreen>
     }
   }
 
-  void _openProfile(String? username, String? pic) {
+  Future<void> _openProfile(String? username, String? pic) async {
     if (username == null || username.isEmpty) return;
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => CreatorProfileScreen(
@@ -221,6 +269,9 @@ class _NotificationScreenState extends State<NotificationScreen>
         ),
       ),
     );
+    if (mounted) {
+      _loadFollowingList();
+    }
   }
 
   void _openPost(dynamic postId, String? postImg) {
@@ -452,6 +503,9 @@ class _NotificationScreenState extends State<NotificationScreen>
     final actorName = (notification['actor_name'] ?? notification['actor_username'] ?? 'User').toString();
     final actorPic = notification['actor_profile_picture']?.toString();
     final actorUsername = notification['actor_username']?.toString() ?? 'user';
+    final actorId = notification['actor_id']?.toString() ??
+        notification['actor_user_id']?.toString() ??
+        notification['user_id']?.toString();
     final bool isVerified = notification['actor_is_verified'] == true || notification['actor_is_verified'] == 1 || notification['actor_is_verified'] == 'true';
     final postImg = notification['post_image_url']?.toString();
     final postId = notification['post_id'];
@@ -459,6 +513,11 @@ class _NotificationScreenState extends State<NotificationScreen>
     final timeAgo = notification['created_at'] != null ? _formatTime(notification['created_at'].toString()) : '';
     final actionText = _buildActionText(notification);
     final (typeIcon, typeColor) = _typeIconAndColor(type);
+
+    final bool isFollowing = (actorId != null && _followingUserIds.contains(actorId)) ||
+        _followingUserIds.contains(actorUsername.toLowerCase()) ||
+        notification['actor_is_following'] == true ||
+        notification['is_following'] == true;
 
     return InkWell(
       onTap: () {
@@ -602,7 +661,27 @@ class _NotificationScreenState extends State<NotificationScreen>
 
             // Right side: Post Image Thumbnail OR Follow Button
             if (type == 'follow' || type == 'new_follower')
-              _FollowButton(actorUsername: actorUsername)
+              _FollowButton(
+                actorId: actorId,
+                actorUsername: actorUsername,
+                isFollowing: isFollowing,
+                onToggle: (newStatus) {
+                  setState(() {
+                    if (actorId != null) {
+                      if (newStatus) {
+                        _followingUserIds.add(actorId);
+                      } else {
+                        _followingUserIds.remove(actorId);
+                      }
+                    }
+                    if (newStatus) {
+                      _followingUserIds.add(actorUsername.toLowerCase());
+                    } else {
+                      _followingUserIds.remove(actorUsername.toLowerCase());
+                    }
+                  });
+                },
+              )
             else if (postImg != null && postImg.isNotEmpty)
               GestureDetector(
                 onTap: () => _openPost(postId, postImg),
@@ -663,28 +742,56 @@ class _NotificationScreenState extends State<NotificationScreen>
 
 // ── Follow Button widget ─────────────────────────────────────────────────────
 class _FollowButton extends StatefulWidget {
+  final String? actorId;
   final String? actorUsername;
-  const _FollowButton({this.actorUsername});
+  final bool isFollowing;
+  final ValueChanged<bool>? onToggle;
+
+  const _FollowButton({
+    this.actorId,
+    this.actorUsername,
+    this.isFollowing = false,
+    this.onToggle,
+  });
 
   @override
   State<_FollowButton> createState() => _FollowButtonState();
 }
 
 class _FollowButtonState extends State<_FollowButton> {
-  bool _following = false;
+  late bool _following;
   bool _loading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _following = widget.isFollowing;
+  }
+
+  @override
+  void didUpdateWidget(covariant _FollowButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isFollowing != widget.isFollowing) {
+      _following = widget.isFollowing;
+    }
+  }
+
   Future<void> _toggle() async {
-    if (_loading || widget.actorUsername == null || widget.actorUsername!.isEmpty) return;
+    final targetId = widget.actorId ?? widget.actorUsername;
+    if (_loading || targetId == null || targetId.isEmpty) return;
     setState(() => _loading = true);
     final token = AuthService().token ?? '';
     if (token.isNotEmpty) {
-      final res = await ApiService().toggleFollowCreator(token: token, creatorId: widget.actorUsername!);
-      if (res.success && mounted) {
+      final res = await ApiService().toggleFollowCreator(token: token, creatorId: targetId);
+      if (mounted) {
+        final bool newStatus = (res.success && res.data != null && res.data?['is_following'] != null)
+            ? (res.data?['is_following'] == true)
+            : !_following;
         setState(() {
-          _following = !_following;
+          _following = newStatus;
           _loading = false;
         });
+        widget.onToggle?.call(newStatus);
         return;
       }
     }
@@ -693,6 +800,7 @@ class _FollowButtonState extends State<_FollowButton> {
         _following = !_following;
         _loading = false;
       });
+      widget.onToggle?.call(_following);
     }
   }
 

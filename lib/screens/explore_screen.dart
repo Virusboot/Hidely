@@ -7,6 +7,7 @@ import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/widgets/itinerary_planner_sheet.dart';
 import 'package:hidely_new/widgets/empty_state.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:hidely_new/widgets/video_thumbnail_preview.dart';
 import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -827,11 +828,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 color: Color(0xffF1F5F9),
                               ),
                               child: isVideo
-                                  ? Container(
-                                      color: Colors.black87,
-                                      child: const Center(
-                                        child: Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 40),
-                                      ),
+                                  ? VideoThumbnailPreview(
+                                      videoUrl: imageUrl,
+                                      fit: BoxFit.cover,
                                     )
                                   : isNetwork
                                   ? CachedNetworkImage(

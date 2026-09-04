@@ -355,15 +355,27 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
         backgroundColor: Colors.black,
         body: Stack(
           children: [
-            // 1. Camera Live Preview with Selected Cinematic LUT Filter
+            // 1. Camera Live Preview with Selected Cinematic LUT Filter (Full Screen Cover)
             if (_isCameraInitialized && _cameraController != null)
-              Center(
-                child: AspectRatio(
-                  aspectRatio: 1 / _cameraController!.value.aspectRatio,
-                  child: ColorFiltered(
-                    colorFilter: ColorFilter.matrix(_luts[_selectedLutIndex]['matrix'] as List<double>),
-                    child: CameraPreview(_cameraController!),
-                  ),
+              Positioned.fill(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final cameraAspectRatio = _cameraController!.value.aspectRatio;
+                    var scale = constraints.maxHeight / (constraints.maxWidth * cameraAspectRatio);
+                    if (scale < 1.0) scale = 1.0 / scale;
+
+                    return ClipRect(
+                      child: Transform.scale(
+                        scale: scale,
+                        child: Center(
+                          child: ColorFiltered(
+                            colorFilter: ColorFilter.matrix(_luts[_selectedLutIndex]['matrix'] as List<double>),
+                            child: CameraPreview(_cameraController!),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               )
             else

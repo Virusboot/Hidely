@@ -8,6 +8,7 @@ import 'package:hidely_new/screens/user_profile_screen.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:hidely_new/widgets/report_bottom_sheet.dart';
 import 'package:hidely_new/widgets/empty_state.dart';
+import 'package:hidely_new/screens/feed_screen.dart';
 
 class ReelsScreen extends StatefulWidget {
   const ReelsScreen({super.key});
@@ -355,7 +356,19 @@ class _ReelsScreenState extends State<ReelsScreen> {
               ),
               const SizedBox(height: 22),
               GestureDetector(
-                onTap: () => debugPrint("Launching Feed Sheet Grid Sharing Framework Context..."),
+                onTap: () {
+                  final reelId = reel['id']?.toString() ?? '$id';
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    useSafeArea: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => ShareSheetWidget(
+                      postId: reelId,
+                      shareUrl: 'https://hidely.kittuvirusstudio.in/reel/$reelId',
+                    ),
+                  );
+                },
                 child: Column(
                   children: [
                     Image.asset('assets/icons/solar_share-linear.png', color: Colors.white, width: 26, height: 26),
