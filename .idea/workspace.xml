@@ -10,31 +10,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="2dc3ced4-2b7b-45da-bc69-e00bbfe604ea" name="Changes" comment="1st">
-      <change beforePath="$PROJECT_DIR$/.flutter-plugins-dependencies" beforeDir="false" afterPath="$PROJECT_DIR$/.flutter-plugins-dependencies" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/app/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/build.gradle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/assets/images/app_icon.png" beforeDir="false" afterPath="$PROJECT_DIR$/assets/images/app_icon.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/assets/images/logo.png" beforeDir="false" afterPath="$PROJECT_DIR$/assets/images/logo.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ios/Flutter/Generated.xcconfig" beforeDir="false" afterPath="$PROJECT_DIR$/ios/Flutter/Generated.xcconfig" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ios/Flutter/flutter_export_environment.sh" beforeDir="false" afterPath="$PROJECT_DIR$/ios/Flutter/flutter_export_environment.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/creator_profile_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/creator_profile_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/explore_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/explore_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/feed_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/feed_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/follow_list_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/follow_list_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/group_chat_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/group_chat_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/leaderboard_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/leaderboard_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/main_wrapper.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/main_wrapper.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/notification_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/notification_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/outgoing_call_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/outgoing_call_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/points_history_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/points_history_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/settings_and_privacy_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/settings_and_privacy_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/user_profile_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/user_profile_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/services/api_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/services/api_service.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/services/location_capture_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/services/location_capture_service.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/widgets/profile_photo_cropper_dialog.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/widgets/profile_photo_cropper_dialog.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/web/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.yaml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

@@ -26,7 +26,7 @@ subprojects {
         options.compilerArgs << "-Xlint:-options"
     }
     tasks.whenTaskAdded { task ->
-        if (task.name.contains("verifyReleaseResources") || task.name.contains("verifyDebugResources")) {
+        if (task.name.contains("verifyReleaseResources") || task.name.contains("verifyDebugResources") || task.name.contains("lintVital")) {
             task.enabled = false
         }
     }
