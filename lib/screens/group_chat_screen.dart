@@ -249,7 +249,21 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     });
   }
 
+  void clearSearch() {
+    _searchDebounce?.cancel();
+    if (_searchController.text.isNotEmpty || _searchResultsUsers.isNotEmpty) {
+      _searchController.clear();
+      if (mounted) {
+        setState(() {
+          _searchResultsUsers = [];
+          _isSearchingUsers = false;
+        });
+      }
+    }
+  }
+
   void openDirectChat(ChatItem chat) {
+    clearSearch();
     final exists = _allChats.any((c) => c.id == chat.id);
     if (!exists) {
       setState(() {
@@ -268,6 +282,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   void _openChat(ChatItem chat) {
+    clearSearch();
     setState(() {
       _readChatIds.add(chat.id);
       _activeChat = chat;
@@ -276,6 +291,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   void _closeChat() {
+    clearSearch();
     setState(() {
       _activeChat = null;
       GroupChatScreen.isChatRoomOpen.value = false;
@@ -847,6 +863,28 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     }
     if (_searchResultsUsers.isEmpty) return const SizedBox.shrink();
 
+    final filteredUsers = _searchResultsUsers.where((u) {
+      final uId = u['id']?.toString();
+      final name = u['name']?.toString().toLowerCase();
+      final username = u['username']?.toString().toLowerCase();
+
+      final alreadyInChats = _allChats.any((chat) {
+        if (chat.targetUserId != null && uId != null && chat.targetUserId == uId) {
+          return true;
+        }
+        if (name != null && name.isNotEmpty && chat.name.toLowerCase() == name) {
+          return true;
+        }
+        if (username != null && username.isNotEmpty && chat.name.toLowerCase() == username) {
+          return true;
+        }
+        return false;
+      });
+      return !alreadyInChats;
+    }).toList();
+
+    if (filteredUsers.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -865,9 +903,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: _searchResultsUsers.length,
+          itemCount: filteredUsers.length,
           itemBuilder: (ctx, idx) {
-            final u = _searchResultsUsers[idx];
+            final u = filteredUsers[idx];
             final String uId = u['id']?.toString() ?? '';
             final bool isOnline = _onlineStatusMap[uId] == true;
 
@@ -1144,12 +1182,11 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
   final TextEditingController _msgController = TextEditingController();
   late List<ChatMessage> _messages;
   bool _isRecording = false;
+  bool _isLoadingMessages = true;
+  String? _playingVoiceMsgId;
 
   static final Map<String, List<ChatMessage>> _messagesHistory = {};
 
-  List<ChatMessage> _getDummyMessages(ChatItem chat) {
-    return [];
-  }
 
   StreamSubscription? _msgSub;
   StreamSubscription? _typingSub;
@@ -1165,13 +1202,17 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
       _messagesHistory[widget.chat.id] = [];
     }
     _messages = _messagesHistory[widget.chat.id]!;
+    _isLoadingMessages = _messages.isEmpty;
     _loadRealMessages();
     _setupSocketListeners();
   }
 
   void _loadRealMessages() async {
     final token = AuthService().token;
-    if (token == null || token.isEmpty) return;
+    if (token == null || token.isEmpty) {
+      if (mounted) setState(() => _isLoadingMessages = false);
+      return;
+    }
 
     ChatSocketService().connect(token);
 
@@ -1184,28 +1225,47 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
         final List rawMsgs = res.data!['messages'];
         final currentUserId = AuthService().userId;
 
-        setState(() {
-          _messages = rawMsgs.map((m) {
-            final senderId = m['sender_id'];
-            final isMe = (senderId != null && currentUserId != null && senderId == currentUserId);
-            return ChatMessage(
-              id: m['id'].toString(),
-              senderName: isMe ? 'You' : (m['sender_name'] ?? 'User'),
-              senderAvatar: m['sender_profile_picture'] ?? 'assets/images/user1.jpg',
-              text: m['text'] ?? '',
-              time: m['created_at'] != null && m['created_at'].toString().length >= 16 ? m['created_at'].toString().substring(11, 16) : 'Just now',
-              isMe: isMe,
-              attachmentType: m['type'] != 'text' ? m['type'] : null,
-              attachmentData: m['attachments'] != null && (m['attachments'] as List).isNotEmpty
-                  ? {'url': m['attachments'][0]['url']}
-                  : (m['shared_entity_type'] != null
-                      ? {'type': m['shared_entity_type'], 'id': m['shared_entity_id']}
-                      : null),
-            );
-          }).toList();
-        });
+        final loadedMsgs = rawMsgs.map((m) {
+          final senderId = m['sender_id'];
+          final isMe = (senderId != null && senderId.toString() == currentUserId.toString());
+          return ChatMessage(
+            id: m['id'].toString(),
+            senderName: isMe ? 'You' : (m['sender_name'] ?? 'User'),
+            senderAvatar: m['sender_profile_picture'] ?? 'assets/images/user1.jpg',
+            text: m['text'] ?? '',
+            time: m['created_at'] != null && m['created_at'].toString().length >= 16 ? m['created_at'].toString().substring(11, 16) : 'Just now',
+            isMe: isMe,
+            attachmentType: m['type'] != 'text' ? m['type'] : null,
+            attachmentData: m['attachments'] != null && (m['attachments'] as List).isNotEmpty
+                ? {'url': m['attachments'][0]['url']}
+                : (m['shared_entity_type'] != null
+                    ? {'type': m['shared_entity_type'], 'id': m['shared_entity_id']}
+                    : null),
+          );
+        }).toList();
+
+        _messagesHistory[widget.chat.id] = loadedMsgs;
+
+        if (mounted) {
+          setState(() {
+            _messages = loadedMsgs;
+            _isLoadingMessages = false;
+          });
+        }
 
         ApiService().markChatConversationAsRead(token: token, conversationId: convId);
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoadingMessages = false;
+          });
+        }
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isLoadingMessages = false;
+        });
       }
     }
   }
@@ -1216,7 +1276,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
       if (data['conversation_id'] == convId) {
         final senderId = data['sender_id'];
         final currentUserId = AuthService().userId;
-        final isMe = (senderId != null && currentUserId != null && senderId == currentUserId);
+        final isMe = (senderId != null && senderId.toString() == currentUserId.toString());
 
         if (!isMe) {
           setState(() {
@@ -1500,18 +1560,35 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
   }
 
   void _showCallingDialog(bool isVideo) {
+    final callText = isVideo ? '📹 Started a video call' : '📞 Started a voice call';
+    final now = TimeOfDay.now();
+    final timeStr = '${now.hourOfPeriod == 0 ? 12 : now.hourOfPeriod}:${now.minute.toString().padLeft(2, '0')} ${now.period == DayPeriod.am ? 'AM' : 'PM'}';
+
     setState(() {
       _messages.add(
         ChatMessage(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
-          senderName: AuthService().userName.isNotEmpty ? AuthService().userName : 'You',
+          senderName: 'You',
           senderAvatar: AuthService().userProfilePicture.isNotEmpty ? AuthService().userProfilePicture : 'assets/images/user1.jpg',
-          text: isVideo ? '📹 Started a video call' : '📞 Started a voice call',
-          time: 'Just now',
+          text: callText,
+          time: timeStr,
           isMe: true,
         ),
       );
+      widget.chat.lastMessage = 'You: $callText';
+      widget.chat.time = timeStr;
     });
+
+    final int? convId = int.tryParse(widget.chat.id);
+    final token = AuthService().token;
+    if (convId != null && token != null && token.isNotEmpty) {
+      ApiService().sendChatMessage(
+        token: token,
+        conversationId: convId,
+        type: 'text',
+        text: callText,
+      );
+    }
 
     Navigator.push(
       context,
@@ -1527,74 +1604,215 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
   }
 
   Future<void> _pickAndSendImage(ImageSource source) async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: source, imageQuality: 85);
-    if (pickedFile != null) {
-      final now = TimeOfDay.now();
-      final timeStr = '${now.hourOfPeriod == 0 ? 12 : now.hourOfPeriod}:${now.minute.toString().padLeft(2, '0')} ${now.period == DayPeriod.am ? 'AM' : 'PM'}';
-      final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: source, imageQuality: 85);
+      if (pickedFile != null) {
+        final now = TimeOfDay.now();
+        final timeStr = '${now.hourOfPeriod == 0 ? 12 : now.hourOfPeriod}:${now.minute.toString().padLeft(2, '0')} ${now.period == DayPeriod.am ? 'AM' : 'PM'}';
+        final tempId = DateTime.now().millisecondsSinceEpoch.toString();
 
-      final localMsg = ChatMessage(
-        id: tempId,
-        senderName: AuthService().userName.isNotEmpty ? AuthService().userName : 'You',
-        senderAvatar: AuthService().userProfilePicture.isNotEmpty ? AuthService().userProfilePicture : 'assets/images/user1.jpg',
-        text: 'Sent an image 🏞️',
-        time: timeStr,
-        isMe: true,
-        attachmentType: 'image',
-        attachmentData: {
-          'imageFile': pickedFile.path,
-        },
-      );
-
-      setState(() {
-        _messages.add(localMsg);
-        widget.chat.lastMessage = 'You: Sent an image 🏞️';
-        widget.chat.time = timeStr;
-      });
-
-      HapticFeedback.lightImpact();
-
-      final int? convId = int.tryParse(widget.chat.id);
-      final token = AuthService().token;
-      if (convId != null && token != null && token.isNotEmpty) {
-        final res = await ApiService().sendChatMessage(
-          token: token,
-          conversationId: convId,
-          type: 'image',
+        final localMsg = ChatMessage(
+          id: tempId,
+          senderName: AuthService().userName.isNotEmpty ? AuthService().userName : 'You',
+          senderAvatar: AuthService().userProfilePicture.isNotEmpty ? AuthService().userProfilePicture : 'assets/images/user1.jpg',
           text: 'Sent an image 🏞️',
-          mediaFile: File(pickedFile.path),
+          time: timeStr,
+          isMe: true,
+          attachmentType: 'image',
+          attachmentData: {
+            'imageFile': pickedFile.path,
+          },
         );
-        if (res.success && res.data != null && res.data!['message'] != null) {
-          final serverMsg = res.data!['message'];
-          final attachments = serverMsg['attachments'] as List? ?? [];
-          if (attachments.isNotEmpty && mounted) {
-            setState(() {
-              localMsg.attachmentData?['imageUrl'] = attachments[0]['url'];
-              localMsg.attachmentData?['url'] = attachments[0]['url'];
-            });
+
+        setState(() {
+          _messages.add(localMsg);
+          widget.chat.lastMessage = 'You: Sent an image 🏞️';
+          widget.chat.time = timeStr;
+        });
+
+        HapticFeedback.lightImpact();
+
+        final int? convId = int.tryParse(widget.chat.id);
+        final token = AuthService().token;
+        if (convId != null && token != null && token.isNotEmpty) {
+          final res = await ApiService().sendChatMessage(
+            token: token,
+            conversationId: convId,
+            type: 'image',
+            text: 'Sent an image 🏞️',
+            mediaFile: File(pickedFile.path),
+          );
+          if (res.success && res.data != null && res.data!['message'] != null) {
+            final serverMsg = res.data!['message'];
+            final attachments = serverMsg['attachments'] as List? ?? [];
+            if (attachments.isNotEmpty && mounted) {
+              setState(() {
+                localMsg.attachmentData?['imageUrl'] = attachments[0]['url'];
+                localMsg.attachmentData?['url'] = attachments[0]['url'];
+              });
+            }
           }
         }
       }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
     }
   }
 
-  void _sendVoiceNote() {
+  void _sendVoiceNote() async {
+    final now = TimeOfDay.now();
+    final timeStr = '${now.hourOfPeriod == 0 ? 12 : now.hourOfPeriod}:${now.minute.toString().padLeft(2, '0')} ${now.period == DayPeriod.am ? 'AM' : 'PM'}';
+    final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    final localMsg = ChatMessage(
+      id: tempId,
+      senderName: AuthService().userName.isNotEmpty ? AuthService().userName : 'You',
+      senderAvatar: AuthService().userProfilePicture.isNotEmpty ? AuthService().userProfilePicture : 'assets/images/user1.jpg',
+      text: 'Voice note (0:05)',
+      time: timeStr,
+      isMe: true,
+      attachmentType: 'voice',
+    );
+
     setState(() {
-      _messages.add(
-        ChatMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          senderName: 'You',
-          senderAvatar:
-              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-          text: 'Voice note (0:14)',
-          time: 'Just now',
-          isMe: true,
-          attachmentType: 'voice',
-        ),
-      );
+      _messages.add(localMsg);
+      widget.chat.lastMessage = 'You: 🎤 Voice note (0:05)';
+      widget.chat.time = timeStr;
     });
+
     HapticFeedback.lightImpact();
+
+    final int? convId = int.tryParse(widget.chat.id);
+    final token = AuthService().token;
+    if (convId != null && token != null && token.isNotEmpty) {
+      await ApiService().sendChatMessage(
+        token: token,
+        conversationId: convId,
+        type: 'voice',
+        text: 'Voice note (0:05)',
+      );
+    }
+  }
+
+  void _showFullScreenImage(BuildContext context, String? imageUrl, String? localPath) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.black.withOpacity(0.92),
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: localPath != null && localPath.isNotEmpty && File(localPath).existsSync()
+                    ? Image.file(File(localPath), fit: BoxFit.contain)
+                    : imageUrl != null && imageUrl.isNotEmpty
+                        ? Image.network(
+                            imageUrl,
+                            fit: BoxFit.contain,
+                            errorBuilder: (ctx, err, stack) => const Center(
+                              child: Text('Image unavailable', style: TextStyle(color: Colors.white70)),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+              ),
+            ),
+            Positioned(
+              top: 40,
+              right: 16,
+              child: IconButton(
+                icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVoiceAttachment(ChatMessage msg, {required bool isMe}) {
+    if (msg.attachmentType != 'voice' && msg.attachmentType != 'audio') {
+      return const SizedBox.shrink();
+    }
+    final isPlaying = _playingVoiceMsgId == msg.id;
+    final color = isMe ? Colors.white : const Color(0xff2B1564);
+    final trackColor = isMe ? Colors.white.withOpacity(0.3) : const Color(0xffCBD5E1);
+    final activeTrackColor = isMe ? Colors.white : const Color(0xff2563EB);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isMe ? Colors.white.withOpacity(0.12) : const Color(0xffF1F5F9),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                if (_playingVoiceMsgId == msg.id) {
+                  _playingVoiceMsgId = null;
+                } else {
+                  _playingVoiceMsgId = msg.id;
+                }
+              });
+              HapticFeedback.lightImpact();
+            },
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isMe ? Colors.white24 : const Color(0xff2B1564).withOpacity(0.1),
+              ),
+              child: Icon(
+                isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                color: color,
+                size: 22,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: List.generate(12, (index) {
+                  final height = 6.0 + ((index * 7) % 14);
+                  final isActive = isPlaying && (index <= 6);
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                    width: 3,
+                    height: height,
+                    decoration: BoxDecoration(
+                      color: isActive ? activeTrackColor : trackColor,
+                      borderRadius: BorderRadius.circular(1.5),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                isPlaying ? 'Playing...' : '0:05',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontFamily: 'PublicSans',
+                  fontWeight: FontWeight.w600,
+                  color: isMe ? Colors.white70 : Colors.black54,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   void _toggleHeartReaction(ChatMessage msg) {
@@ -1762,8 +1980,15 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
         children: [
           // Chat Messages List
           Expanded(
-            child: _messages.isEmpty
-                ? Center(
+            child: _isLoadingMessages && _messages.isEmpty
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Color(0xff2B1564),
+                    ),
+                  )
+                : _messages.isEmpty
+                    ? Center(
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
                       child: Padding(
@@ -1960,6 +2185,14 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                       )
                     else
                       GestureDetector(
+                        onTap: () {
+                          if (_isRecording) {
+                            setState(() => _isRecording = false);
+                            _sendVoiceNote();
+                          } else {
+                            setState(() => _isRecording = true);
+                          }
+                        },
                         onLongPressStart: (_) {
                           HapticFeedback.lightImpact();
                           setState(() {
@@ -1977,10 +2210,10 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: _isRecording ? Colors.red.withOpacity(0.1) : Colors.transparent,
+                            color: _isRecording ? Colors.red.withOpacity(0.12) : Colors.transparent,
                           ),
                           child: Icon(
-                            Icons.mic_none_outlined,
+                            _isRecording ? Icons.send_rounded : Icons.mic_none_outlined,
                             color: _isRecording ? Colors.red : const Color(0xff2B1564),
                             size: 23,
                           ),
@@ -2012,13 +2245,16 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     if (localPath != null && localPath.isNotEmpty && File(localPath).existsSync()) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 6),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.file(
-            File(localPath),
-            height: 180,
-            width: double.infinity,
-            fit: BoxFit.cover,
+        child: GestureDetector(
+          onTap: () => _showFullScreenImage(context, null, localPath),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(
+              File(localPath),
+              height: 180,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
           ),
         ),
       );
@@ -2027,27 +2263,30 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     if (imageUrl != null && imageUrl.isNotEmpty) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 6),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.network(
-            imageUrl,
-            height: 180,
-            width: double.infinity,
-            fit: BoxFit.cover,
-            errorBuilder: (ctx, err, stack) => Container(
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.black12,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              alignment: Alignment.center,
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.broken_image_rounded, color: Colors.grey, size: 22),
-                  SizedBox(width: 6),
-                  Text('Image unavailable', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                ],
+        child: GestureDetector(
+          onTap: () => _showFullScreenImage(context, imageUrl, null),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              imageUrl,
+              height: 180,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (ctx, err, stack) => Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.black12,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.broken_image_rounded, color: Colors.grey, size: 22),
+                    SizedBox(width: 6),
+                    Text('Image unavailable', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
+                ),
               ),
             ),
           ),
@@ -2084,26 +2323,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     _buildImageAttachment(msg),
-                    if (msg.attachmentType == 'voice') ...[
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 24),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 100,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text('0:14', style: TextStyle(fontSize: 11, color: Colors.white70)),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                    ],
+                    _buildVoiceAttachment(msg, isMe: true),
                     Text(
                       msg.text,
                       style: const TextStyle(
@@ -2205,6 +2425,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                             ),
                             const SizedBox(height: 4),
                             _buildImageAttachment(msg),
+                            _buildVoiceAttachment(msg, isMe: false),
                             const SizedBox(height: 4),
                             Text(
                               msg.text,

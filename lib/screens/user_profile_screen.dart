@@ -565,26 +565,21 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             if (link['type'] == 'instagram')
-                                              Image.network(
-                                                'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/600px-Instagram_icon.png',
-                                                width: 14,
-                                                height: 14,
-                                              )
+                                              const Icon(Icons.camera_alt_rounded, size: 14, color: Color(0xffE1306C))
                                             else if (link['type'] == 'youtube')
-                                              Image.network(
-                                                'https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/YouTube_full-color_icon_%282017%29.svg/512px-YouTube_full-color_icon_%282017%29.svg.png',
-                                                width: 16,
-                                                height: 11,
-                                              )
+                                              const Icon(Icons.play_circle_fill_rounded, size: 14, color: Color(0xffFF0000))
                                             else
                                               const Icon(Icons.link_rounded, size: 14, color: Color(0xff2563EB)),
                                             const SizedBox(width: 6),
-                                            Text(
-                                              link['title']!,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.black87,
+                                            Flexible(
+                                              child: Text(
+                                                link['title']!,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.black87,
+                                                ),
                                               ),
                                             ),
                                           ],

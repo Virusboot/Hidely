@@ -64,6 +64,7 @@ class MainWrapperState extends State<MainWrapper> {
     setState(() {
       _currentIndex = index;
     });
+    GroupChatScreen.activeState?.clearSearch();
     if (index == 0) {
       FeedScreen.activeState?.reload();
     } else if (index == 1) {

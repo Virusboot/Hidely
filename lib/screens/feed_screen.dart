@@ -613,6 +613,11 @@ class _FeedScreenState extends State<FeedScreen> {
 
     // Image configuration
     final String imageUrl = post["image_url"] ?? (post["image"] is String ? post["image"] : "");
+    final List<dynamic> imagesList = post["images"] is List
+        ? List.from(post["images"])
+        : (post["image_urls"] is List
+            ? List.from(post["image_urls"])
+            : (post["media_urls"] is List ? List.from(post["media_urls"]) : []));
     final bool isAsset = post["isAsset"] ?? (imageUrl.startsWith("assets/") == true);
 
     return Column(
@@ -761,6 +766,13 @@ class _FeedScreenState extends State<FeedScreen> {
                 if (isVideo) {
                   return FeedVideoPlayer(
                     videoUrl: isLocalVideo ? (post["image"] as File).path : imageUrl,
+                  );
+                }
+
+                if (imagesList.length > 1) {
+                  return _FeedCarouselMediaWidget(
+                    images: imagesList,
+                    isAsset: isAsset,
                   );
                 }
 
@@ -1432,38 +1444,66 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
     final List<Map<String, dynamic>> loadedUsers = [];
 
     if (token.isNotEmpty) {
-      final res = await ApiService().getFollowing(token: token);
-      if (res.success && res.data != null && res.data!['following'] != null) {
-        final list = res.data!['following'] as List;
-        for (var u in list) {
-          if (u is Map) {
-            loadedUsers.add({
-              'id': u['id'],
-              'name': u['name'] ?? u['username'] ?? 'User',
-              'username': u['username'] ?? 'user',
-              'avatar': u['profile_picture'] ?? 'assets/images/user1.jpg',
-              'selected': false,
-              'color': const Color(0xff5B3EC8),
-            });
+      // 1. Recent Chat Contacts (people talked with recently)
+      final chatRes = await ApiService().getChatConversations(token: token);
+      if (chatRes.success && chatRes.data != null && chatRes.data!['conversations'] != null) {
+        final convs = chatRes.data!['conversations'] as List;
+        for (var c in convs) {
+          if (c is Map && c['target_user'] != null) {
+            final target = c['target_user'];
+            final uId = target['id'];
+            if (uId != null && !loadedUsers.any((existing) => existing['id'] == uId)) {
+              loadedUsers.add({
+                'id': uId,
+                'name': target['name'] ?? target['username'] ?? 'User',
+                'username': target['username'] ?? 'user',
+                'avatar': target['profile_picture'] ?? 'assets/images/user1.jpg',
+                'selected': false,
+                'color': const Color(0xff2B1564),
+              });
+            }
           }
         }
       }
-    }
 
-    if (loadedUsers.length < 8) {
-      final lbRes = await ApiService().getLeaderboard();
-      if (lbRes.success && lbRes.data != null && lbRes.data!['leaderboard'] != null) {
-        final lbList = lbRes.data!['leaderboard'] as List;
-        for (var u in lbList) {
-          if (u is Map && !loadedUsers.any((existing) => existing['id'] == u['id'])) {
-            loadedUsers.add({
-              'id': u['id'],
-              'name': u['name'] ?? u['username'] ?? 'Explorer',
-              'username': u['username'] ?? 'user',
-              'avatar': u['avatar_url'] ?? u['profile_picture'] ?? 'assets/images/user1.jpg',
-              'selected': false,
-              'color': const Color(0xff2563EB),
-            });
+      // 2. Following users
+      final followingRes = await ApiService().getFollowing(token: token);
+      if (followingRes.success && followingRes.data != null && followingRes.data!['following'] != null) {
+        final list = followingRes.data!['following'] as List;
+        for (var u in list) {
+          if (u is Map) {
+            final uId = u['id'];
+            if (uId != null && !loadedUsers.any((existing) => existing['id'] == uId)) {
+              loadedUsers.add({
+                'id': uId,
+                'name': u['name'] ?? u['username'] ?? 'User',
+                'username': u['username'] ?? 'user',
+                'avatar': u['profile_picture'] ?? 'assets/images/user1.jpg',
+                'selected': false,
+                'color': const Color(0xff5B3EC8),
+              });
+            }
+          }
+        }
+      }
+
+      // 3. Followers users
+      final followersRes = await ApiService().getFollowers(token: token);
+      if (followersRes.success && followersRes.data != null && followersRes.data!['followers'] != null) {
+        final list = followersRes.data!['followers'] as List;
+        for (var u in list) {
+          if (u is Map) {
+            final uId = u['id'];
+            if (uId != null && !loadedUsers.any((existing) => existing['id'] == uId)) {
+              loadedUsers.add({
+                'id': uId,
+                'name': u['name'] ?? u['username'] ?? 'User',
+                'username': u['username'] ?? 'user',
+                'avatar': u['profile_picture'] ?? 'assets/images/user1.jpg',
+                'selected': false,
+                'color': const Color(0xff2563EB),
+              });
+            }
           }
         }
       }
@@ -1483,30 +1523,6 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
     setState(() {
       _searchQuery = val;
     });
-
-    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
-    if (val.length >= 2) {
-      _searchDebounce = Timer(const Duration(milliseconds: 300), () async {
-        final res = await ApiService().searchUsers(query: val);
-        if (res.success && res.data != null && res.data!['users'] != null && mounted) {
-          final searchList = res.data!['users'] as List;
-          setState(() {
-            for (var u in searchList) {
-              if (u is Map && !_users.any((existing) => existing['id'] == u['id'])) {
-                _users.add({
-                  'id': u['id'],
-                  'name': u['name'] ?? u['username'] ?? 'User',
-                  'username': u['username'] ?? 'user',
-                  'avatar': u['profile_picture'] ?? 'assets/images/user1.jpg',
-                  'selected': false,
-                  'color': const Color(0xff9C27B0),
-                });
-              }
-            }
-          });
-        }
-      });
-    }
   }
 
   bool get _hasSelection => _users.any((u) => u["selected"] == true);
@@ -1847,6 +1863,135 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FeedCarouselMediaWidget extends StatefulWidget {
+  final List<dynamic> images;
+  final bool isAsset;
+
+  const _FeedCarouselMediaWidget({
+    required this.images,
+    this.isAsset = false,
+  });
+
+  @override
+  State<_FeedCarouselMediaWidget> createState() => _FeedCarouselMediaWidgetState();
+}
+
+class _FeedCarouselMediaWidgetState extends State<_FeedCarouselMediaWidget> {
+  int _currentIndex = 0;
+  final PageController _pageController = PageController();
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 4 / 5,
+      child: Stack(
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            itemCount: widget.images.length,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            itemBuilder: (context, index) {
+              final img = widget.images[index];
+              final String url = img is String ? img : img.toString();
+
+              if (img is File) {
+                return Image.file(
+                  img,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                );
+              }
+
+              final bool isAssetPath = url.startsWith('assets/');
+              if (isAssetPath) {
+                return Image.asset(
+                  url,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                );
+              }
+
+              final String fullUrl = (url.startsWith('http') || url.startsWith('https'))
+                  ? url
+                  : '${ApiService().baseUrl}/${url.startsWith('/') ? url.substring(1) : url}';
+
+              return CachedNetworkImage(
+                imageUrl: fullUrl,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                placeholder: (context, url) => Container(
+                  color: Colors.grey.shade100,
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xff2B1564),
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: Colors.grey.shade200,
+                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                ),
+              );
+            },
+          ),
+          Positioned(
+            top: 12,
+            right: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.65),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                '${_currentIndex + 1}/${widget.images.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 12,
+            right: 0,
+            left: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(widget.images.length, (index) {
+                final bool isSelected = index == _currentIndex;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: isSelected ? 8 : 6,
+                  height: isSelected ? 8 : 6,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isSelected ? const Color(0xff2563EB) : Colors.white.withOpacity(0.6),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
       ),
     );
   }

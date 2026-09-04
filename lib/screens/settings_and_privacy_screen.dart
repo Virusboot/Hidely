@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'main_wrapper.dart';
-import 'login_screen.dart';
 import 'edit_profile_screen.dart';
 import 'change_password_screen.dart';
 import 'privacy_policy_screen.dart';

@@ -540,20 +540,36 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             _fetchExplorePosts();
                           },
                           decoration: InputDecoration(
-                            hintText: "Ask AI e.g. Delhi ke paas hidden waterfall...",
+                            hintText: "Search accounts or places...",
                             hintStyle: const TextStyle(color: Colors.black38, fontSize: 13),
                             prefixIcon: const Icon(Icons.search, color: Color(0xff1C0D5A), size: 20),
-                             suffixIcon: IconButton(
-                              icon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF7C3AED), size: 20),
-                              onPressed: () {
-                                showModalBottomSheet(
-                                  context: context,
-                                  isScrollControlled: true,
-                                  useSafeArea: true,
-                                  backgroundColor: Colors.transparent,
-                                  builder: (_) => const ItineraryPlannerSheet(locationName: "Trip Destinations"),
-                                );
-                              },
+                            suffixIcon: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_searchQuery.isNotEmpty)
+                                  IconButton(
+                                    icon: const Icon(Icons.cancel_rounded, color: Colors.black38, size: 18),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {
+                                        _searchQuery = "";
+                                      });
+                                      _fetchExplorePosts();
+                                    },
+                                  ),
+                                IconButton(
+                                  icon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF7C3AED), size: 20),
+                                  onPressed: () {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      useSafeArea: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (_) => const ItineraryPlannerSheet(locationName: "Trip Destinations"),
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(vertical: 13),
@@ -586,175 +602,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 ),
               ),
 
-              // --- Instagram-Style Professional Accounts Search Results List ---
+              // --- Instagram-Style Professional Search Results List ---
               if (_searchQuery.trim().isNotEmpty && _searchResultsUsers.isNotEmpty) ...[
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xffE2E8F0)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 16, right: 16, top: 14, bottom: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              "Accounts",
-                              style: TextStyle(
-                                color: Color(0xff1C0D5A),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            Text(
-                              "${_searchResultsUsers.length} found",
-                              style: TextStyle(
-                                color: const Color(0xff1C0D5A).withOpacity(0.5),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1, color: Color(0xffF1F5F9)),
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _searchResultsUsers.length > 5 ? 5 : _searchResultsUsers.length,
-                        separatorBuilder: (context, index) => const Divider(height: 1, indent: 68, color: Color(0xffF8FAFC)),
-                        itemBuilder: (context, idx) {
-                          final u = _searchResultsUsers[idx];
-                          final uname = u['username']?.toString() ?? 'user';
-                          final name = u['name']?.toString() ?? uname;
-                          final bio = u['bio']?.toString() ?? '';
-                          final avatar = u['profile_picture']?.toString() ?? '';
-                          final bool isVerified = u['is_verified'] == true || u['is_verified'] == 1 || u['is_verified'] == 'true';
-
-                          return InkWell(
-                            borderRadius: idx == 0
-                                ? const BorderRadius.vertical(top: Radius.circular(0))
-                                : (idx == (_searchResultsUsers.length > 5 ? 4 : _searchResultsUsers.length - 1)
-                                    ? const BorderRadius.vertical(bottom: Radius.circular(20))
-                                    : BorderRadius.zero),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => CreatorProfileScreen(username: uname),
-                                ),
-                              );
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              child: Row(
-                                children: [
-                                  // Instagram Style Gradient Ring Avatar
-                                  Container(
-                                    padding: const EdgeInsets.all(2.0),
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      gradient: LinearGradient(
-                                        colors: [Color(0xff833AB4), Color(0xffFD1D1D), Color(0xffF56040)],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                    ),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(1.5),
-                                      decoration: const BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.white,
-                                      ),
-                                      child: UserAvatar(
-                                        avatarUrl: avatar,
-                                        displayName: uname,
-                                        radius: 22,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Flexible(
-                                              child: Text(
-                                                uname,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Color(0xff1C0D5A),
-                                                ),
-                                              ),
-                                            ),
-                                            if (isVerified) ...[
-                                              const SizedBox(width: 4),
-                                              const Icon(
-                                                Icons.verified_rounded,
-                                                color: Color(0xff3897F0),
-                                                size: 15,
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          name.isNotEmpty && name.toLowerCase() != uname.toLowerCase() ? name : (bio.isNotEmpty ? bio : "Creator"),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.black.withOpacity(0.5),
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xff2B1564),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Text(
-                                      "View",
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
+                _buildInstagramSearchResultsList(),
                 const SizedBox(height: 8),
               ],
 
@@ -866,6 +716,130 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildInstagramSearchResultsList() {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      itemCount: _searchResultsUsers.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 4),
+      itemBuilder: (context, idx) {
+        final u = _searchResultsUsers[idx];
+        final uname = u['username']?.toString() ?? 'user';
+        final name = u['name']?.toString() ?? uname;
+        final bio = u['bio']?.toString() ?? '';
+        final avatar = u['profile_picture']?.toString() ?? '';
+        final bool isVerified = u['is_verified'] == true || u['is_verified'] == 1 || u['is_verified'] == 'true';
+
+        return InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CreatorProfileScreen(username: uname),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: Row(
+              children: [
+                // Instagram Style Gradient Ring Avatar
+                Container(
+                  padding: const EdgeInsets.all(2.5),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Color(0xff833AB4), Color(0xffFD1D1D), Color(0xffF56040)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(1.5),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                    ),
+                    child: UserAvatar(
+                      avatarUrl: avatar,
+                      displayName: uname,
+                      radius: 24,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              uname,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'PublicSans',
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xff1C0D5A),
+                              ),
+                            ),
+                          ),
+                          if (isVerified) ...[
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.verified_rounded,
+                              color: Color(0xff3897F0),
+                              size: 16,
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        name.isNotEmpty && name.toLowerCase() != uname.toLowerCase() ? name : (bio.isNotEmpty ? bio : "Creator"),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'PublicSans',
+                          fontSize: 12.5,
+                          color: Colors.black.withOpacity(0.5),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff1C0D5A),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    "View",
+                    style: TextStyle(
+                      fontFamily: 'PublicSans',
+                      color: Colors.white,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

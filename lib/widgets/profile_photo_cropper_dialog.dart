@@ -173,9 +173,9 @@ class _ProfilePhotoCropperDialogState extends State<ProfilePhotoCropperDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               child: Column(
                 children: [
-                  Row(
+                  const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
+                    children: [
                       Icon(Icons.touch_app_rounded, color: Colors.white70, size: 18),
                       SizedBox(width: 8),
                       Text(

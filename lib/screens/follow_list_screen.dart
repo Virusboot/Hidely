@@ -69,31 +69,37 @@ class _FollowListScreenState extends State<FollowListScreen> with SingleTickerPr
   Future<void> _loadData() async {
     final token = AuthService().token ?? '';
     
-    // 1. Load Following (real data if available, or leaderboard fallback)
-    if (widget.isMe) {
-      final res = await ApiService().getFollowing(token: token);
-      if (res.success) {
-        final list = res.data?['following'] as List? ?? [];
-        setState(() {
-          _following = list;
-          _filteredFollowing = list;
-          _isLoadingFollowing = false;
-          for (var user in list) {
-            final uName = user['username']?.toString() ?? '';
-            if (uName.isNotEmpty) {
-              _followingStatus[uName] = true;
-            }
+    // 1. Load Following
+    final followingRes = await ApiService().getFollowing(token: token, username: widget.username);
+    if (followingRes.success && followingRes.data?['following'] != null) {
+      final list = followingRes.data!['following'] as List;
+      setState(() {
+        _following = list;
+        _filteredFollowing = list;
+        _isLoadingFollowing = false;
+        for (var user in list) {
+          final uName = user['username']?.toString() ?? '';
+          if (uName.isNotEmpty) {
+            _followingStatus[uName] = true;
           }
-        });
-      } else {
-        _loadLeaderboardFallback(isFollowingList: true);
-      }
+        }
+      });
     } else {
       _loadLeaderboardFallback(isFollowingList: true);
     }
 
-    // 2. Load Followers (leaderboard fallback since no dedicated followers endpoint exists)
-    _loadLeaderboardFallback(isFollowingList: false);
+    // 2. Load Followers
+    final followersRes = await ApiService().getFollowers(token: token, username: widget.username);
+    if (followersRes.success && followersRes.data?['followers'] != null) {
+      final list = followersRes.data!['followers'] as List;
+      setState(() {
+        _followers = list;
+        _filteredFollowers = list;
+        _isLoadingFollowers = false;
+      });
+    } else {
+      _loadLeaderboardFallback(isFollowingList: false);
+    }
   }
 
   Future<void> _loadLeaderboardFallback({required bool isFollowingList}) async {

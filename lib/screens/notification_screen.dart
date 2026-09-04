@@ -337,8 +337,8 @@ class _NotificationScreenState extends State<NotificationScreen>
                               )
                             ],
                           ),
-                          child: Center(
-                            child: const Icon(
+                          child: const Center(
+                            child: Icon(
                               Icons.arrow_back_ios_new_rounded,
                               color: Color(0xff1C0D5A),
                               size: 18.0,

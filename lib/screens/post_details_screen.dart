@@ -11,6 +11,7 @@ import 'package:hidely_new/services/location_capture_service.dart';
 
 class PostDetailsScreen extends StatefulWidget {
   final File? selectedImage;
+  final List<File>? selectedImages;
   final Uint8List? imageBytes;
   final String? filename;
   final MediaSource mediaSource;
@@ -19,6 +20,7 @@ class PostDetailsScreen extends StatefulWidget {
   const PostDetailsScreen({
     super.key,
     this.selectedImage,
+    this.selectedImages,
     this.imageBytes,
     this.filename,
     this.mediaSource = MediaSource.gallery,
@@ -235,6 +237,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         location: (_location == "Fetching location..." || _location == "Location access failed" || _location == "Add location (optional)") ? "Unknown Location" : _location,
         category: _selectedCategory,
         image: widget.selectedImage,
+        images: widget.selectedImages,
         imageBytes: widget.imageBytes,
         filename: widget.filename,
         latitude: _latitude,

@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
-import 'package:hidely_new/screens/video_call_screen.dart';
-import 'package:hidely_new/screens/voice_call_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class OutgoingCallScreen extends StatefulWidget {
   final String callerName;
@@ -28,6 +24,7 @@ class _OutgoingCallScreenState extends State<OutgoingCallScreen> with TickerProv
   late AnimationController _pulseController;
   bool _isMuted = false;
   bool _isSpeaker = true;
+  bool _isCameraOn = true;
   final String _callStatus = "Ringing...";
 
   @override
@@ -44,53 +41,7 @@ class _OutgoingCallScreenState extends State<OutgoingCallScreen> with TickerProv
     )..repeat();
   }
 
-  Future<void> _acceptCall() async {
-    if (!mounted) return;
 
-    // Proactively request camera & microphone permissions
-    try {
-      await [
-        Permission.camera,
-        Permission.microphone,
-      ].request();
-    } catch (e) {
-      debugPrint("Permission error: $e");
-    }
-
-    if (!mounted) return;
-
-    if (widget.isVideo) {
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, anim1, anim2) => VideoCallScreen(
-            callerName: widget.callerName,
-            callerAvatar: widget.callerAvatar,
-            callID: widget.callID,
-          ),
-          transitionsBuilder: (context, anim1, anim2, child) => FadeTransition(
-            opacity: anim1,
-            child: child,
-          ),
-        ),
-      );
-    } else {
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, anim1, anim2) => VoiceCallScreen(
-            callerName: widget.callerName,
-            callerAvatar: widget.callerAvatar,
-            callID: widget.callID,
-          ),
-          transitionsBuilder: (context, anim1, anim2, child) => FadeTransition(
-            opacity: anim1,
-            child: child,
-          ),
-        ),
-      );
-    }
-  }
 
   void _cancelCall() {
     if (mounted) {
@@ -310,7 +261,30 @@ class _OutgoingCallScreenState extends State<OutgoingCallScreen> with TickerProv
                         color: Color(0xff0F172A),
                       ),
                       child: ClipOval(
-                        child: _buildAvatar(130),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            _buildAvatar(130),
+                            if (widget.isVideo && !_isCameraOn)
+                              Container(
+                                width: 130,
+                                height: 130,
+                                color: Colors.black.withOpacity(0.85),
+                                alignment: Alignment.center,
+                                child: const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.videocam_off_rounded, color: Colors.white70, size: 36),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      "Camera Off",
+                                      style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -401,6 +375,44 @@ class _OutgoingCallScreenState extends State<OutgoingCallScreen> with TickerProv
                             ],
                           ),
 
+                          // Camera Toggle Button (Visible for Video Calls)
+                          if (widget.isVideo)
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _isCameraOn = !_isCameraOn;
+                                    });
+                                  },
+                                  child: Container(
+                                    width: 54,
+                                    height: 54,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: _isCameraOn ? Colors.white.withOpacity(0.2) : Colors.red.withOpacity(0.85),
+                                      border: Border.all(color: Colors.white12),
+                                    ),
+                                    child: Icon(
+                                      _isCameraOn ? Icons.videocam_rounded : Icons.videocam_off_rounded,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  _isCameraOn ? "Camera" : "Cam Off",
+                                  style: TextStyle(
+                                    color: _isCameraOn ? Colors.white60 : Colors.redAccent,
+                                    fontSize: 12,
+                                    fontWeight: _isCameraOn ? FontWeight.normal : FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+
                           // Red Decline / Cancel Button
                           Column(
                             mainAxisSize: MainAxisSize.min,
@@ -434,43 +446,6 @@ class _OutgoingCallScreenState extends State<OutgoingCallScreen> with TickerProv
                               const Text(
                                 "Cancel",
                                 style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
-                              ),
-                            ],
-                          ),
-
-                          // Green Accept / Pick Up Call Button
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              GestureDetector(
-                                onTap: _acceptCall,
-                                child: Container(
-                                  width: 68,
-                                  height: 68,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: const LinearGradient(
-                                      colors: [Color(0xff10B981), Color(0xff059669)],
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xff10B981).withOpacity(0.45),
-                                        blurRadius: 20,
-                                        spreadRadius: 4,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    widget.isVideo ? Icons.videocam_rounded : Icons.call_rounded,
-                                    color: Colors.white,
-                                    size: 32,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              const Text(
-                                "Pick Up",
-                                style: TextStyle(color: Color(0xff34D399), fontSize: 12, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),

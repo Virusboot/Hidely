@@ -20,6 +20,7 @@ class CreatePostScreen extends StatefulWidget {
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
   File? _selectedImage;
+  List<File> _selectedImages = [];
   Uint8List? _selectedImageBytes;
   String? _selectedFileName;
   final ImagePicker _picker = ImagePicker();
@@ -137,6 +138,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           _selectedImageBytes = bytes;
           _selectedFileName = pickedFile.name;
           _selectedImage = File(pickedFile.path);
+          _selectedImages = [File(pickedFile.path)];
           _selectedAsset = null;
         });
       }
@@ -147,6 +149,29 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           const SnackBar(content: Text("Failed to access device gallery.")),
         );
       }
+    }
+  }
+
+  Future<void> _pickMultiImages() async {
+    try {
+      final List<XFile> pickedFiles = await _picker.pickMultiImage(
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
+      );
+      if (pickedFiles.isNotEmpty) {
+        final List<File> files = pickedFiles.take(10).map((x) => File(x.path)).toList();
+        final bytes = await files.first.readAsBytes();
+        setState(() {
+          _selectedImages = files;
+          _selectedImage = files.first;
+          _selectedImageBytes = bytes;
+          _selectedFileName = pickedFiles.first.name;
+          _selectedAsset = null;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error picking multi images: $e");
     }
   }
 
@@ -267,6 +292,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                 MaterialPageRoute(
                                   builder: (context) => PostDetailsScreen(
                                     selectedImage: _selectedImage,
+                                    selectedImages: _selectedImages.isNotEmpty ? _selectedImages : null,
                                     imageBytes: _selectedImageBytes,
                                     filename: _selectedFileName,
                                   ),
@@ -405,9 +431,43 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             right: 16,
                             child: Row(
                               children: [
-                                _buildOverlayCircleButton(Icons.crop_original_outlined),
+                                GestureDetector(
+                                  onTap: _pickImage,
+                                  child: _buildOverlayCircleButton(Icons.crop_original_outlined),
+                                ),
                                 const SizedBox(width: 10),
-                                _buildOverlayCircleButton(Icons.layers_outlined),
+                                GestureDetector(
+                                  onTap: _pickMultiImages,
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      _buildOverlayCircleButton(
+                                        Icons.layers_outlined,
+                                        isActive: _selectedImages.length > 1,
+                                      ),
+                                      if (_selectedImages.length > 1)
+                                        Positioned(
+                                          top: -4,
+                                          right: -4,
+                                          child: Container(
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: const BoxDecoration(
+                                              color: Color(0xff2563EB),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Text(
+                                              '${_selectedImages.length}',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -635,12 +695,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   // Helper widget builder for translucent bottom-right preview anchors
-  Widget _buildOverlayCircleButton(IconData icon) {
+  Widget _buildOverlayCircleButton(IconData icon, {bool isActive = false}) {
     return Container(
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.65),
+        color: isActive ? const Color(0xff2563EB) : Colors.black.withOpacity(0.65),
         shape: BoxShape.circle,
       ),
       child: Icon(icon, color: Colors.white, size: 18),

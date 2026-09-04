@@ -440,16 +440,12 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                                         color: const Color(0xffF1F5F9),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
-                                      child: Row(
+                                      child: const Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Image.network(
-                                            'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/600px-Instagram_icon.png',
-                                            width: 13,
-                                            height: 13,
-                                          ),
-                                          const SizedBox(width: 5),
-                                          const Text(
+                                          Icon(Icons.camera_alt_rounded, size: 13, color: Color(0xffE1306C)),
+                                          SizedBox(width: 5),
+                                          Text(
                                             'Instagram',
                                             style: TextStyle(
                                               fontSize: 11,
@@ -477,16 +473,12 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                                         color: const Color(0xffF1F5F9),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
-                                      child: Row(
+                                      child: const Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Image.network(
-                                            'https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/YouTube_full-color_icon_%282017%29.svg/512px-YouTube_full-color_icon_%282017%29.svg.png',
-                                            width: 15,
-                                            height: 10,
-                                          ),
-                                          const SizedBox(width: 5),
-                                          const Text(
+                                          Icon(Icons.play_circle_fill_rounded, size: 14, color: Color(0xffFF0000)),
+                                          SizedBox(width: 5),
+                                          Text(
                                             'YouTube',
                                             style: TextStyle(
                                               fontSize: 11,

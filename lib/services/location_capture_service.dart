@@ -61,9 +61,9 @@ class LocationCaptureService {
       Position? position;
       try {
         position = await Geolocator.getCurrentPosition(
-          locationSettings: LocationSettings(
+          locationSettings: const LocationSettings(
             accuracy: kIsWeb ? LocationAccuracy.high : LocationAccuracy.best,
-            timeLimit: const Duration(seconds: 8),
+            timeLimit: Duration(seconds: 8),
           ),
         );
       } catch (e) {

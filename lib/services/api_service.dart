@@ -508,6 +508,7 @@ class ApiService {
     required String location,
     required String category,
     File? image,
+    List<File>? images,
     Uint8List? imageBytes,
     String? filename,
     double? latitude,
@@ -546,7 +547,44 @@ class ApiService {
       if (aiConfidence != null) request.fields['ai_confidence'] = aiConfidence.toString();
       if (duplicateClusterId != null) request.fields['duplicate_cluster_id'] = duplicateClusterId;
 
-      if (kIsWeb || imageBytes != null) {
+      if (images != null && images.isNotEmpty) {
+        for (int i = 0; i < images.length; i++) {
+          final imgFile = images[i];
+          final ext = imgFile.path.split('.').last.toLowerCase();
+          final isVideo = ['mp4', 'mov', 'avi', 'mkv', 'mpeg'].contains(ext);
+          
+          File finalFile = imgFile;
+          if (!isVideo && !kIsWeb) {
+            finalFile = await ImageCompressionService.compressImage(
+              imgFile,
+              quality: 80,
+              maxDimension: 1920,
+            );
+          }
+          
+          final fileExt = finalFile.path.split('.').last.toLowerCase();
+          final mediaType = isVideo ? 'video' : 'image';
+          final subType = isVideo ? fileExt : (fileExt == 'jpg' ? 'jpeg' : fileExt);
+
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'images',
+              finalFile.path,
+              contentType: MediaType(mediaType, subType),
+            ),
+          );
+
+          if (i == 0) {
+            request.files.add(
+              await http.MultipartFile.fromPath(
+                'image',
+                finalFile.path,
+                contentType: MediaType(mediaType, subType),
+              ),
+            );
+          }
+        }
+      } else if (kIsWeb || imageBytes != null) {
         final bytes = imageBytes ?? (image != null ? await image.readAsBytes() : Uint8List(0));
         final name = filename ?? (image != null && image.path.isNotEmpty ? image.path.split('/').last : 'upload.jpg');
         final ext = name.contains('.') ? name.split('.').last.toLowerCase() : 'jpg';
@@ -840,10 +878,13 @@ class ApiService {
   }
 
   /// Get followed creators list
-  Future<ApiResult> getFollowing({required String token}) async {
+  Future<ApiResult> getFollowing({required String token, String? username}) async {
     try {
+      final url = (username != null && username.isNotEmpty)
+          ? '$baseUrl/api/users/following/$username'
+          : '$baseUrl/api/users/following';
       final response = await http.get(
-        Uri.parse('$baseUrl/api/users/following'),
+        Uri.parse(url),
         headers: {
           'Authorization': 'Bearer $token',
         },
@@ -853,6 +894,29 @@ class ApiService {
         return ApiResult(success: true, message: 'Following list loaded.', data: body);
       } else {
         return ApiResult(success: false, message: body['error'] ?? 'Failed to load following list.', error: body['error']);
+      }
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
+  /// Get followers list
+  Future<ApiResult> getFollowers({required String token, String? username}) async {
+    try {
+      final url = (username != null && username.isNotEmpty)
+          ? '$baseUrl/api/users/followers/$username'
+          : '$baseUrl/api/users/followers';
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(success: true, message: 'Followers list loaded.', data: body);
+      } else {
+        return ApiResult(success: false, message: body['error'] ?? 'Failed to load followers list.', error: body['error']);
       }
     } catch (e) {
       return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
