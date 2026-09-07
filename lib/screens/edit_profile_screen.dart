@@ -79,7 +79,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     final cleanBio = bioLines.join('\n').trim();
     _bioController = TextEditingController(text: cleanBio);
-    _selectedGender = AuthService().userGender.isNotEmpty ? AuthService().userGender : null;
+    
+    final rawGender = AuthService().userGender;
+    if (rawGender.isNotEmpty) {
+      const allowedGenders = ["Male", "Female", "Other", "Prefer not to say"];
+      final matched = allowedGenders.firstWhere(
+        (g) => g.toLowerCase() == rawGender.trim().toLowerCase(),
+        orElse: () => rawGender,
+      );
+      _selectedGender = allowedGenders.contains(matched) ? matched : null;
+    } else {
+      _selectedGender = null;
+    }
   }
 
   @override

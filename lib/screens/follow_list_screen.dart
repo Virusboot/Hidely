@@ -73,17 +73,19 @@ class _FollowListScreenState extends State<FollowListScreen> with SingleTickerPr
     final followingRes = await ApiService().getFollowing(token: token, username: widget.username);
     if (followingRes.success && followingRes.data?['following'] != null) {
       final list = followingRes.data!['following'] as List;
-      setState(() {
-        _following = list;
-        _filteredFollowing = list;
-        _isLoadingFollowing = false;
-        for (var user in list) {
-          final uName = user['username']?.toString() ?? '';
-          if (uName.isNotEmpty) {
-            _followingStatus[uName] = true;
+      if (mounted) {
+        setState(() {
+          _following = list;
+          _filteredFollowing = list;
+          _isLoadingFollowing = false;
+          for (var user in list) {
+            final uName = user['username']?.toString() ?? '';
+            if (uName.isNotEmpty) {
+              _followingStatus[uName] = user['is_following'] ?? true;
+            }
           }
-        }
-      });
+        });
+      }
     } else {
       _loadLeaderboardFallback(isFollowingList: true);
     }
@@ -92,11 +94,19 @@ class _FollowListScreenState extends State<FollowListScreen> with SingleTickerPr
     final followersRes = await ApiService().getFollowers(token: token, username: widget.username);
     if (followersRes.success && followersRes.data?['followers'] != null) {
       final list = followersRes.data!['followers'] as List;
-      setState(() {
-        _followers = list;
-        _filteredFollowers = list;
-        _isLoadingFollowers = false;
-      });
+      if (mounted) {
+        setState(() {
+          _followers = list;
+          _filteredFollowers = list;
+          _isLoadingFollowers = false;
+          for (var user in list) {
+            final uName = user['username']?.toString() ?? '';
+            if (uName.isNotEmpty) {
+              _followingStatus[uName] = user['is_following'] ?? false;
+            }
+          }
+        });
+      }
     } else {
       _loadLeaderboardFallback(isFollowingList: false);
     }
