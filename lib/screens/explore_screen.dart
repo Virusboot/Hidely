@@ -66,18 +66,77 @@ class _ExploreScreenState extends State<ExploreScreen> {
     await prefs.setStringList('recent_searches', searches);
   }
 
-  Future<void> _fetchUserPreferences() async {
+  static List<String>? _globalPreferredCategoriesCache;
+  static String? _globalPreferredUserId;
+  static Future<List<String>>? _inFlightPreferenceFuture;
+
+  Future<void> _fetchUserPreferences({bool forceRefresh = false}) async {
+    final currentUserId = AuthService().userId;
+
+    if (_globalPreferredUserId != currentUserId) {
+      _globalPreferredCategoriesCache = null;
+      _globalPreferredUserId = currentUserId;
+      _inFlightPreferenceFuture = null;
+    }
+
+    if (!forceRefresh && _globalPreferredCategoriesCache != null) {
+      if (mounted) {
+        setState(() {
+          _userPreferredCategories = List.from(_globalPreferredCategoriesCache!);
+          _isPersonalizationLoaded = true;
+        });
+      }
+      return;
+    }
+
     if (AuthService().isGuest) {
+      _globalPreferredCategoriesCache = [];
       _isPersonalizationLoaded = true;
       return;
     }
+
+    if (_inFlightPreferenceFuture != null) {
+      final categories = await _inFlightPreferenceFuture!;
+      if (mounted) {
+        setState(() {
+          _userPreferredCategories = List.from(categories);
+          _isPersonalizationLoaded = true;
+        });
+      }
+      return;
+    }
+
+    _inFlightPreferenceFuture = _loadPreferencesFromApi();
+    final categories = await _inFlightPreferenceFuture!;
+    _inFlightPreferenceFuture = null;
+
+    _globalPreferredCategoriesCache = categories;
+    _globalPreferredUserId = currentUserId;
+
+    if (mounted) {
+      setState(() {
+        _userPreferredCategories = List.from(categories);
+        _isPersonalizationLoaded = true;
+      });
+    }
+  }
+
+  Future<List<String>> _loadPreferencesFromApi() async {
     try {
       final token = AuthService().token ?? '';
-      final savedResult = await ApiService().getSavedPosts(token: token);
-      final profileResult = await ApiService().getCreatorProfile(
-        username: AuthService().userUsername,
-        token: token,
-      );
+      if (token.isEmpty) return [];
+
+      final savedFuture = ApiService().getSavedPosts(token: token);
+      final profileFuture = AuthService().userUsername.isNotEmpty
+          ? ApiService().getCreatorProfile(
+              username: AuthService().userUsername,
+              token: token,
+            )
+          : Future.value(ApiResult(success: false, message: 'No username'));
+
+      final results = await Future.wait([savedFuture, profileFuture]);
+      final ApiResult savedResult = results[0];
+      final ApiResult profileResult = results[1];
 
       final Map<String, int> categoryScores = {};
 
@@ -105,19 +164,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
       final sorted = categoryScores.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
 
-      if (mounted) {
-        setState(() {
-          _userPreferredCategories = sorted.map((e) => e.key).toList();
-          _isPersonalizationLoaded = true;
-        });
-      }
+      return sorted.map((e) => e.key).toList();
     } catch (e) {
       debugPrint("Error fetching personalization preferences: $e");
-      if (mounted) {
-        setState(() {
-          _isPersonalizationLoaded = true;
-        });
-      }
+      return [];
     }
   }
 

@@ -61,5 +61,9 @@ key.properties
 *.apk
 *.aab
 
+# Local secret configuration
+ios/Flutter/Developer.xcconfig
+
+
 
 

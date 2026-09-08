@@ -57,6 +57,7 @@ import 'package:device_info_plus/device_info_plus.dart' as device_info_plus;
 import 'package:file_picker/file_picker.dart' as file_picker;
 import 'package:file_selector_windows/file_selector_windows.dart' as file_selector_windows;
 import 'package:flutter_local_notifications_windows/flutter_local_notifications_windows.dart' as flutter_local_notifications_windows;
+import 'package:flutter_secure_storage_windows/flutter_secure_storage_windows.dart' as flutter_secure_storage_windows;
 import 'package:image_picker_windows/image_picker_windows.dart' as image_picker_windows;
 import 'package:package_info_plus/package_info_plus.dart' as package_info_plus;
 import 'package:path_provider_windows/path_provider_windows.dart' as path_provider_windows;
@@ -531,6 +532,15 @@ class _PluginRegistrant {
       } catch (err) {
         print(
           '`flutter_local_notifications_windows` threw an error: $err. '
+          'The app may not function as expected until you remove this plugin from pubspec.yaml'
+        );
+      }
+
+      try {
+        flutter_secure_storage_windows.FlutterSecureStorageWindows.registerWith();
+      } catch (err) {
+        print(
+          '`flutter_secure_storage_windows` threw an error: $err. '
           'The app may not function as expected until you remove this plugin from pubspec.yaml'
         );
       }

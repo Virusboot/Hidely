@@ -8,8 +8,17 @@ import GoogleMaps
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GMSServices.provideAPIKey("AIzaSyB5ftUcwqjuC1BZtI26KrZsblQIF1Bl7t0")
+    let mapsApiKey = (Bundle.main.object(forInfoDictionaryKey: "GOOGLE_MAPS_API_KEY") as? String)?
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+
+    if let key = mapsApiKey, !key.isEmpty, !key.hasPrefix("$(") {
+      GMSServices.provideAPIKey(key)
+    } else if let envKey = ProcessInfo.processInfo.environment["GOOGLE_MAPS_API_KEY"]?.trimmingCharacters(in: .whitespacesAndNewlines), !envKey.isEmpty {
+      GMSServices.provideAPIKey(envKey)
+    }
+
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 }
+

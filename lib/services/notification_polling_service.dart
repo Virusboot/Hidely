@@ -9,7 +9,7 @@ import 'package:hidely_new/main.dart';
 import 'package:hidely_new/screens/single_post_view_screen.dart';
 import 'package:hidely_new/screens/creator_profile_screen.dart';
 
-class NotificationPollingService {
+class NotificationPollingService with WidgetsBindingObserver {
   static final NotificationPollingService _instance = NotificationPollingService._internal();
   factory NotificationPollingService() => _instance;
   NotificationPollingService._internal();
@@ -17,11 +17,16 @@ class NotificationPollingService {
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
   Timer? _pollingTimer;
   bool _isInitialized = false;
+  bool _isPolling = false;
+  bool _isAppBackgrounded = false;
   String get _lastSeenIdKey => 'last_seen_notification_id_${AuthService().userId}';
   int _lastSeenId = 0;
 
   Future<void> initialize() async {
     if (_isInitialized) return;
+
+    // Register lifecycle observer
+    WidgetsBinding.instance.addObserver(this);
 
     // Initialize local notifications
     const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher_new');
@@ -53,9 +58,26 @@ class NotificationPollingService {
     debugPrint('[NotificationPollingService] Initialized. Last seen ID: $_lastSeenId');
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _isAppBackgrounded = true;
+      debugPrint('[NotificationPollingService] App backgrounded. Pausing polling execution.');
+    } else if (state == AppLifecycleState.resumed) {
+      _isAppBackgrounded = false;
+      debugPrint('[NotificationPollingService] App resumed.');
+      if (AuthService().isLoggedIn) {
+        startPolling();
+      }
+    }
+  }
+
   void startPolling() {
+    if (AuthService().isGuest) return;
     if (_pollingTimer != null && _pollingTimer!.isActive) return;
     debugPrint('[NotificationPollingService] Started polling every 15 seconds.');
+
+    _isPolling = false;
 
     // Force reload active user's last seen notification ID to prevent cross-session state leaks
     SharedPreferences.getInstance().then((prefs) {
@@ -63,6 +85,7 @@ class NotificationPollingService {
       debugPrint('[NotificationPollingService] Loaded last seen ID: $_lastSeenId for user: ${AuthService().userId}');
       
       _pollNotifications();
+      _pollingTimer?.cancel();
       _pollingTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
         _pollNotifications();
       });
@@ -72,14 +95,23 @@ class NotificationPollingService {
   void stopPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = null;
+    _isPolling = false;
+    _lastSeenId = 0;
     debugPrint('[NotificationPollingService] Stopped polling.');
   }
 
   Future<void> _pollNotifications() async {
+    if (_isAppBackgrounded) return; // Skip polling when backgrounded
+    if (_isPolling) {
+      debugPrint('[NotificationPollingService] Skip tick — previous poll still in progress.');
+      return;
+    }
     if (AuthService().isGuest) return; // Don't poll for guests
 
     final token = AuthService().token;
     if (token == null || token.isEmpty) return;
+
+    _isPolling = true;
 
     try {
       final result = await ApiService().getNotifications(token: token);
@@ -112,6 +144,8 @@ class NotificationPollingService {
       }
     } catch (e) {
       debugPrint('[NotificationPollingService] Error polling notifications: $e');
+    } finally {
+      _isPolling = false;
     }
   }
 

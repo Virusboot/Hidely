@@ -33,7 +33,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _emailController.text = prefs.getString('saved_email') ?? '';
-      _passwordController.text = prefs.getString('saved_password') ?? '';
     });
   }
 
@@ -185,45 +184,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             _isLoading = true;
                           });
 
-                          // Check for Demo / Reviewer / Admin Account login
-                          final lowerEmail = email.toLowerCase();
-                          if ((lowerEmail == 'admin@hidely.app' || lowerEmail == 'hidely_official' || lowerEmail == 'demo@hidely.app' || lowerEmail == 'reviewer@hidely.app' || lowerEmail == 'tester@hidely.app') &&
-                              (password == 'admin123' || password == 'hidely123' || password == 'admin' || password == 'demo123' || password == 'pass123' || password == 'reviewer123')) {
-                            final demoUserData = {
-                              'id': '1',
-                              'name': lowerEmail.contains('reviewer') ? 'Google Reviewer' : 'Hidely Demo User',
-                              'username': lowerEmail.contains('reviewer') ? 'google_reviewer' : 'hidely_demo',
-                              'email': email,
-                              'bio': 'Official Hidely Demo Account. Exploring the world\'s most breathtaking places! 🌍✨',
-                              'profile_picture': 'assets/images/logo_horizontal_color.png',
-                              'is_verified': true,
-                              'role': 'user',
-                            };
-                            await AuthService().login('demo_reviewer_token_123', demoUserData);
-                            final prefs = await SharedPreferences.getInstance();
-                            await prefs.setString('saved_email', email);
-                            await prefs.setString('saved_password', password);
-
-                            if (!context.mounted) return;
-                            setState(() {
-                              _isLoading = false;
-                            });
-
-                            if (widget.isAddingAccount) {
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(builder: (context) => const MainWrapper()),
-                                (route) => false,
-                              );
-                            } else {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(builder: (context) => const MainWrapper()),
-                              );
-                            }
-                            return;
-                          }
-
                           final result = await ApiService().login(
                             email: email,
                             password: password,
@@ -246,7 +206,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             // Save credentials to shared preferences
                             final prefs = await SharedPreferences.getInstance();
                             await prefs.setString('saved_email', email);
-                            await prefs.setString('saved_password', password);
 
                             if (!context.mounted) return;
 

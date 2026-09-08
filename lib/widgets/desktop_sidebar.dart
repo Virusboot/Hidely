@@ -161,20 +161,30 @@ class DesktopSidebar extends StatelessWidget {
 
           // User Profile Card / Login Action Footer
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(isCompact ? 8 : 16),
             child: isGuest
-                ? ElevatedButton.icon(
+                ? ElevatedButton(
                     onPressed: () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
                     },
-                    icon: const Icon(Icons.login_rounded, size: 18),
-                    label: isCompact ? const SizedBox.shrink() : const Text('Login'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xff2B1564),
                       foregroundColor: Colors.white,
                       minimumSize: const Size.fromHeight(44),
+                      padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
+                    child: isCompact
+                        ? const Icon(Icons.login_rounded, size: 18)
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.login_rounded, size: 18),
+                              SizedBox(width: 8),
+                              Text('Login'),
+                            ],
+                          ),
                   )
                 : Container(
                     padding: EdgeInsets.all(isCompact ? 8 : 12),

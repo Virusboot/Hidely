@@ -27,6 +27,9 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
+  final http.Client _client = http.Client();
+  http.Client get client => _client;
+
   static String get defaultBaseUrl => AppEnv.apiBaseUrl;
 
   static String _resolvedBaseUrl = AppEnv.apiBaseUrl;
@@ -44,7 +47,7 @@ class ApiService {
     for (final url in localUrls) {
       try {
         // Check a lightweight endpoint to see if local server is alive
-        final response = await http.get(Uri.parse('$url/api/users/leaderboard')).timeout(const Duration(milliseconds: 1500));
+        final response = await _client.get(Uri.parse('$url/api/users/leaderboard')).timeout(const Duration(milliseconds: 1500));
         if (response.statusCode == 200) {
           _resolvedBaseUrl = url;
           debugPrint('[ApiService] Using local server: $_resolvedBaseUrl');
@@ -62,7 +65,7 @@ class ApiService {
     // Wake up the online Render server in the background (fire and forget)
     try {
       final uri = Uri.parse(_resolvedBaseUrl);
-      http.get(uri).timeout(const Duration(seconds: 90)).catchError((e) {
+      _client.get(uri).timeout(const Duration(seconds: 90)).catchError((e) {
         return http.Response('error', 500);
       });
     } catch (_) {
@@ -80,7 +83,7 @@ class ApiService {
     String? gender,
   }) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$baseUrl/api/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -123,7 +126,7 @@ class ApiService {
     required String otp,
   }) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$baseUrl/api/auth/verify-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -163,7 +166,7 @@ class ApiService {
     required String password,
   }) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$baseUrl/api/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -208,7 +211,7 @@ class ApiService {
   /// Request Forgot Password OTP
   Future<ApiResult> forgotPassword({required String email}) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$baseUrl/api/auth/forgot-password'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email}),
@@ -246,7 +249,7 @@ class ApiService {
     required String newPassword,
   }) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$baseUrl/api/auth/reset-password'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -287,7 +290,7 @@ class ApiService {
     required String newPassword,
   }) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$baseUrl/api/auth/change-password'),
         headers: {
           'Content-Type': 'application/json',
@@ -297,7 +300,7 @@ class ApiService {
           'oldPassword': oldPassword,
           'newPassword': newPassword,
         }),
-      );
+      ).timeout(const Duration(seconds: 15));
 
       final body = jsonDecode(response.body);
 
@@ -326,12 +329,12 @@ class ApiService {
   /// Get user profile stats and info
   Future<ApiResult> getUserProfile({required String token}) async {
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/api/users/profile'),
         headers: {
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(const Duration(seconds: 15));
 
       final body = jsonDecode(response.body);
 
@@ -404,7 +407,7 @@ class ApiService {
         );
       }
 
-      final streamedResponse = await request.send();
+      final streamedResponse = await _client.send(request).timeout(const Duration(seconds: 45));
       final response = await http.Response.fromStream(streamedResponse);
       final body = jsonDecode(response.body);
 
@@ -439,10 +442,10 @@ class ApiService {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/api/posts/feed'),
         headers: headers,
-      );
+      ).timeout(const Duration(seconds: 15));
 
       final body = jsonDecode(response.body);
 
@@ -471,12 +474,12 @@ class ApiService {
   /// Toggle post like status
   Future<ApiResult> toggleLikePost({required String token, required int postId}) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$baseUrl/api/posts/$postId/like'),
         headers: {
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(const Duration(seconds: 15));
 
       final body = jsonDecode(response.body);
 
@@ -626,7 +629,7 @@ class ApiService {
         );
       }
 
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 45));
+      final streamedResponse = await _client.send(request).timeout(const Duration(seconds: 45));
       final response = await http.Response.fromStream(streamedResponse);
       final body = jsonDecode(response.body);
 
@@ -659,10 +662,10 @@ class ApiService {
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       }
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/api/posts/user/$userId'),
         headers: headers,
-      );
+      ).timeout(const Duration(seconds: 15));
 
       final body = jsonDecode(response.body);
 
@@ -691,12 +694,12 @@ class ApiService {
   /// Toggle bookmark on a post
   Future<ApiResult> toggleBookmarkPost({required String token, required int postId}) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$baseUrl/api/posts/$postId/bookmark'),
         headers: {
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(const Duration(seconds: 15));
 
       final body = jsonDecode(response.body);
 
@@ -725,12 +728,12 @@ class ApiService {
   /// Get bookmarked posts of logged-in user
   Future<ApiResult> getSavedPosts({required String token}) async {
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/api/posts/saved'),
         headers: {
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(const Duration(seconds: 15));
 
       final body = jsonDecode(response.body);
 
@@ -759,9 +762,9 @@ class ApiService {
   /// Get comments for a post
   Future<ApiResult> getComments({required int postId}) async {
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/api/posts/$postId/comments'),
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResult(success: true, message: 'Comments loaded.', data: body);
@@ -776,14 +779,14 @@ class ApiService {
   /// Add a comment to a post
   Future<ApiResult> addComment({required String token, required int postId, required String text}) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$baseUrl/api/posts/$postId/comment'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({'text': text}),
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       if (response.statusCode == 201) {
         return ApiResult(success: true, message: 'Comment posted.', data: body);
@@ -798,12 +801,12 @@ class ApiService {
   /// Toggle comment like status
   Future<ApiResult> toggleLikeComment({required String token, required int commentId}) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$baseUrl/api/posts/comment/$commentId/like'),
         headers: {
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResult(success: true, message: 'Comment liked/unliked.', data: body);
@@ -818,12 +821,12 @@ class ApiService {
   /// Delete a comment
   Future<ApiResult> deleteComment({required String token, required int commentId}) async {
     try {
-      final response = await http.delete(
+      final response = await _client.delete(
         Uri.parse('$baseUrl/api/posts/comment/$commentId'),
         headers: {
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResult(success: true, message: 'Comment deleted.', data: body);
@@ -842,10 +845,10 @@ class ApiService {
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       }
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/api/users/profile/$username'),
         headers: headers,
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResult(success: true, message: 'Creator profile loaded.', data: body);
@@ -860,12 +863,12 @@ class ApiService {
   /// Toggle follow creator status
   Future<ApiResult> toggleFollowCreator({required String token, required String creatorId}) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$baseUrl/api/users/follow/$creatorId'),
         headers: {
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResult(success: true, message: 'Follow state toggled.', data: body);
@@ -883,12 +886,12 @@ class ApiService {
       final url = (username != null && username.isNotEmpty)
           ? '$baseUrl/api/users/following/$username'
           : '$baseUrl/api/users/following';
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResult(success: true, message: 'Following list loaded.', data: body);
@@ -906,12 +909,12 @@ class ApiService {
       final url = (username != null && username.isNotEmpty)
           ? '$baseUrl/api/users/followers/$username'
           : '$baseUrl/api/users/followers';
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResult(success: true, message: 'Followers list loaded.', data: body);
@@ -926,7 +929,7 @@ class ApiService {
   /// Fetch notifications for current user (paginated)
   Future<ApiResult> getNotifications({required String token, int page = 1, int limit = 30}) async {
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/api/notifications?page=$page&limit=$limit'),
         headers: {
           'Authorization': 'Bearer $token',
@@ -946,7 +949,7 @@ class ApiService {
   /// Mark single notification as read
   Future<ApiResult> markSingleNotificationAsRead({required String token, required int notificationId}) async {
     try {
-      final response = await http.patch(
+      final response = await _client.patch(
         Uri.parse('$baseUrl/api/notifications/$notificationId/read'),
         headers: {
           'Authorization': 'Bearer $token',
@@ -966,7 +969,7 @@ class ApiService {
   /// Mark all notifications as read
   Future<ApiResult> markNotificationsAsRead({required String token}) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$baseUrl/api/notifications/read'),
         headers: {
           'Authorization': 'Bearer $token',
@@ -986,12 +989,12 @@ class ApiService {
   /// Get unread notification count
   Future<ApiResult> getUnreadNotificationCount({required String token}) async {
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/api/notifications/unread-count'),
         headers: {
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResult(success: true, message: 'Unread count loaded.', data: body);
@@ -1010,10 +1013,10 @@ class ApiService {
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       }
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/api/posts/$postId'),
         headers: headers,
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResult(success: true, message: 'Post loaded.', data: body);
@@ -1028,7 +1031,7 @@ class ApiService {
   /// Delete a post by ID
   Future<ApiResult> deletePost({required int postId, required String token}) async {
     try {
-      final response = await http.delete(
+      final response = await _client.delete(
         Uri.parse('$baseUrl/api/posts/$postId'),
         headers: {
           'Authorization': 'Bearer $token',
@@ -1067,7 +1070,7 @@ class ApiService {
       if (sortBy != null) queryParams['sortBy'] = sortBy;
 
       final uri = Uri.parse('$baseUrl/api/posts/explore').replace(queryParameters: queryParams);
-      final response = await http.get(uri, headers: headers);
+      final response = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
@@ -1083,9 +1086,9 @@ class ApiService {
   /// Get leaderboard rankings (period: weekly, monthly, all_time)
   Future<ApiResult> getLeaderboard({String period = 'all_time'}) async {
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/api/gamification/leaderboard?period=$period'),
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
@@ -1116,10 +1119,10 @@ class ApiService {
       final token = AuthService().token;
       if (token == null) return ApiResult(success: false, message: 'Not authenticated.');
 
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/api/gamification/me'),
         headers: {'Authorization': 'Bearer $token'},
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
@@ -1137,10 +1140,10 @@ class ApiService {
       final token = AuthService().token;
       if (token == null) return ApiResult(success: false, message: 'Not authenticated.');
 
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/api/gamification/points/history?page=$page&limit=$limit'),
         headers: {'Authorization': 'Bearer $token'},
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
@@ -1158,10 +1161,10 @@ class ApiService {
       final token = AuthService().token;
       final headers = token != null ? {'Authorization': 'Bearer $token'} : <String, String>{};
 
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/api/gamification/badges'),
         headers: headers,
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
@@ -1179,14 +1182,14 @@ class ApiService {
       final token = AuthService().token;
       if (token == null) return ApiResult(success: false, message: 'Not authenticated.');
 
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$baseUrl/api/gamification/badges/featured'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
         body: jsonEncode({'badgeId': badgeId}),
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
@@ -1202,7 +1205,7 @@ class ApiService {
   Future<ApiResult> searchUsers({required String query}) async {
     try {
       final uri = Uri.parse('$baseUrl/api/users/search').replace(queryParameters: {'q': query});
-      final response = await http.get(uri);
+      final response = await _client.get(uri).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
@@ -1231,9 +1234,9 @@ class ApiService {
   Future<ApiResult> getChatConversations({required String token, bool archived = false}) async {
     try {
       final uri = Uri.parse('$baseUrl/api/chat/conversations?archived=$archived');
-      final response = await http.get(uri, headers: {
+      final response = await _client.get(uri, headers: {
         'Authorization': 'Bearer $token',
-      });
+      }).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResult(success: true, message: 'Conversations loaded.', data: body);
@@ -1248,11 +1251,11 @@ class ApiService {
   Future<ApiResult> getOrCreateDirectChat({required String token, required int targetUserId}) async {
     try {
       final uri = Uri.parse('$baseUrl/api/chat/direct');
-      final response = await http.post(
+      final response = await _client.post(
         uri,
         headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
         body: jsonEncode({'targetUserId': targetUserId}),
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResult(success: true, message: 'Direct conversation ready.', data: body);
@@ -1267,7 +1270,7 @@ class ApiService {
   Future<ApiResult> getChatMessages({required String token, required int conversationId, int limit = 50}) async {
     try {
       final uri = Uri.parse('$baseUrl/api/chat/conversations/$conversationId/messages?limit=$limit');
-      final response = await http.get(uri, headers: {'Authorization': 'Bearer $token'});
+      final response = await _client.get(uri, headers: {'Authorization': 'Bearer $token'}).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResult(success: true, message: 'Messages loaded.', data: body);
@@ -1308,7 +1311,7 @@ class ApiService {
         request.files.add(await http.MultipartFile.fromPath('media', mediaFile.path));
       }
 
-      final streamedRes = await request.send();
+      final streamedRes = await _client.send(request).timeout(const Duration(seconds: 45));
       final response = await http.Response.fromStream(streamedRes);
       final body = jsonDecode(response.body);
       if (response.statusCode == 201) {
@@ -1324,11 +1327,11 @@ class ApiService {
   Future<ApiResult> toggleChatMessageReaction({required String token, required int messageId, required String emoji}) async {
     try {
       final uri = Uri.parse('$baseUrl/api/chat/messages/$messageId/reactions');
-      final response = await http.post(
+      final response = await _client.post(
         uri,
         headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
         body: jsonEncode({'emoji': emoji}),
-      );
+      ).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       return ApiResult(success: response.statusCode == 200, message: body['error'] ?? 'Reaction updated.');
     } catch (e) {
@@ -1340,7 +1343,7 @@ class ApiService {
   Future<ApiResult> markChatConversationAsRead({required String token, required int conversationId}) async {
     try {
       final uri = Uri.parse('$baseUrl/api/chat/conversations/$conversationId/read');
-      final response = await http.patch(uri, headers: {'Authorization': 'Bearer $token'});
+      final response = await _client.patch(uri, headers: {'Authorization': 'Bearer $token'}).timeout(const Duration(seconds: 15));
       final body = jsonDecode(response.body);
       return ApiResult(success: response.statusCode == 200, message: 'Conversation read.', data: body);
     } catch (e) {
