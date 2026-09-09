@@ -38,10 +38,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     super.initState();
     _startTimer();
 
-    if (widget.devOtp != null) {
-      debugPrint('[DEV] OTP Code is: ${widget.devOtp}');
-    }
-
     // Auto-focus the first box on startup
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
