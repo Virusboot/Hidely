@@ -252,7 +252,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
     try {
       final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/offline_map/style.json');
-      final exists = await file.exists();
+      final tilesDir = Directory('${directory.path}/offline_map/tiles');
+      final exists = (await file.exists()) || (await tilesDir.exists());
       if (mounted) {
         setState(() {
           _isMapDownloaded = exists;

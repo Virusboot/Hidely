@@ -128,21 +128,22 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
   Future<void> _initOfflineStyle() async {
     try {
       final directory = await getApplicationDocumentsDirectory();
-      final tilesPath = '${directory.path}/offline_map/tiles';
-      // Search for locally stored offline map style JSON
+      final tilesDir = Directory('${directory.path}/offline_map/tiles');
       final offlineStyleFile = File('${directory.path}/offline_map/style.json');
-      final exists = await offlineStyleFile.exists();
+      final tilesExist = await tilesDir.exists();
+      final styleExists = await offlineStyleFile.exists();
       
-      debugPrint('[OfflineStyle] Checking for offline map style at: ${offlineStyleFile.path}');
-      debugPrint('[OfflineStyle] Style file exists: $exists');
+      debugPrint('[OfflineStyle] Checking offline map: style=$styleExists, tilesDir=$tilesExist');
 
-      if (exists) {
-        final jsonString = await offlineStyleFile.readAsString();
-        debugPrint('[OfflineStyle] Loaded style JSON content successfully! Length: ${jsonString.length} chars.');
+      if (tilesExist || styleExists) {
+        String jsonString = '';
+        if (styleExists) {
+          jsonString = await offlineStyleFile.readAsString();
+        }
         if (mounted) {
           setState(() {
             _offlineStyleString = jsonString;
-            _offlineTilesPath = tilesPath;
+            _offlineTilesPath = tilesDir.path;
           });
         }
       } else {
@@ -793,6 +794,9 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
       );
     } else {
       // --- Offline/OSM Mode: Interactive Tile Map via flutter_map ---
+      final bool hasLocalTiles = _offlineTilesPath.isNotEmpty && Directory(_offlineTilesPath).existsSync();
+      final bool useLocalFileTiles = !isOnline && hasLocalTiles;
+
       return Listener(
         onPointerDown: (_) {
           ref.read(isTrackingUserProvider.notifier).state = false;
@@ -811,16 +815,23 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
             },
           ),
           children: [
-            fm.TileLayer(
-              urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-              subdomains: const ['a', 'b', 'c', 'd'],
-              tileProvider: fm.NetworkTileProvider(
-                headers: const {
-                  'User-Agent': 'HidelyApp/1.0 (Android; MapTileViewer)',
-                },
+            if (useLocalFileTiles)
+              fm.TileLayer(
+                urlTemplate: '$_offlineTilesPath/{z}/{x}/{y}.png',
+                tileProvider: fm.FileTileProvider(),
+                fallbackUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              )
+            else
+              fm.TileLayer(
+                urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                subdomains: const ['a', 'b', 'c', 'd'],
+                tileProvider: fm.NetworkTileProvider(
+                  headers: const {
+                    'User-Agent': 'HidelyApp/1.0 (Android; MapTileViewer)',
+                  },
+                ),
+                fallbackUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               ),
-              fallbackUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            ),
             if (ref.watch(showHeatmapProvider))
               fm.CircleLayer(
                 circles: _buildOfflineCircles(widget.places),
