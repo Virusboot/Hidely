@@ -51,11 +51,13 @@ class MapRepositoryImpl implements MapRepository {
 
     try {
       const apiKey = AppConstants.googleMapsApiKey;
-      final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/geocode/json'
-        '?address=${Uri.encodeComponent(address)}'
-        '&key=$apiKey'
-      );
+      final url = kIsWeb
+          ? Uri.parse('${ApiService().baseUrl}/api/map/geocode?address=${Uri.encodeComponent(address)}')
+          : Uri.parse(
+              'https://maps.googleapis.com/maps/api/geocode/json'
+              '?address=${Uri.encodeComponent(address)}'
+              '&key=$apiKey'
+            );
       final response = await http.get(url).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -148,12 +150,14 @@ class MapRepositoryImpl implements MapRepository {
     // 2. Google Places Autocomplete API
     try {
       const apiKey = AppConstants.googleMapsApiKey;
-      final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/place/autocomplete/json'
-        '?input=${Uri.encodeComponent(input)}'
-        '&components=country:in'
-        '&key=$apiKey'
-      );
+      final url = kIsWeb
+          ? Uri.parse('${ApiService().baseUrl}/api/map/autocomplete?input=${Uri.encodeComponent(input)}')
+          : Uri.parse(
+              'https://maps.googleapis.com/maps/api/place/autocomplete/json'
+              '?input=${Uri.encodeComponent(input)}'
+              '&components=country:in'
+              '&key=$apiKey'
+            );
       final response = await http.get(url).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -216,12 +220,14 @@ class MapRepositoryImpl implements MapRepository {
   Future<LatLng?> getLatLngFromPlaceId(String placeId) async {
     try {
       const apiKey = AppConstants.googleMapsApiKey;
-      final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/place/details/json'
-        '?place_id=$placeId'
-        '&fields=geometry'
-        '&key=$apiKey'
-      );
+      final url = kIsWeb
+          ? Uri.parse('${ApiService().baseUrl}/api/map/details?place_id=$placeId')
+          : Uri.parse(
+              'https://maps.googleapis.com/maps/api/place/details/json'
+              '?place_id=$placeId'
+              '&fields=geometry'
+              '&key=$apiKey'
+            );
       final response = await http.get(url).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -326,11 +332,13 @@ class MapRepositoryImpl implements MapRepository {
       if (query != null && query.trim().isNotEmpty) {
         try {
           const apiKey = AppConstants.googleMapsApiKey;
-          final url = Uri.parse(
-            'https://maps.googleapis.com/maps/api/place/textsearch/json'
-            '?query=${Uri.encodeComponent(query)}'
-            '&key=$apiKey'
-          );
+          final url = kIsWeb
+              ? Uri.parse('${ApiService().baseUrl}/api/map/places/textsearch?query=${Uri.encodeComponent(query)}')
+              : Uri.parse(
+                  'https://maps.googleapis.com/maps/api/place/textsearch/json'
+                  '?query=${Uri.encodeComponent(query)}'
+                  '&key=$apiKey'
+                );
 
           final response = await http.get(url).timeout(const Duration(seconds: 15));
           if (response.statusCode == 200) {
@@ -420,13 +428,20 @@ class MapRepositoryImpl implements MapRepository {
           final Set<String> uniqueIds = {};
 
           for (final googleType in googleTypes) {
-            final url = Uri.parse(
-              'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-              '?location=$lat,$lng'
-              '&radius=${rad.toInt()}'
-              '&type=$googleType'
-              '&key=$apiKey'
-            );
+            final url = kIsWeb
+                ? Uri.parse(
+                    '${ApiService().baseUrl}/api/map/places/nearby'
+                    '?location=$lat,$lng'
+                    '&radius=${rad.toInt()}'
+                    '&type=$googleType'
+                  )
+                : Uri.parse(
+                    'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
+                    '?location=$lat,$lng'
+                    '&radius=${rad.toInt()}'
+                    '&type=$googleType'
+                    '&key=$apiKey'
+                  );
 
             try {
               final response = await http.get(url).timeout(const Duration(seconds: 15));
@@ -685,16 +700,25 @@ class MapRepositoryImpl implements MapRepository {
                     : 'walking';
         final googleLang = language ?? 'en';
         final departureParam = mode == 'driving' ? '&departure_time=now&traffic_model=best_guess' : '';
-        final url = Uri.parse(
-          'https://maps.googleapis.com/maps/api/directions/json'
-          '?origin=${start.latitude},${start.longitude}'
-          '&destination=${end.latitude},${end.longitude}'
-          '&mode=$googleMode'
-          '&language=$googleLang'
-          '&alternatives=true'
-          '$departureParam'
-          '&key=$apiKey'
-        );
+        final url = kIsWeb
+            ? Uri.parse(
+                '${ApiService().baseUrl}/api/map/directions'
+                '?origin=${start.latitude},${start.longitude}'
+                '&destination=${end.latitude},${end.longitude}'
+                '&mode=$googleMode'
+                '&language=$googleLang'
+                '&alternatives=true'
+              )
+            : Uri.parse(
+                'https://maps.googleapis.com/maps/api/directions/json'
+                '?origin=${start.latitude},${start.longitude}'
+                '&destination=${end.latitude},${end.longitude}'
+                '&mode=$googleMode'
+                '&language=$googleLang'
+                '&alternatives=true'
+                '$departureParam'
+                '&key=$apiKey'
+              );
 
         final response = await http.get(url).timeout(const Duration(seconds: 15));
         if (response.statusCode == 200) {
