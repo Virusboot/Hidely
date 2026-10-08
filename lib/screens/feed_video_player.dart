@@ -23,14 +23,18 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   bool _userPaused = false;
   bool _isDisposed = false;
 
+  String get _thumbnailUrl {
+    final url = widget.videoUrl;
+    if (url.contains('cloudinary.com')) {
+      return url.replaceAll(RegExp(r'\.(mp4|mov|avi|webm|mkv)$', caseSensitive: false), '.jpg');
+    }
+    return '';
+  }
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !_isDisposed) {
-        _checkVisibility();
-      }
-    });
+    _initializePlayer();
   }
 
   @override
@@ -38,12 +42,12 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.videoUrl != widget.videoUrl) {
       _disposeController();
-      _checkVisibility();
+      _initializePlayer();
     }
   }
 
   Future<void> _initializePlayer() async {
-    if (_isInitializing || _controller != null || _isDisposed || !mounted) return;
+    if (_isInitializing || _isDisposed || !mounted) return;
     _isInitializing = true;
 
     final bool isLocal = !kIsWeb && (widget.videoUrl.startsWith('/') || widget.videoUrl.startsWith('file://') || widget.videoUrl.contains('cache/'));
@@ -67,7 +71,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       }
 
       await controller.setLooping(true);
-      await controller.setVolume(_isMuted ? 0.0 : 1.0);
+      await controller.setVolume(0.0); // Muted for browser autoplay compliance
+      _isMuted = true;
 
       _controller = controller;
       _isInitializing = false;
@@ -76,7 +81,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         setState(() {
           _isInitialized = true;
         });
-        _checkVisibility();
+        if (!_userPaused) {
+          _playVideo();
+        }
       } else {
         controller.dispose();
         _controller = null;
@@ -85,45 +92,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     } catch (e) {
       _isInitializing = false;
       debugPrint("Error initializing feed video player: $e");
-    }
-  }
-
-  void _checkVisibility() {
-    if (!mounted || _isDisposed) return;
-
-    try {
-      final RenderObject? renderObject = context.findRenderObject();
-      if (renderObject == null || !renderObject.attached) {
-        _disposeController();
-        return;
+      if (mounted && !_isDisposed) {
+        setState(() {});
       }
-
-      final RenderBox renderBox = renderObject as RenderBox;
-      if (!renderBox.hasSize) {
-        _disposeController();
-        return;
-      }
-
-      final Offset position = renderBox.localToGlobal(Offset.zero);
-      final Size size = renderBox.size;
-      final double screenHeight = MediaQuery.of(context).size.height;
-
-      final double top = position.dy;
-      final double bottom = top + size.height;
-
-      final bool isVisible = top < (screenHeight - 60) && bottom > 60;
-
-      if (isVisible) {
-        if (_controller == null && !_isInitializing) {
-          _initializePlayer();
-        } else if (_isInitialized && !_userPaused) {
-          _playVideo();
-        }
-      } else {
-        _disposeController();
-      }
-    } catch (e) {
-      // Safe fallback
     }
   }
 
@@ -163,9 +134,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       _controller = null;
       _isInitialized = false;
       _isPlaying = false;
-      if (mounted && !_isDisposed) {
-        setState(() {});
-      }
     }
   }
 
@@ -186,90 +154,108 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isInitialized || _controller == null) {
-      return NotificationListener<ScrollNotification>(
-        onNotification: (ScrollNotification scrollInfo) {
-          _checkVisibility();
-          return false;
-        },
-        child: Container(
-          height: 480,
-          width: double.infinity,
-          color: Colors.black87,
-          child: const Center(
-            child: CircularProgressIndicator(color: Colors.white),
-          ),
-        ),
-      );
-    }
+    final thumb = _thumbnailUrl;
 
-    return NotificationListener<ScrollNotification>(
-      onNotification: (ScrollNotification scrollInfo) {
-        _checkVisibility();
-        return false;
-      },
-      child: GestureDetector(
-        onTap: () {
-          _userPaused = true;
-          _pauseVideo();
+    return GestureDetector(
+      onTap: () {
+        if (_controller != null && _isInitialized) {
+          if (_isPlaying) {
+            _userPaused = true;
+            _pauseVideo();
+          } else {
+            _userPaused = false;
+            _playVideo();
+          }
+        } else {
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => FullScreenVideoPlayer(videoUrl: widget.videoUrl),
             ),
-          ).then((_) {
-            if (mounted && !_isDisposed) {
-              _userPaused = false;
-              _checkVisibility();
-            }
-          });
-        },
-        child: Container(
-          height: 480,
-          width: double.infinity,
-          color: Colors.black,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Looping Full-Screen Fitted Video Player
+          );
+        }
+      },
+      onDoubleTap: () {
+        _userPaused = true;
+        _pauseVideo();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FullScreenVideoPlayer(videoUrl: widget.videoUrl),
+          ),
+        ).then((_) {
+          if (mounted && !_isDisposed) {
+            _userPaused = false;
+            _playVideo();
+          }
+        });
+      },
+      child: Container(
+        height: 480,
+        width: double.infinity,
+        color: Colors.black,
+        child: Stack(
+          alignment: Alignment.center,
+          fit: StackFit.expand,
+          children: [
+            // 1. Poster thumbnail preview image (shown instantly while loading or if video fails)
+            if (thumb.isNotEmpty)
+              Image.network(
+                thumb,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: 480,
+                errorBuilder: (context, error, stackTrace) => Container(color: Colors.black87),
+              ),
+
+            // 2. Live Video Player when initialized
+            if (_isInitialized && _controller != null)
               Positioned.fill(
-                child: ClipRect(
-                  child: FittedBox(
-                    fit: BoxFit.cover,
-                    child: SizedBox(
-                      width: _controller!.value.size.width,
-                      height: _controller!.value.size.height,
-                      child: VideoPlayer(_controller!),
-                    ),
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  clipBehavior: Clip.antiAlias,
+                  child: SizedBox(
+                    width: _controller!.value.size.width > 0 ? _controller!.value.size.width : 480,
+                    height: _controller!.value.size.height > 0 ? _controller!.value.size.height : 480,
+                    child: VideoPlayer(_controller!),
                   ),
                 ),
               ),
 
-              // Play/Pause Overlay Indicator
-              if (!_isPlaying)
-                Container(
+            // 3. Loading spinner if not yet initialized and no thumbnail
+            if (!_isInitialized && thumb.isEmpty)
+              const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+
+            // 4. Play button overlay when paused
+            if (_isInitialized && !_isPlaying)
+              Center(
+                child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
+                    color: Colors.black.withOpacity(0.55),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.play_arrow_rounded,
                     color: Colors.white,
-                    size: 40,
+                    size: 44,
                   ),
                 ),
+              ),
 
-              // Audio mute/unmute control overlay in bottom-right
+            // 5. Audio mute/unmute toggle in bottom-right
+            if (_isInitialized && _controller != null)
               Positioned(
-                bottom: 12,
-                right: 12,
+                bottom: 14,
+                right: 14,
                 child: GestureDetector(
                   onTap: _toggleMute,
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
+                      color: Colors.black.withOpacity(0.6),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -280,8 +266,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                   ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
