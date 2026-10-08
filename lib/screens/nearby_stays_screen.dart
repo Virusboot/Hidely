@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:hidely_new/config/constants.dart';
+import 'package:hidely_new/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -44,11 +46,13 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
       double lng = 0.0;
 
       if (widget.locationName != null && widget.locationName!.isNotEmpty) {
-        final geocodeUrl = Uri.parse(
-          'https://maps.googleapis.com/maps/api/geocode/json'
-          '?address=${Uri.encodeComponent(widget.locationName!)}'
-          '&key=$apiKey'
-        );
+        final geocodeUrl = kIsWeb
+            ? Uri.parse('${ApiService().baseUrl}/api/map/geocode?address=${Uri.encodeComponent(widget.locationName!)}')
+            : Uri.parse(
+                'https://maps.googleapis.com/maps/api/geocode/json'
+                '?address=${Uri.encodeComponent(widget.locationName!)}'
+                '&key=$apiKey'
+              );
         final geocodeResponse = await http.get(geocodeUrl).timeout(const Duration(seconds: 15));
         if (geocodeResponse.statusCode == 200) {
           final data = json.decode(geocodeResponse.body);
@@ -77,14 +81,18 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
         lng = pos.longitude;
       }
 
-      final restaurantUrl = Uri.parse(
-        'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-        '?location=$lat,$lng&radius=20000&type=restaurant&key=$apiKey'
-      );
-      final hotelUrl = Uri.parse(
-        'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-        '?location=$lat,$lng&radius=20000&type=lodging&key=$apiKey'
-      );
+      final restaurantUrl = kIsWeb
+          ? Uri.parse('${ApiService().baseUrl}/api/map/places/nearby?location=$lat,$lng&radius=20000&type=restaurant')
+          : Uri.parse(
+              'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
+              '?location=$lat,$lng&radius=20000&type=restaurant&key=$apiKey'
+            );
+      final hotelUrl = kIsWeb
+          ? Uri.parse('${ApiService().baseUrl}/api/map/places/nearby?location=$lat,$lng&radius=20000&type=lodging')
+          : Uri.parse(
+              'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
+              '?location=$lat,$lng&radius=20000&type=lodging&key=$apiKey'
+            );
 
       final responses = await Future.wait([
         http.get(restaurantUrl).timeout(const Duration(seconds: 15)),
