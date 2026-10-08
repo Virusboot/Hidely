@@ -159,7 +159,7 @@ const NearbyPlaceSchema = CollectionSchema(
   getId: _nearbyPlaceGetId,
   getLinks: _nearbyPlaceGetLinks,
   attach: _nearbyPlaceAttach,
-  version: '3.1.0+1',
+  version: Isar.version,
 );
 
 int _nearbyPlaceEstimateSize(

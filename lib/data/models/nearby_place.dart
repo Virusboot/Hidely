@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:latlong2/latlong.dart';
 
 part 'nearby_place.g.dart';

@@ -5,7 +5,7 @@ import 'package:hidely_new/config/constants.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:latlong2/latlong.dart';
 import '../../services/local_storage_service.dart';
 import '../../services/api_service.dart';

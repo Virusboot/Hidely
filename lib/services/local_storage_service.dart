@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import '../data/models/nearby_place.dart';
 
