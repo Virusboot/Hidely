@@ -824,11 +824,10 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
               )
             else
               fm.TileLayer(
-                urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                subdomains: const ['a', 'b', 'c', 'd'],
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 tileProvider: fm.NetworkTileProvider(
                   headers: const {
-                    'User-Agent': 'HidelyApp/1.0 (Android; MapTileViewer)',
+                    'User-Agent': 'HidelyApp/1.0 (contact@hidely.app)',
                   },
                 ),
                 fallbackUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
