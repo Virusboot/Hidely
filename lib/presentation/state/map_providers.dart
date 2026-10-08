@@ -222,14 +222,16 @@ final userLocationStreamProvider = StreamProvider<LatLng>((ref) async* {
 
   // Get current position initially
   LatLng? initialLoc;
-  try {
-    final Position? lastKnown = await Geolocator.getLastKnownPosition();
-    if (lastKnown != null) {
-      initialLoc = LatLng(lastKnown.latitude, lastKnown.longitude);
-      yield initialLoc;
+  if (!kIsWeb) {
+    try {
+      final Position? lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        initialLoc = LatLng(lastKnown.latitude, lastKnown.longitude);
+        yield initialLoc;
+      }
+    } catch (e) {
+      debugPrint('[GPS Shift] Last known position failed: $e');
     }
-  } catch (e) {
-    debugPrint('[GPS Shift] Last known position failed: $e');
   }
 
   try {

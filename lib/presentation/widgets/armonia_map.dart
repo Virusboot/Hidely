@@ -126,6 +126,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
   }
 
   Future<void> _initOfflineStyle() async {
+    if (kIsWeb) return;
     try {
       final directory = await getApplicationDocumentsDirectory();
       final tilesDir = Directory('${directory.path}/offline_map/tiles');

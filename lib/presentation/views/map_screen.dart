@@ -164,11 +164,15 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
-        Position? pos = await Geolocator.getLastKnownPosition();
-        if (pos != null && mounted) {
-          final userLoc = LatLng(pos.latitude, pos.longitude);
-          ref.read(mapCenterProvider.notifier).state = userLoc;
-          ref.read(isTrackingUserProvider.notifier).state = true;
+        if (!kIsWeb) {
+          try {
+            Position? pos = await Geolocator.getLastKnownPosition();
+            if (pos != null && mounted) {
+              final userLoc = LatLng(pos.latitude, pos.longitude);
+              ref.read(mapCenterProvider.notifier).state = userLoc;
+              ref.read(isTrackingUserProvider.notifier).state = true;
+            }
+          } catch (_) {}
         }
 
         try {
@@ -249,6 +253,14 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
   }
 
   Future<void> _checkMapDownloadStatus() async {
+    if (kIsWeb) {
+      if (mounted) {
+        setState(() {
+          _isMapDownloaded = false;
+        });
+      }
+      return;
+    }
     try {
       final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/offline_map/style.json');
