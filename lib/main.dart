@@ -52,6 +52,7 @@ Future<void> main() async {
 }
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
 
 class HidelyApp extends StatelessWidget {
   const HidelyApp({super.key});
@@ -60,6 +61,7 @@ class HidelyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: navigatorKey,
+      navigatorObservers: [routeObserver],
       title: 'Hidely — Social Places Discovery',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,

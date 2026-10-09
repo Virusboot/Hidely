@@ -31,6 +31,7 @@ class MainWrapper extends StatefulWidget {
 
 class MainWrapperState extends State<MainWrapper> {
   static MainWrapperState? activeState;
+  static final ValueNotifier<int> currentTabNotifier = ValueNotifier<int>(0);
   late int _currentIndex;
 
   int get currentIndex => _currentIndex;
@@ -40,6 +41,7 @@ class MainWrapperState extends State<MainWrapper> {
     super.initState();
     activeState = this;
     _currentIndex = widget.initialIndex;
+    currentTabNotifier.value = _currentIndex;
   }
 
   @override
@@ -64,6 +66,7 @@ class MainWrapperState extends State<MainWrapper> {
     setState(() {
       _currentIndex = index;
     });
+    currentTabNotifier.value = index;
     GroupChatScreen.activeState?.clearSearch();
     if (index == 0) {
       FeedScreen.activeState?.reload();
