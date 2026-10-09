@@ -8,7 +8,6 @@ import 'post_details_screen.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:hidely_new/services/location_capture_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
-import 'create_reel_screen.dart';
 
 class CreatePostScreen extends StatefulWidget {
   final File? selectedImage;
@@ -236,18 +235,44 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
-  Future<void> _openCamera() async {
-    if (_selectedMode == "REEL") {
-      final result = await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const CreateReelScreen()),
+  Future<void> _captureVideoFromCamera() async {
+    final cameraStatus = await Permission.camera.request();
+    if (cameraStatus.isDenied || cameraStatus.isPermanentlyDenied) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Camera permission is required.")),
+        );
+      }
+      return;
+    }
+
+    try {
+      final XFile? pickedFile = await _picker.pickVideo(
+        source: ImageSource.camera,
+        maxDuration: const Duration(seconds: 60),
       );
-      if (result != null && result is File && mounted) {
+      if (pickedFile != null) {
+        final bytes = await pickedFile.readAsBytes();
         setState(() {
-          _selectedImage = result;
+          _selectedImageBytes = bytes;
+          _selectedFileName = pickedFile.name;
+          _selectedImage = File(pickedFile.path);
           _selectedAsset = null;
         });
       }
+    } catch (e) {
+      debugPrint("Error capturing video: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to open video camera.")),
+        );
+      }
+    }
+  }
+
+  Future<void> _openCamera() async {
+    if (_selectedMode == "REEL") {
+      _captureVideoFromCamera();
     } else {
       _captureImageFromCamera();
     }

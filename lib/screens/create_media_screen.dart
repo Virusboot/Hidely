@@ -8,7 +8,6 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/location_capture_service.dart';
 import 'post_details_screen.dart';
-import 'create_reel_screen.dart';
 
 // 0 = POST (4:5),  1 = REEL (9:16)
 
@@ -114,6 +113,29 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
       imageQuality: 85,
       maxWidth: 1920,
       maxHeight: 1920,
+    );
+    if (f != null && mounted) {
+      final bytes = await f.readAsBytes();
+      final capLoc = await LocationCaptureService().captureCameraLocation();
+      if (!mounted) return;
+      Navigator.push(context, MaterialPageRoute(
+        builder: (context) => PostDetailsScreen(
+          selectedImage: File(f.path),
+          imageBytes: bytes,
+          filename: f.name,
+          mediaSource: MediaSource.camera,
+          initialCapturedLocation: capLoc,
+        ),
+      ));
+    }
+  }
+
+  Future<void> _pickVideoFromCamera() async {
+    final ok = await Permission.camera.request();
+    if (ok.isDenied) { _snack('Camera permission required.', error: true); return; }
+    final f = await _picker.pickVideo(
+      source: ImageSource.camera,
+      maxDuration: const Duration(seconds: 60),
     );
     if (f != null && mounted) {
       final bytes = await f.readAsBytes();
@@ -272,9 +294,7 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
                                       // REEL first cell = camera
                                       if (_currentModeIndex == 1 && idx == 0) {
                                         return GestureDetector(
-                                          onTap: () {
-                                            Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateReelScreen()));
-                                          },
+                                          onTap: _pickVideoFromCamera,
                                           child: ClipRRect(
                                             borderRadius: BorderRadius.circular(3),
                                             child: Container(
