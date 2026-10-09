@@ -193,6 +193,12 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
 
   void _onSharePressed() async {
     if (_isLoading) return;
+
+    if (AuthService().isGuest) {
+      showLoginRequiredSheet(context, reason: 'share a new travel post');
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
