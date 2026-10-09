@@ -126,8 +126,40 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   CapturedLocation? _capturedLocation;
 
   Future<void> _fetchLocation() async {
-    // Gallery media: MUST NOT automatically fetch device GPS location
+    if (widget.initialCapturedLocation != null) {
+      _capturedLocation = widget.initialCapturedLocation;
+      _latitude = _capturedLocation!.latitude;
+      _longitude = _capturedLocation!.longitude;
+      if (mounted) {
+        setState(() {
+          _location = _capturedLocation!.displayName ?? "${_capturedLocation!.latitude.toStringAsFixed(4)}, ${_capturedLocation!.longitude.toStringAsFixed(4)}";
+        });
+      }
+      return;
+    }
+
+    // Gallery media: Try extracting EXIF GPS metadata embedded in the photo
     if (widget.mediaSource == MediaSource.gallery) {
+      Uint8List? bytes = _localImageBytes ?? widget.imageBytes;
+      if (bytes == null && widget.selectedImage != null) {
+        try {
+          bytes = await widget.selectedImage!.readAsBytes();
+        } catch (_) {}
+      }
+
+      if (bytes != null) {
+        final photoLoc = await LocationCaptureService().extractLocationFromBytes(bytes);
+        if (photoLoc != null && mounted) {
+          setState(() {
+            _capturedLocation = photoLoc;
+            _latitude = photoLoc.latitude;
+            _longitude = photoLoc.longitude;
+            _location = photoLoc.displayName ?? "${photoLoc.latitude.toStringAsFixed(4)}, ${photoLoc.longitude.toStringAsFixed(4)}";
+          });
+          return;
+        }
+      }
+
       if (mounted) {
         setState(() {
           _location = "Add location (optional)";
@@ -141,18 +173,6 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
 
     // Camera media: Capture high-accuracy current device location
     if (mounted) setState(() => _location = "Fetching camera location...");
-
-    if (widget.initialCapturedLocation != null) {
-      _capturedLocation = widget.initialCapturedLocation;
-      _latitude = _capturedLocation!.latitude;
-      _longitude = _capturedLocation!.longitude;
-      if (mounted) {
-        setState(() {
-          _location = _capturedLocation!.displayName ?? "Camera Location";
-        });
-      }
-      return;
-    }
 
     final capLoc = await LocationCaptureService().captureCameraLocation();
     if (capLoc != null && mounted) {
@@ -589,6 +609,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
 
   Widget _buildLocationSection() {
     if (_capturedLocation != null) {
+      final isExif = _capturedLocation!.source == 'photo_exif';
       final isHighConfidence = _capturedLocation!.isHighConfidence;
       final accMeters = _capturedLocation!.accuracyMeters.round();
 
@@ -596,10 +617,14 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isHighConfidence ? const Color(0xffF0FDF4) : const Color(0xffFFFBEB),
+          color: isExif
+              ? const Color(0xffF5F3FF)
+              : (isHighConfidence ? const Color(0xffF0FDF4) : const Color(0xffFFFBEB)),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isHighConfidence ? const Color(0xffBBF7D0) : const Color(0xffFDE68A),
+            color: isExif
+                ? const Color(0xffDDD6FE)
+                : (isHighConfidence ? const Color(0xffBBF7D0) : const Color(0xffFDE68A)),
           ),
         ),
         child: Column(
@@ -608,16 +633,22 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
             Row(
               children: [
                 Icon(
-                  Icons.my_location_rounded,
-                  color: isHighConfidence ? const Color(0xff16A34A) : const Color(0xffD97706),
+                  isExif ? Icons.photo_camera_rounded : Icons.my_location_rounded,
+                  color: isExif
+                      ? const Color(0xff7C3AED)
+                      : (isHighConfidence ? const Color(0xff16A34A) : const Color(0xffD97706)),
                   size: 20,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    isHighConfidence ? "Captured Location (High Accuracy)" : "Captured Location (Low Accuracy)",
+                    isExif
+                        ? "Photo Location (Auto-Detected)"
+                        : (isHighConfidence ? "Captured Location (High Accuracy)" : "Captured Location (Low Accuracy)"),
                     style: TextStyle(
-                      color: isHighConfidence ? const Color(0xff15803D) : const Color(0xffB45309),
+                      color: isExif
+                          ? const Color(0xff6D28D9)
+                          : (isHighConfidence ? const Color(0xff15803D) : const Color(0xffB45309)),
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
                     ),
@@ -629,15 +660,19 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: isHighConfidence ? const Color(0xff86EFAC) : const Color(0xffFCD34D),
+                      color: isExif
+                          ? const Color(0xffC4B5FD)
+                          : (isHighConfidence ? const Color(0xff86EFAC) : const Color(0xffFCD34D)),
                     ),
                   ),
                   child: Text(
-                    "± $accMeters m",
+                    isExif ? "EXIF GPS" : "± $accMeters m",
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: isHighConfidence ? const Color(0xff15803D) : const Color(0xffB45309),
+                      color: isExif
+                          ? const Color(0xff6D28D9)
+                          : (isHighConfidence ? const Color(0xff15803D) : const Color(0xffB45309)),
                     ),
                   ),
                 ),

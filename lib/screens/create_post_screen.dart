@@ -6,7 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'post_details_screen.dart';
 import 'package:photo_manager/photo_manager.dart';
-
+import 'package:hidely_new/services/location_capture_service.dart';
 import 'create_reel_screen.dart';
 
 class CreatePostScreen extends StatefulWidget {
@@ -285,8 +285,31 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       SizedBox(
                         height: 38,
                         child: ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
                             if (_selectedImageBytes != null || _selectedImage != null) {
+                              CapturedLocation? initialLoc;
+                              if (_selectedAsset != null) {
+                                try {
+                                  final double lat = _selectedAsset!.latitude ?? 0.0;
+                                  final double lon = _selectedAsset!.longitude ?? 0.0;
+                                  if (lat != 0.0 && lon != 0.0) {
+                                    final placeName = await LocationCaptureService().reverseGeocode(lat, lon);
+                                    initialLoc = CapturedLocation(
+                                      latitude: lat,
+                                      longitude: lon,
+                                      accuracyMeters: 5.0,
+                                      capturedAt: DateTime.now(),
+                                      displayName: placeName,
+                                      source: 'photo_exif',
+                                      confidence: LocationConfidence.high,
+                                    );
+                                  }
+                                } catch (e) {
+                                  debugPrint("Error fetching asset location: $e");
+                                }
+                              }
+
+                              if (!mounted) return;
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -295,6 +318,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                     selectedImages: _selectedImages.isNotEmpty ? _selectedImages : null,
                                     imageBytes: _selectedImageBytes,
                                     filename: _selectedFileName,
+                                    mediaSource: MediaSource.gallery,
+                                    initialCapturedLocation: initialLoc,
                                   ),
                                 ),
                               );

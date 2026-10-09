@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:exif/exif.dart';
 
 enum LocationConfidence { high, low, unavailable }
 enum MediaSource { camera, gallery }
@@ -133,5 +134,92 @@ class LocationCaptureService {
       debugPrint('[LocationCaptureService] Reverse geocode error: $e');
     }
     return null;
+  }
+
+  /// Extract GPS location from Image Bytes (EXIF metadata)
+  Future<CapturedLocation?> extractLocationFromBytes(Uint8List bytes) async {
+    try {
+      final gps = await extractExifGps(bytes);
+      if (gps != null) {
+        final double lat = gps['latitude']!;
+        final double lon = gps['longitude']!;
+        final placeName = await reverseGeocode(lat, lon);
+
+        return CapturedLocation(
+          latitude: lat,
+          longitude: lon,
+          accuracyMeters: 5.0,
+          capturedAt: DateTime.now(),
+          displayName: placeName,
+          source: 'photo_exif',
+          confidence: LocationConfidence.high,
+        );
+      }
+    } catch (e) {
+      debugPrint('[LocationCaptureService] Error extracting photo location: $e');
+    }
+    return null;
+  }
+
+  /// Extract raw latitude and longitude from EXIF bytes
+  Future<Map<String, double>?> extractExifGps(Uint8List bytes) async {
+    try {
+      final Map<String, IfdTag> data = await readExifFromBytes(bytes);
+      if (data.isEmpty) return null;
+
+      final latTag = data['GPS GPSLatitude'];
+      final latRefTag = data['GPS GPSLatitudeRef'];
+      final lonTag = data['GPS GPSLongitude'];
+      final lonRefTag = data['GPS GPSLongitudeRef'];
+
+      if (latTag == null || lonTag == null) return null;
+
+      final latValues = latTag.values.toList();
+      final lonValues = lonTag.values.toList();
+
+      if (latValues.length < 3 || lonValues.length < 3) return null;
+
+      double convertToDegrees(dynamic degrees, dynamic minutes, dynamic seconds) {
+        double d = _ratioToDouble(degrees);
+        double m = _ratioToDouble(minutes);
+        double s = _ratioToDouble(seconds);
+        return d + (m / 60.0) + (s / 3600.0);
+      }
+
+      double lat = convertToDegrees(latValues[0], latValues[1], latValues[2]);
+      double lon = convertToDegrees(lonValues[0], lonValues[1], lonValues[2]);
+
+      if (latRefTag != null && latRefTag.printable.toUpperCase().contains('S')) {
+        lat = -lat;
+      }
+      if (lonRefTag != null && lonRefTag.printable.toUpperCase().contains('W')) {
+        lon = -lon;
+      }
+
+      if (lat != 0.0 || lon != 0.0) {
+        return {'latitude': lat, 'longitude': lon};
+      }
+    } catch (e) {
+      debugPrint('[LocationCaptureService] EXIF GPS extraction error: $e');
+    }
+    return null;
+  }
+
+  double _ratioToDouble(dynamic val) {
+    if (val == null) return 0.0;
+    if (val is num) return val.toDouble();
+    if (val is Ratio) return val.toDouble();
+    try {
+      final str = val.toString();
+      if (str.contains('/')) {
+        final parts = str.split('/');
+        final n = double.tryParse(parts[0]) ?? 0;
+        final d = double.tryParse(parts[1]) ?? 1;
+        return d != 0 ? n / d : 0;
+      }
+      return double.tryParse(str) ?? 0.0;
+    } catch (_) {
+      return 0.0;
+    }
   }
 }
