@@ -632,14 +632,14 @@
       "languageVersion": "3.0"
     },
     {
-      "name": "isar",
-      "rootUri": "file:///Users/codefliesgd/.pub-cache/hosted/pub.dev/isar-3.1.0+1",
+      "name": "isar_community",
+      "rootUri": "file:///Users/codefliesgd/.pub-cache/hosted/pub.dev/isar_community-3.3.2",
       "packageUri": "lib/",
       "languageVersion": "2.17"
     },
     {
-      "name": "isar_flutter_libs",
-      "rootUri": "file:///Users/codefliesgd/.pub-cache/hosted/pub.dev/isar_flutter_libs-3.1.0+1",
+      "name": "isar_community_flutter_libs",
+      "rootUri": "file:///Users/codefliesgd/.pub-cache/hosted/pub.dev/isar_community_flutter_libs-3.3.2",
       "packageUri": "lib/",
       "languageVersion": "2.17"
     },

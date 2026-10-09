@@ -709,6 +709,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           final bool isVideo = imageUrl.toLowerCase().endsWith('.mp4') || imageUrl.toLowerCase().endsWith('.mov') || imageUrl.toLowerCase().endsWith('.mkv') || imageUrl.toLowerCase().endsWith('.avi');
 
                           return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
                             onTap: () {
                               Navigator.push(
                                 context,

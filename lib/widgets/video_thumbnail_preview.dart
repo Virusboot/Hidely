@@ -99,66 +99,72 @@ class _VideoThumbnailPreviewState extends State<VideoThumbnailPreview> {
   @override
   Widget build(BuildContext context) {
     if (_hasError) {
-      return widget.fallback ??
-          Container(
-            color: const Color(0xff1E293B),
-            child: const Center(
-              child: Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 36),
+      return IgnorePointer(
+        child: widget.fallback ??
+            Container(
+              color: const Color(0xff1E293B),
+              child: const Center(
+                child: Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 36),
+              ),
             ),
-          );
+      );
     }
 
     if (!_isInitialized || _controller == null) {
-      return widget.fallback ??
-          Container(
-            color: const Color(0xff0F172A),
-            child: const Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+      return IgnorePointer(
+        child: widget.fallback ??
+            Container(
+              color: const Color(0xff0F172A),
+              child: const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                ),
               ),
             ),
-          );
+      );
     }
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        FittedBox(
-          fit: widget.fit,
-          clipBehavior: Clip.antiAlias,
-          child: SizedBox(
-            width: _controller!.value.size.width > 0 ? _controller!.value.size.width : 300,
-            height: _controller!.value.size.height > 0 ? _controller!.value.size.height : 300,
-            child: VideoPlayer(_controller!),
-          ),
-        ),
-        // Instagram Reels Style Top-Right Play Badge
-        Positioned(
-          top: 8,
-          right: 8,
-          child: Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.55),
-              shape: BoxShape.circle,
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.play_arrow_rounded,
-              color: Colors.white,
-              size: 16,
+    return IgnorePointer(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          FittedBox(
+            fit: widget.fit,
+            clipBehavior: Clip.antiAlias,
+            child: SizedBox(
+              width: _controller!.value.size.width > 0 ? _controller!.value.size.width : 300,
+              height: _controller!.value.size.height > 0 ? _controller!.value.size.height : 300,
+              child: VideoPlayer(_controller!),
             ),
           ),
-        ),
-      ],
+          // Instagram Reels Style Top-Right Play Badge
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.55),
+                shape: BoxShape.circle,
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
