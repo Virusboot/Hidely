@@ -240,16 +240,13 @@ class LocationCaptureService {
 
     final nameLower = (filename ?? '').toLowerCase();
 
-    // 1. Check Screenshot patterns in filename
+    // 1. Check Screenshot patterns in filename (Specifically targeting screenshots, NOT shared photos)
     final bool hasScreenshotName = nameLower.contains('screenshot') ||
         nameLower.contains('screen_shot') ||
         nameLower.contains('screen-shot') ||
         nameLower.contains('screencapture') ||
         nameLower.contains('screen_recording') ||
-        nameLower.contains('screen-capture') ||
-        nameLower.contains('snapchat-') ||
-        nameLower.startsWith('capture_') ||
-        nameLower.contains('screen_shot_');
+        nameLower.contains('screen-capture');
 
     if (hasScreenshotName) {
       return MediaValidationResult(
