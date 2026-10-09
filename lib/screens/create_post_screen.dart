@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'post_details_screen.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:hidely_new/services/location_capture_service.dart';
+import 'package:hidely_new/services/auth_service.dart';
 import 'create_reel_screen.dart';
 
 class CreatePostScreen extends StatefulWidget {
@@ -227,6 +228,56 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
+  void _showScreenshotBlockedDialog(String reason) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                color: Color(0xffFEE2E2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.screen_lock_portrait_rounded, color: Color(0xffDC2626), size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                "Upload Not Allowed",
+                style: TextStyle(
+                  color: Color(0xff1C0D5A),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          reason.isNotEmpty
+              ? reason
+              : "Screenshots and unauthorized downloaded images cannot be uploaded. Please upload original photos clicked with your camera.",
+          style: const TextStyle(color: Colors.black87, fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xff2B1564),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Got It", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -287,6 +338,29 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         child: ElevatedButton(
                           onPressed: () async {
                             if (_selectedImageBytes != null || _selectedImage != null) {
+                              Uint8List? bytes = _selectedImageBytes;
+                              if (bytes == null && _selectedImage != null) {
+                                try {
+                                  bytes = await _selectedImage!.readAsBytes();
+                                } catch (_) {}
+                              }
+
+                              // Check screenshot & media integrity for non-official users
+                              if (bytes != null) {
+                                final isOfficial = AuthService().isOfficialOrAdmin;
+                                final valResult = await LocationCaptureService().validateMediaIntegrity(
+                                  bytes: bytes,
+                                  filename: _selectedFileName ?? _selectedImage?.path,
+                                  isOfficialUser: isOfficial,
+                                );
+
+                                if (!valResult.isValid) {
+                                  if (!mounted) return;
+                                  _showScreenshotBlockedDialog(valResult.reason);
+                                  return;
+                                }
+                              }
+
                               CapturedLocation? initialLoc;
                               if (_selectedAsset != null) {
                                 try {

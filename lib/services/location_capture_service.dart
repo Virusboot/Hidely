@@ -222,4 +222,73 @@ class LocationCaptureService {
       return 0.0;
     }
   }
+
+  /// Validate image integrity to block screenshots and unauthorized internet downloads
+  Future<MediaValidationResult> validateMediaIntegrity({
+    required Uint8List bytes,
+    String? filename,
+    required bool isOfficialUser,
+  }) async {
+    // Official Hidely verified accounts can upload internet downloads and curated media
+    if (isOfficialUser) {
+      return MediaValidationResult(
+        isValid: true,
+        isScreenshot: false,
+        reason: 'Authorized Official Account',
+      );
+    }
+
+    final nameLower = (filename ?? '').toLowerCase();
+
+    // 1. Check Screenshot patterns in filename
+    final bool hasScreenshotName = nameLower.contains('screenshot') ||
+        nameLower.contains('screen_shot') ||
+        nameLower.contains('screen-shot') ||
+        nameLower.contains('screencapture') ||
+        nameLower.contains('screen_recording') ||
+        nameLower.contains('screen-capture') ||
+        nameLower.contains('snapchat-') ||
+        nameLower.startsWith('capture_') ||
+        nameLower.contains('screen_shot_');
+
+    if (hasScreenshotName) {
+      return MediaValidationResult(
+        isValid: false,
+        isScreenshot: true,
+        reason: 'Screenshots cannot be uploaded. Please choose real photos clicked with your camera.',
+      );
+    }
+
+    // 2. Check EXIF software / metadata for screenshot signatures
+    try {
+      final Map<String, IfdTag> exifData = await readExifFromBytes(bytes);
+      final software = (exifData['Image Software']?.printable ?? '').toLowerCase();
+      if (software.contains('screenshot') || software.contains('screen capture')) {
+        return MediaValidationResult(
+          isValid: false,
+          isScreenshot: true,
+          reason: 'Screenshots cannot be uploaded. Please choose real photos clicked with your camera.',
+        );
+      }
+    } catch (_) {}
+
+    return MediaValidationResult(
+      isValid: true,
+      isScreenshot: false,
+      reason: 'Valid original media',
+    );
+  }
 }
+
+class MediaValidationResult {
+  final bool isValid;
+  final bool isScreenshot;
+  final String reason;
+
+  MediaValidationResult({
+    required this.isValid,
+    required this.isScreenshot,
+    required this.reason,
+  });
+}
+

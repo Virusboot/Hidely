@@ -42,6 +42,18 @@ class AuthService {
   String get userBio => _user?['bio'] ?? '';
   String get userProfilePicture => _user?['profile_picture'] ?? '';
 
+  bool get isOfficialOrAdmin {
+    if (_user == null) return false;
+    final u = (_user?['username'] ?? '').toString().toLowerCase();
+    final role = (_user?['role'] ?? '').toString().toLowerCase();
+    final isOfficial = _user?['is_official'] == true || _user?['isOfficial'] == true;
+    return u == 'hidely' ||
+        u == 'hidely_official' ||
+        u == 'admin' ||
+        role == 'admin' ||
+        isOfficial;
+  }
+
   Set<String> _deletedPostIds = {};
   Set<String> get deletedPostIds => _deletedPostIds;
 

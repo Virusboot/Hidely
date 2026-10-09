@@ -206,6 +206,52 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
     );
 
     try {
+      Uint8List? bytes = _localImageBytes ?? widget.imageBytes;
+      if (bytes == null && widget.selectedImage != null) {
+        try {
+          bytes = await widget.selectedImage!.readAsBytes();
+        } catch (_) {}
+      }
+
+      if (bytes != null && !AuthService().isOfficialOrAdmin) {
+        final valResult = await LocationCaptureService().validateMediaIntegrity(
+          bytes: bytes,
+          filename: widget.filename ?? widget.selectedImage?.path,
+          isOfficialUser: false,
+        );
+
+        if (!valResult.isValid) {
+          setState(() => _isLoading = false);
+          if (!mounted) return;
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Row(
+                children: [
+                  Icon(Icons.screen_lock_portrait_rounded, color: Color(0xffDC2626), size: 24),
+                  SizedBox(width: 10),
+                  Text("Upload Restricted", style: TextStyle(color: Color(0xff1C0D5A), fontWeight: FontWeight.bold, fontSize: 18)),
+                ],
+              ),
+              content: Text(valResult.reason),
+              actions: [
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff2B1564),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("OK", style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+      }
+
       String finalCaption = _captionController.text.trim();
       if (_taggedUsernames.isNotEmpty) {
         final String tagsText = _taggedUsernames.map((u) => '@$u').join(' ');
