@@ -33,6 +33,9 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
   // Torch Flash state
   bool _isFlashOn = false;
 
+  // Camera mode: 'photo' or 'reel'
+  String _cameraMode = 'reel';
+
   // Professional Cinematic LUTs
   int _selectedLutIndex = 0;
   late PageController _pageController;
@@ -147,10 +150,15 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
       _cameras![index],
       ResolutionPreset.high,
       enableAudio: true,
+      imageFormatGroup: ImageFormatGroup.jpeg,
     );
 
     try {
       await _cameraController!.initialize();
+      // Ensure default 1.0x optical unzoomed lens
+      try {
+        await _cameraController!.setZoomLevel(1.0);
+      } catch (_) {}
       if (mounted) {
         setState(() => _isCameraInitialized = true);
       }
@@ -245,6 +253,41 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
     });
   }
 
+  Future<void> _onShutterPressed() async {
+    if (_cameraMode == 'photo') {
+      await _takePhoto();
+    } else {
+      await _toggleRecording();
+    }
+  }
+
+  Future<void> _takePhoto() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+    try {
+      HapticFeedback.mediumImpact();
+      final XFile photo = await _cameraController!.takePicture();
+      // Auto-save photo to phone gallery
+      await MediaDownloadService.downloadMediaToGallery(context, photo.path);
+      // Capture camera recording location
+      final capLoc = await LocationCaptureService().captureCameraLocation();
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PostDetailsScreen(
+              selectedImage: File(photo.path),
+              mediaSource: MediaSource.camera,
+              initialCapturedLocation: capLoc,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error taking picture: $e");
+    }
+  }
+
   Future<void> _toggleRecording() async {
     if (_cameraController == null || !_cameraController!.value.isInitialized) return;
 
@@ -257,6 +300,7 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
 
   Future<void> _startRecording() async {
     try {
+      HapticFeedback.heavyImpact();
       await _cameraController!.startVideoRecording();
       setState(() {
         _isRecording = true;
@@ -284,6 +328,7 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
     if (!_isRecording) return;
 
     try {
+      HapticFeedback.mediumImpact();
       final XFile file = await _cameraController!.stopVideoRecording();
       setState(() {
         _isRecording = false;
@@ -319,7 +364,10 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
   Future<void> _pickFromGallery() async {
     if (_isRecording) return;
     final ImagePicker picker = ImagePicker();
-    final XFile? media = await picker.pickVideo(source: ImageSource.gallery);
+    final XFile? media = _cameraMode == 'photo'
+        ? await picker.pickImage(source: ImageSource.gallery)
+        : await picker.pickVideo(source: ImageSource.gallery);
+
     if (media != null && mounted) {
       Navigator.push(
         context,
@@ -355,27 +403,17 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
         backgroundColor: Colors.black,
         body: Stack(
           children: [
-            // 1. Camera Live Preview with Selected Cinematic LUT Filter (Full Screen Cover)
+            // 1. Camera Live Preview with Selected Cinematic LUT Filter (True 1.0x Optical Default Ratio)
             if (_isCameraInitialized && _cameraController != null)
               Positioned.fill(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final cameraAspectRatio = _cameraController!.value.aspectRatio;
-                    var scale = constraints.maxHeight / (constraints.maxWidth * cameraAspectRatio);
-                    if (scale < 1.0) scale = 1.0 / scale;
-
-                    return ClipRect(
-                      child: Transform.scale(
-                        scale: scale,
-                        child: Center(
-                          child: ColorFiltered(
-                            colorFilter: ColorFilter.matrix(_luts[_selectedLutIndex]['matrix'] as List<double>),
-                            child: CameraPreview(_cameraController!),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                child: Center(
+                  child: AspectRatio(
+                    aspectRatio: 1 / _cameraController!.value.aspectRatio,
+                    child: ColorFiltered(
+                      colorFilter: ColorFilter.matrix(_luts[_selectedLutIndex]['matrix'] as List<double>),
+                      child: CameraPreview(_cameraController!),
+                    ),
+                  ),
                 ),
               )
             else
@@ -431,7 +469,7 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                           ),
                         ),
 
-                        // Center: Recording Time Counter
+                        // Center: Recording Time Counter or Camera Mode
                         if (_isRecording)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -455,13 +493,17 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                               color: Colors.black.withOpacity(0.4),
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: const Row(
+                            child: Row(
                               children: [
-                                Icon(Icons.videocam_rounded, color: Colors.white, size: 16),
-                                SizedBox(width: 6),
+                                Icon(
+                                  _cameraMode == 'photo' ? Icons.camera_alt_rounded : Icons.videocam_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
                                 Text(
-                                  "Reel Camera",
-                                  style: TextStyle(
+                                  _cameraMode == 'photo' ? "Camera" : "Reel Camera",
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
@@ -506,28 +548,29 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                     label: "Flip",
                     onTap: _toggleCamera,
                   ),
-                  const SizedBox(height: 20),
-
-                  // Max Timer Length Selector (15s, 30s, 60s max)
-                  _buildSideToolButton(
-                    labelWidget: Text(
-                      "${_selectedLength}s",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
+                  if (_cameraMode == 'reel') ...[
+                    const SizedBox(height: 20),
+                    // Max Timer Length Selector (15s, 30s, 60s max)
+                    _buildSideToolButton(
+                      labelWidget: Text(
+                        "${_selectedLength}s",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
+                      label: "Timer",
+                      onTap: _cycleLength,
                     ),
-                    label: "Timer",
-                    onTap: _cycleLength,
-                  ),
+                  ],
                 ],
               ),
             ),
 
             // 5. Active LUT Filter Name Indicator Pill
             Positioned(
-              bottom: MediaQuery.of(context).padding.bottom + 205,
+              bottom: MediaQuery.of(context).padding.bottom + 235,
               left: 0,
               right: 0,
               child: Center(
@@ -560,7 +603,7 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
 
             // 6. Cinematic LUT Filter Carousel & Controls
             Positioned(
-              bottom: MediaQuery.of(context).padding.bottom + 115,
+              bottom: MediaQuery.of(context).padding.bottom + 145,
               left: 0,
               right: 0,
               child: SizedBox(
@@ -636,7 +679,26 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
               ),
             ),
 
-            // 7. Bottom Record Button & Gallery Media Picker
+            // 7. Mode Switcher (PHOTO / REEL)
+            Positioned(
+              bottom: MediaQuery.of(context).padding.bottom + 105,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildModeTab("PHOTO", _cameraMode == 'photo', () {
+                    if (!_isRecording) setState(() => _cameraMode = 'photo');
+                  }),
+                  const SizedBox(width: 24),
+                  _buildModeTab("REEL", _cameraMode == 'reel', () {
+                    if (!_isRecording) setState(() => _cameraMode = 'reel');
+                  }),
+                ],
+              ),
+            ),
+
+            // 8. Bottom Shutter Button & Gallery Media Picker
             Positioned(
               bottom: MediaQuery.of(context).padding.bottom + 20,
               left: 30,
@@ -659,9 +721,9 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                     ),
                   ),
 
-                  // Record Reel Button
+                  // Shutter Button (Photo Tap / Reel Recording)
                   GestureDetector(
-                    onTap: _toggleRecording,
+                    onTap: _onShutterPressed,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       width: 76,
@@ -669,7 +731,9 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: _isRecording ? Colors.redAccent : Colors.white,
+                          color: _cameraMode == 'photo'
+                              ? Colors.white
+                              : (_isRecording ? Colors.redAccent : Colors.white),
                           width: 4,
                         ),
                       ),
@@ -679,9 +743,12 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                           width: _isRecording ? 32 : 62,
                           height: _isRecording ? 32 : 62,
                           decoration: BoxDecoration(
-                            color: Colors.redAccent,
+                            color: _cameraMode == 'photo' ? Colors.white : Colors.redAccent,
                             borderRadius: BorderRadius.circular(_isRecording ? 8 : 40),
                           ),
+                          child: _cameraMode == 'photo'
+                              ? const Icon(Icons.camera_alt_rounded, color: Color(0xff1C0D5A), size: 26)
+                              : null,
                         ),
                       ),
                     ),
@@ -693,6 +760,28 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeTab(String title, bool isSelected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? Colors.amberAccent : Colors.white60,
+            fontWeight: FontWeight.w800,
+            fontSize: 13,
+            letterSpacing: 1.0,
+          ),
         ),
       ),
     );
