@@ -246,8 +246,13 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                                 color: Colors.white,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Center(
-                                child: Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1C0D5A), size: 18),
+                              child: Center(
+                                child: Image.asset(
+                                  'assets/images/back_icon.png',
+                                  width: 18,
+                                  height: 18,
+                                  color: const Color(0xFF1C0D5A),
+                                ),
                               ),
                             ),
                           ),
@@ -608,12 +613,8 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                       child: TabBarView(
                         controller: _tabController,
                         children: [
-                          _buildImageGridStream(),
-                          const EmptyStateWidget(
-                            icon: Icons.movie_creation_outlined,
-                            title: "No Reels Yet",
-                            description: "No cinematic moments shared yet.",
-                          ),
+                          _buildImageGridStream(_photoPosts),
+                          _buildVideoGridStream(_videoPosts),
                         ],
                       ),
                     ),
@@ -623,6 +624,19 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
       ),
     ),);
   }
+
+  bool _isPostVideo(dynamic post) {
+    final imagePath = (post["image_url"] ?? post["image"] ?? post["media_url"] ?? post["video_url"] ?? "").toString().toLowerCase();
+    return imagePath.endsWith('.mp4') ||
+        imagePath.endsWith('.mov') ||
+        imagePath.endsWith('.mkv') ||
+        imagePath.endsWith('.avi') ||
+        imagePath.endsWith('.webm') ||
+        imagePath.contains('/video/');
+  }
+
+  List<dynamic> get _photoPosts => _creatorPosts.where((p) => !_isPostVideo(p)).toList();
+  List<dynamic> get _videoPosts => _creatorPosts.where((p) => _isPostVideo(p)).toList();
 
   Future<void> _toggleBlock() async {
     if (AuthService().isGuest) {
@@ -745,15 +759,15 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
     );
   }
 
-  Widget _buildImageGridStream() {
-    if (_creatorPosts.isEmpty) {
+  Widget _buildImageGridStream(List<dynamic> posts) {
+    if (posts.isEmpty) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.photo_library_outlined, size: 40, color: Colors.black38),
             SizedBox(height: 8),
-            Text("No posts yet", style: TextStyle(color: Colors.black38, fontSize: 14)),
+            Text("No photo posts yet", style: TextStyle(color: Colors.black38, fontSize: 14)),
           ],
         ),
       );
@@ -767,18 +781,17 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
         crossAxisSpacing: 2,
         childAspectRatio: 4 / 5,
       ),
-      itemCount: _creatorPosts.length,
+      itemCount: posts.length,
       itemBuilder: (context, index) {
-        final post = _creatorPosts[index];
+        final post = posts[index];
         final String imagePath = post["image_url"]?.toString() ?? post["image"]?.toString() ?? "";
         final String lowerPath = imagePath.toLowerCase();
-        final bool isVideo = lowerPath.endsWith('.mp4') || lowerPath.endsWith('.mov') || lowerPath.endsWith('.mkv') || lowerPath.endsWith('.avi');
         final bool isNetwork = lowerPath.startsWith("http") || lowerPath.startsWith("https") || lowerPath.startsWith("uploads") || lowerPath.startsWith("/uploads") || lowerPath.startsWith("/");
         final bool hasImage = imagePath.isNotEmpty;
 
         return GestureDetector(
           onTap: () {
-            final mappedPosts = _creatorPosts.map((p) {
+            final mappedPosts = posts.map((p) {
               final Map<String, dynamic> pm = Map<String, dynamic>.from(p);
               if (pm["author_username"] == null && _creatorData != null) {
                 pm["author_username"] = _creatorData!["username"];
@@ -818,34 +831,107 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                           ],
                         ),
                       )
-                    : isVideo
-                        ? VideoThumbnailPreview(
-                            videoUrl: imagePath,
-                            fit: BoxFit.cover,
-                          )
-                        : isNetwork
-                            ? SizedBox.expand(
-                                child: Image.network(
-                                  (lowerPath.startsWith("http") || lowerPath.startsWith("https"))
-                                      ? imagePath
-                                      : '${ApiService().baseUrl}/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}',
-                                  fit: BoxFit.cover,
-                                  alignment: Alignment.center,
-                                  errorBuilder: (context, error, stackTrace) => const Center(
-                                    child: Icon(Icons.broken_image_outlined, color: Colors.white54),
-                                  ),
-                                ),
-                              )
-                            : SizedBox.expand(
-                                child: Image.asset(
-                                  imagePath,
-                                  fit: BoxFit.cover,
-                                  alignment: Alignment.center,
-                                  errorBuilder: (context, error, stackTrace) => const Center(
-                                    child: Icon(Icons.broken_image_outlined, color: Colors.white54),
-                                  ),
-                                ),
+                    : isNetwork
+                        ? SizedBox.expand(
+                            child: Image.network(
+                              (lowerPath.startsWith("http") || lowerPath.startsWith("https"))
+                                  ? imagePath
+                                  : '${ApiService().baseUrl}/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}',
+                              fit: BoxFit.cover,
+                              alignment: Alignment.center,
+                              errorBuilder: (context, error, stackTrace) => const Center(
+                                child: Icon(Icons.broken_image_outlined, color: Colors.white54),
                               ),
+                            ),
+                          )
+                        : SizedBox.expand(
+                            child: Image.asset(
+                              imagePath,
+                              fit: BoxFit.cover,
+                              alignment: Alignment.center,
+                              errorBuilder: (context, error, stackTrace) => const Center(
+                                child: Icon(Icons.broken_image_outlined, color: Colors.white54),
+                              ),
+                            ),
+                          ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildVideoGridStream(List<dynamic> posts) {
+    if (posts.isEmpty) {
+      return const EmptyStateWidget(
+        icon: Icons.movie_creation_outlined,
+        title: "No Reels Yet",
+        description: "No video reels shared yet.",
+      );
+    }
+    return GridView.builder(
+      padding: const EdgeInsets.all(2),
+      physics: const BouncingScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 2,
+        crossAxisSpacing: 2,
+        childAspectRatio: 4 / 5,
+      ),
+      itemCount: posts.length,
+      itemBuilder: (context, index) {
+        final post = posts[index];
+        final String videoUrl = post["image_url"]?.toString() ?? post["image"]?.toString() ?? post["media_url"]?.toString() ?? post["video_url"]?.toString() ?? "";
+
+        return GestureDetector(
+          onTap: () {
+            final mappedPosts = posts.map((p) {
+              final Map<String, dynamic> pm = Map<String, dynamic>.from(p);
+              if (pm["author_username"] == null && _creatorData != null) {
+                pm["author_username"] = _creatorData!["username"];
+              }
+              if (pm["author_profile_picture"] == null && _creatorData != null) {
+                pm["author_profile_picture"] = _creatorData!["profile_picture"];
+              }
+              return pm;
+            }).toList();
+
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SinglePostViewScreen(
+                  posts: mappedPosts,
+                  initialIndex: index,
+                ),
+              ),
+            ).then((_) => _loadCreatorProfile());
+          },
+          child: Container(
+            color: const Color(0xff1E1B4B),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                VideoThumbnailPreview(
+                  videoUrl: videoUrl,
+                  fit: BoxFit.cover,
+                ),
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.55),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

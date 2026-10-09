@@ -697,12 +697,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                   : TabBarView(
                       controller: _tabController,
                       children: [
-                        _buildPersonalGridStream(),
-                        const EmptyStateWidget(
-                          icon: Icons.movie_creation_outlined,
-                          title: "No Reels Yet",
-                          description: "Capture and share your cinematic moments!",
-                        ),
+                        _buildPersonalGridStream(_photoPosts),
+                        _buildVideoGridStream(_videoPosts),
                         _buildSavedGridStream(),
                       ],
                     ),
@@ -714,6 +710,18 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     );
   }
 
+  bool _isPostVideo(dynamic post) {
+    final imagePath = (post["image_url"] ?? post["image"] ?? post["media_url"] ?? post["video_url"] ?? "").toString().toLowerCase();
+    return imagePath.endsWith('.mp4') ||
+        imagePath.endsWith('.mov') ||
+        imagePath.endsWith('.mkv') ||
+        imagePath.endsWith('.avi') ||
+        imagePath.endsWith('.webm') ||
+        imagePath.contains('/video/');
+  }
+
+  List<dynamic> get _photoPosts => _userPosts.where((p) => !_isPostVideo(p)).toList();
+  List<dynamic> get _videoPosts => _userPosts.where((p) => _isPostVideo(p)).toList();
 
   String _formatCompactCount(dynamic number) {
     if (number == null) return '0';
@@ -763,12 +771,12 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     );
   }
 
-  Widget _buildPersonalGridStream() {
-    if (_userPosts.isEmpty) {
+  Widget _buildPersonalGridStream(List<dynamic> posts) {
+    if (posts.isEmpty) {
       return const EmptyStateWidget(
         icon: Icons.photo_library_outlined,
-        title: "No Posts Yet",
-        description: "Upload your first travel memory!",
+        title: "No Photo Posts Yet",
+        description: "Upload your first travel photo memory!",
       );
     }
 
@@ -782,18 +790,17 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         crossAxisSpacing: 4,
         childAspectRatio: 4 / 5,
       ),
-      itemCount: _userPosts.length,
+      itemCount: posts.length,
       itemBuilder: (context, index) {
-        final post = _userPosts[index];
+        final post = posts[index];
         final String imagePath = post["image_url"]?.toString() ?? post["image"]?.toString() ?? "";
         final String lowerPath = imagePath.toLowerCase();
-        final bool isVideo = lowerPath.endsWith('.mp4') || lowerPath.endsWith('.mov') || lowerPath.endsWith('.mkv') || lowerPath.endsWith('.avi');
         final bool isNetwork = lowerPath.startsWith("http") || lowerPath.startsWith("https") || lowerPath.startsWith("uploads") || lowerPath.startsWith("/uploads") || lowerPath.startsWith("/");
         final bool hasImage = imagePath.isNotEmpty;
 
         return GestureDetector(
           onTap: () {
-            final mappedPosts = _userPosts.map((p) {
+            final mappedPosts = posts.map((p) {
               final Map<String, dynamic> pm = Map<String, dynamic>.from(p);
               if (pm["author_username"] == null) {
                 pm["author_username"] = AuthService().userUsername;
@@ -835,36 +842,113 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                           ],
                         ),
                       )
-                    : isVideo
-                        ? VideoThumbnailPreview(
-                            videoUrl: imagePath,
-                            fit: BoxFit.cover,
-                          )
-                        : isNetwork
-                            ? SizedBox.expand(
-                                child: CachedNetworkImage(
-                                  imageUrl: (lowerPath.startsWith("http") || lowerPath.startsWith("https"))
-                                      ? imagePath
-                                      : '${ApiService().baseUrl}/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}',
-                                  fit: BoxFit.cover,
-                                  alignment: Alignment.center,
-                                  memCacheWidth: 600,
-                                  placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
-                                  errorWidget: (context, url, error) => const Center(
-                                    child: Icon(Icons.broken_image_outlined, color: Colors.white54),
-                                  ),
-                                ),
-                              )
-                            : SizedBox.expand(
-                                child: Image.asset(
-                                  imagePath,
-                                  fit: BoxFit.cover,
-                                  alignment: Alignment.center,
-                                  errorBuilder: (context, error, stackTrace) => const Center(
-                                    child: Icon(Icons.broken_image_outlined, color: Colors.white54),
-                                  ),
-                                ),
+                    : isNetwork
+                        ? SizedBox.expand(
+                            child: CachedNetworkImage(
+                              imageUrl: (lowerPath.startsWith("http") || lowerPath.startsWith("https"))
+                                  ? imagePath
+                                  : '${ApiService().baseUrl}/${imagePath.startsWith('/') ? imagePath.substring(1) : imagePath}',
+                              fit: BoxFit.cover,
+                              alignment: Alignment.center,
+                              memCacheWidth: 600,
+                              placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
+                              errorWidget: (context, url, error) => const Center(
+                                child: Icon(Icons.broken_image_outlined, color: Colors.white54),
                               ),
+                            ),
+                          )
+                        : SizedBox.expand(
+                            child: Image.asset(
+                              imagePath,
+                              fit: BoxFit.cover,
+                              alignment: Alignment.center,
+                              errorBuilder: (context, error, stackTrace) => const Center(
+                                child: Icon(Icons.broken_image_outlined, color: Colors.white54),
+                              ),
+                            ),
+                          ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildVideoGridStream(List<dynamic> posts) {
+    if (posts.isEmpty) {
+      return const EmptyStateWidget(
+        icon: Icons.movie_creation_outlined,
+        title: "No Reels Yet",
+        description: "Capture and share your cinematic video moments!",
+      );
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(4),
+      cacheExtent: 1000.0,
+      physics: const BouncingScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: ResponsiveBreakpoints.isDesktopOrTablet(context) ? 4 : 3,
+        mainAxisSpacing: 4,
+        crossAxisSpacing: 4,
+        childAspectRatio: 4 / 5,
+      ),
+      itemCount: posts.length,
+      itemBuilder: (context, index) {
+        final post = posts[index];
+        final String videoUrl = post["image_url"]?.toString() ?? post["image"]?.toString() ?? post["media_url"]?.toString() ?? post["video_url"]?.toString() ?? "";
+
+        return GestureDetector(
+          onTap: () {
+            final mappedPosts = posts.map((p) {
+              final Map<String, dynamic> pm = Map<String, dynamic>.from(p);
+              if (pm["author_username"] == null) {
+                pm["author_username"] = AuthService().userUsername;
+              }
+              if (pm["author_profile_picture"] == null) {
+                pm["author_profile_picture"] = AuthService().userProfilePicture;
+              }
+              return pm;
+            }).toList();
+
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SinglePostViewScreen(
+                  posts: mappedPosts,
+                  initialIndex: index,
+                ),
+              ),
+            ).then((_) {
+              _loadProfileData();
+            });
+          },
+          child: Container(
+            color: const Color(0xff1E1B4B),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                VideoThumbnailPreview(
+                  videoUrl: videoUrl,
+                  fit: BoxFit.cover,
+                ),
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.55),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

@@ -130,12 +130,12 @@ class AuthService {
       try {
         _user = jsonDecode(userJson);
         _isLoggedIn = true;
-        await loadCachedFeed();
         NotificationPollingService().startPolling();
       } catch (e) {
         await logout();
       }
     }
+    await loadCachedFeed();
   }
 
   /// Call this when the user logs in successfully

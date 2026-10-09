@@ -201,12 +201,15 @@ class _FeedScreenState extends State<FeedScreen> {
     if (cleanFeed.isNotEmpty) {
       FeedScreen._cachedFeedPosts = cleanFeed;
       AuthService().saveCachedFeed(cleanFeed);
+      setState(() {
+        _feedPosts = cleanFeed;
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
     }
-
-    setState(() {
-      _feedPosts = cleanFeed;
-      _isLoading = false;
-    });
   }
 
   List<dynamic> _mixFeedAlgorithm(List<dynamic> serverPosts, List<dynamic> officialPosts) {

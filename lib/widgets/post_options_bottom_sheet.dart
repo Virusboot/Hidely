@@ -11,6 +11,7 @@ import 'package:hidely_new/screens/single_post_view_screen.dart';
 import 'package:hidely_new/screens/reels_screen.dart';
 import 'package:hidely_new/services/media_download_service.dart';
 import 'package:hidely_new/widgets/custom_snackbar.dart';
+import 'package:hidely_new/screens/main_wrapper.dart' show showLoginRequiredSheet;
 
 class PostOptionsBottomSheet extends StatefulWidget {
   final dynamic post;
@@ -25,10 +26,15 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
   final TextEditingController _aiQueryController = TextEditingController();
   bool _isSaved = false;
 
+  bool _isFollowing = false;
+
   @override
   void initState() {
     super.initState();
     _isSaved = widget.post['is_saved'] == true || widget.post['isSaved'] == true;
+    _isFollowing = widget.post['is_following'] == true ||
+        widget.post['isFollowing'] == true ||
+        widget.post['author_is_following'] == true;
   }
 
   @override
@@ -123,14 +129,31 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
     }
   }
 
+  void _toggleFollowUser() {
+    final username = (widget.post['author_username'] ?? widget.post['username'] ?? 'user').toString();
+    final authorId = widget.post['author_id'] ?? widget.post['user_id'];
 
+    if (AuthService().isGuest) {
+      Navigator.pop(context);
+      showLoginRequiredSheet(context, reason: 'follow this creator');
+      return;
+    }
 
-  void _unfollowUser() {
-    final username = widget.post['author_username'] ?? widget.post['username'] ?? 'user';
+    final token = AuthService().token ?? '';
+    final newStatus = !_isFollowing;
+
+    setState(() {
+      _isFollowing = newStatus;
+      widget.post['is_following'] = newStatus;
+      widget.post['isFollowing'] = newStatus;
+      widget.post['author_is_following'] = newStatus;
+    });
+
     Navigator.pop(context);
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("Unfollowed @$username"),
+        content: Text(newStatus ? "Followed @$username!" : "Unfollowed @$username"),
         behavior: SnackBarBehavior.floating,
         backgroundColor: const Color(0xff1C0D5A),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -138,6 +161,16 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
         duration: const Duration(seconds: 2),
       ),
     );
+
+    if (authorId != null) {
+      ApiService().toggleFollowCreator(token: token, creatorId: authorId.toString());
+    } else if (username.isNotEmpty && username != 'user') {
+      ApiService().getCreatorProfile(username: username, token: token).then((res) {
+        if (res.success && res.data?['creator']?['id'] != null) {
+          ApiService().toggleFollowCreator(token: token, creatorId: res.data!['creator']['id'].toString());
+        }
+      });
+    }
   }
 
   void _aboutAccount() {
@@ -366,14 +399,15 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
           ),
           const SizedBox(height: 12),
 
-          // Group 2 Card: Unfollow (only for creator posts)
+          // Group 2 Card: Follow / Unfollow (only for creator posts)
           if (!_isMyPost) ...[
             _buildGroupCard(
               children: [
                 _buildGroupTile(
-                  icon: Icons.person_remove_outlined,
-                  title: "Unfollow",
-                  onTap: _unfollowUser,
+                  icon: _isFollowing ? Icons.person_remove_outlined : Icons.person_add_alt_1_outlined,
+                  title: _isFollowing ? "Unfollow" : "Follow",
+                  color: _isFollowing ? Colors.black87 : const Color(0xff2B1564),
+                  onTap: _toggleFollowUser,
                 ),
               ],
             ),
