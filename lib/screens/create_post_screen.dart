@@ -31,6 +31,31 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   bool _hasPermission = false;
   AssetEntity? _selectedAsset;
   late String _selectedMode;
+  // Aspect ratio mode: 'original' (Fit), '1:1' (Square), '4:5' (Portrait)
+  String _aspectRatioMode = 'original';
+
+  void _cycleAspectRatio() {
+    setState(() {
+      if (_aspectRatioMode == 'original') {
+        _aspectRatioMode = '1:1';
+      } else if (_aspectRatioMode == '1:1') {
+        _aspectRatioMode = '4:5';
+      } else {
+        _aspectRatioMode = 'original';
+      }
+    });
+    final label = _aspectRatioMode == 'original'
+        ? 'Fit (Full Photo)'
+        : (_aspectRatioMode == '1:1' ? '1:1 Square' : '4:5 Portrait');
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Aspect Ratio: $label'),
+        duration: const Duration(milliseconds: 1500),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -442,15 +467,41 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         // Selected Image or Placeholder Viewport
                         Positioned.fill(
                           child: _selectedImageBytes != null
-                              ? Image.memory(
-                                  _selectedImageBytes!,
-                                  fit: BoxFit.cover,
-                                )
-                              : (_selectedImage != null && !kIsWeb
-                                  ? Image.file(
-                                      _selectedImage!,
-                                      fit: BoxFit.cover,
+                              ? (_aspectRatioMode == 'original'
+                                  ? Container(
+                                      color: const Color(0xff0F172A),
+                                      child: Image.memory(
+                                        _selectedImageBytes!,
+                                        fit: BoxFit.contain,
+                                      ),
                                     )
+                                  : Center(
+                                      child: AspectRatio(
+                                        aspectRatio: _aspectRatioMode == '1:1' ? 1.0 : (4.0 / 5.0),
+                                        child: Image.memory(
+                                          _selectedImageBytes!,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                    ))
+                              : (_selectedImage != null && !kIsWeb
+                                  ? (_aspectRatioMode == 'original'
+                                      ? Container(
+                                          color: const Color(0xff0F172A),
+                                          child: Image.file(
+                                            _selectedImage!,
+                                            fit: BoxFit.contain,
+                                          ),
+                                        )
+                                      : Center(
+                                          child: AspectRatio(
+                                            aspectRatio: _aspectRatioMode == '1:1' ? 1.0 : (4.0 / 5.0),
+                                            child: Image.file(
+                                              _selectedImage!,
+                                              fit: BoxFit.cover,
+                                            ),
+                                          ),
+                                        ))
                                   : Container(
                                       color: const Color(0xffCBD5E1).withOpacity(0.4),
                                       child: Column(
@@ -524,6 +575,46 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             ),
                           ),
 
+                          // Bottom Left Aspect Ratio Expand Button (Instagram Style)
+                          Positioned(
+                            bottom: 16,
+                            left: 16,
+                            child: GestureDetector(
+                              onTap: _cycleAspectRatio,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.65),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: Colors.white24),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      _aspectRatioMode == 'original'
+                                          ? Icons.fit_screen_rounded
+                                          : (_aspectRatioMode == '1:1' ? Icons.crop_square_rounded : Icons.crop_portrait_rounded),
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _aspectRatioMode == 'original'
+                                          ? 'FIT'
+                                          : (_aspectRatioMode == '1:1' ? '1:1' : '4:5'),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+
                           // Bottom Right Action Panel Overlays (Aspect Lock & Multipicker Toggles)
                           Positioned(
                             bottom: 16,
@@ -531,7 +622,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             child: Row(
                               children: [
                                 GestureDetector(
-                                  onTap: _pickImage,
+                                  onTap: _cycleAspectRatio,
                                   child: _buildOverlayCircleButton(Icons.crop_original_outlined),
                                 ),
                                 const SizedBox(width: 10),

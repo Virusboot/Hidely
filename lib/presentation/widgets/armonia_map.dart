@@ -820,17 +820,16 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
               fm.TileLayer(
                 urlTemplate: '$_offlineTilesPath/{z}/{x}/{y}.png',
                 tileProvider: fm.FileTileProvider(),
-                fallbackUrl: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-                subdomains: const ['a', 'b', 'c', 'd'],
+                fallbackUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'in.kittuvirusstudio.hidely',
               )
             else
               fm.TileLayer(
-                urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-                subdomains: const ['a', 'b', 'c', 'd'],
-                fallbackUrl: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                fallbackUrl: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+                subdomains: const ['a', 'b'],
                 userAgentPackageName: 'in.kittuvirusstudio.hidely',
                 maxZoom: 19,
-                retinaMode: true,
               ),
             if (ref.watch(showHeatmapProvider))
               fm.CircleLayer(
