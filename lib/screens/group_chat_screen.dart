@@ -744,7 +744,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.5,
-        titleSpacing: 16,
+        titleSpacing: Navigator.canPop(context) ? 0 : 16,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: Image.asset('assets/images/back_icon.png', color: const Color(0xff1C0D5A), width: 22.0, height: 22.0),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
         title: Text(
           AuthService().userUsername.isNotEmpty
               ? AuthService().userUsername
@@ -1890,7 +1896,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
         elevation: 0.5,
         titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xff1C0D5A)),
+          icon: Image.asset('assets/images/back_icon.png', color: const Color(0xff1C0D5A), width: 22.0, height: 22.0),
           onPressed: widget.onBack,
         ),
         title: Row(
