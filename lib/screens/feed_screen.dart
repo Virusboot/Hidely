@@ -17,6 +17,7 @@ import 'package:hidely_new/widgets/skeleton_loader.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import 'dart:async';
+import 'package:hidely_new/config/categories.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -487,22 +488,19 @@ class _FeedScreenState extends State<FeedScreen> {
                                     const SizedBox(height: 8),
                                     SizedBox(
                                       height: 105,
-                                      child: ListView(
+                                      child: ListView.builder(
                                         scrollDirection: Axis.horizontal,
                                         physics: const BouncingScrollPhysics(),
                                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                                        children: [
-                                          _buildStoryItem(context, "Waterfall",
-                                              "assets/images/explore_2.png"),
-                                          _buildStoryItem(context, "Mountains",
-                                              "assets/images/onboarding_1.jpg"),
-                                          _buildStoryItem(context, "Rivers",
-                                              "assets/images/onboarding_3.jpg"),
-                                          _buildStoryItem(
-                                              context, "Temples", "assets/images/explore_5.png"),
-                                          _buildStoryItem(
-                                              context, "Forts", "assets/images/explore_7.png"),
-                                        ],
+                                        itemCount: AppCategories.storyCategories.length,
+                                        itemBuilder: (context, sIdx) {
+                                          final story = AppCategories.storyCategories[sIdx];
+                                          return _buildStoryItem(
+                                            context,
+                                            story["title"]!,
+                                            story["image"]!,
+                                          );
+                                        },
                                       ),
                                     ),
                                     const SizedBox(height: 10),
@@ -565,11 +563,44 @@ class _FeedScreenState extends State<FeedScreen> {
                   child: SizedBox(
                     width: 60,
                     height: 60,
-                    child: Image.asset(
-                      imgPath,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.center,
-                    ),
+                    child: imgPath.startsWith('http')
+                        ? CachedNetworkImage(
+                            imageUrl: imgPath,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                            placeholder: (_, __) => Container(
+                              color: const Color(0xffF1F5F9),
+                              child: Center(
+                                child: Text(
+                                  AppCategories.getEmoji(title),
+                                  style: const TextStyle(fontSize: 22),
+                                ),
+                              ),
+                            ),
+                            errorWidget: (_, __, ___) => Container(
+                              color: const Color(0xffF1F5F9),
+                              child: Center(
+                                child: Text(
+                                  AppCategories.getEmoji(title),
+                                  style: const TextStyle(fontSize: 22),
+                                ),
+                              ),
+                            ),
+                          )
+                        : Image.asset(
+                            imgPath,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: const Color(0xffF1F5F9),
+                              child: Center(
+                                child: Text(
+                                  AppCategories.getEmoji(title),
+                                  style: const TextStyle(fontSize: 22),
+                                ),
+                              ),
+                            ),
+                          ),
                   ),
                 ),
               ),

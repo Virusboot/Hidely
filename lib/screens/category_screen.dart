@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:hidely_new/screens/location_detail_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/config/categories.dart';
 
 class CategoryScreen extends StatefulWidget {
   final String categoryName;
@@ -52,6 +53,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
         setState(() {
           if (result.success) {
             List<dynamic> posts = result.data?['posts'] ?? [];
+            // Strict category match: mountain me mountain, river me river, trek me trek
+            posts = posts.where((p) => AppCategories.matches(p, widget.categoryName)).toList();
             if (!_selectedCities.contains("All") && _selectedCities.isNotEmpty) {
               posts = posts.where((p) {
                 final loc = (p['location'] ?? '').toString();
