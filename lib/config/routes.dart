@@ -81,12 +81,14 @@ class AppRoutes {
     return home;
   }
 
-  static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
-    final String routeName = settings.name ?? '/';
-    final Uri uri = Uri.parse(routeName);
+  static Route<dynamic> generateRouteFor(String routeName, [Object? arguments]) {
+    final String clean = routeName.trim();
+    final Uri uri = Uri.parse(clean.isEmpty ? '/' : clean);
+    final String path = (uri.path.length > 1 && uri.path.endsWith('/'))
+        ? uri.path.substring(0, uri.path.length - 1)
+        : (uri.path.isEmpty ? '/' : uri.path);
 
-    // Sync address bar on web when route generates
-    syncWebUrl(routeName);
+    final RouteSettings settings = RouteSettings(name: routeName, arguments: arguments);
 
     // Dynamic Route: /profile/:username
     if (uri.pathSegments.length == 2 && uri.pathSegments.first == 'profile') {
@@ -129,7 +131,7 @@ class AppRoutes {
       );
     }
 
-    switch (uri.path) {
+    switch (path) {
       case splash:
         return MaterialPageRoute(settings: settings, builder: (_) => const SplashScreen());
       case home:
@@ -150,8 +152,13 @@ class AppRoutes {
       case editProfile:
         return MaterialPageRoute(settings: settings, builder: (_) => const EditProfileScreen());
       default:
-        return MaterialPageRoute(settings: settings, builder: (_) => const MainWrapper(initialIndex: 0));
+        final tabIndex = tabForPath(path);
+        return MaterialPageRoute(settings: settings, builder: (_) => MainWrapper(initialIndex: tabIndex));
     }
+  }
+
+  static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
+    return generateRouteFor(settings.name ?? '/', settings.arguments);
   }
 
   static Map<String, WidgetBuilder> get routes => {

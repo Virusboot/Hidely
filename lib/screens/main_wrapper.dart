@@ -12,6 +12,7 @@ import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/widgets/desktop_sidebar.dart';
 import 'package:hidely_new/widgets/right_discovery_panel.dart';
 import 'package:hidely_new/config/routes.dart';
+import 'package:hidely_new/utils/web_history.dart';
 
 /// Global helper — call this from any screen to show the premium
 /// "Login required" bottom-sheet whenever a guest tries an auth-gated action.
@@ -46,6 +47,13 @@ class MainWrapperState extends State<MainWrapper> {
     if (kIsWeb) {
       final path = AppRoutes.pathForTab(_currentIndex);
       AppRoutes.syncWebUrl(path);
+      listenToPopState((newPath) {
+        if (!mounted) return;
+        final newIndex = AppRoutes.tabForPath(newPath);
+        if (newIndex != _currentIndex) {
+          setIndex(newIndex, updateHistory: false);
+        }
+      });
     }
   }
 
@@ -57,7 +65,7 @@ class MainWrapperState extends State<MainWrapper> {
     super.dispose();
   }
 
-  void setIndex(int index) {
+  void setIndex(int index, {bool updateHistory = true}) {
     // Chat tab (index 2) requires login
     if (index == 2 && AuthService().isGuest) {
       showLoginRequiredSheet(context, reason: 'access chat');
@@ -72,7 +80,7 @@ class MainWrapperState extends State<MainWrapper> {
       _currentIndex = index;
     });
     currentTabNotifier.value = index;
-    if (kIsWeb) {
+    if (kIsWeb && updateHistory) {
       final path = AppRoutes.pathForTab(index);
       AppRoutes.syncWebUrl(path);
     }

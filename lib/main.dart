@@ -10,9 +10,13 @@ import 'package:hidely_new/widgets/something_went_wrong_screen.dart';
 
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/deep_link_service.dart';
+import 'package:hidely_new/utils/url_strategy.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Configure HTML5 path URL strategy on Web
+  configureUrlStrategy();
 
   // Load saved auth session & token from SharedPreferences before UI mounts
   await AuthService().init();
@@ -76,6 +80,11 @@ class HidelyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       initialRoute: initialRoute,
+      onGenerateInitialRoutes: (String initialRouteName) {
+        return [
+          AppRoutes.generateRouteFor(initialRouteName),
+        ];
+      },
       onGenerateRoute: AppRoutes.onGenerateRoute,
       builder: (context, child) {
         final mediaQueryData = MediaQuery.of(context);
