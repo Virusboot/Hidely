@@ -11,6 +11,7 @@ import 'package:hidely_new/screens/login_screen.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/widgets/desktop_sidebar.dart';
 import 'package:hidely_new/widgets/right_discovery_panel.dart';
+import 'package:hidely_new/config/routes.dart';
 
 /// Global helper — call this from any screen to show the premium
 /// "Login required" bottom-sheet whenever a guest tries an auth-gated action.
@@ -42,6 +43,10 @@ class MainWrapperState extends State<MainWrapper> {
     activeState = this;
     _currentIndex = widget.initialIndex;
     currentTabNotifier.value = _currentIndex;
+    if (kIsWeb) {
+      final path = AppRoutes.pathForTab(_currentIndex);
+      AppRoutes.syncWebUrl(path);
+    }
   }
 
   @override
@@ -67,6 +72,10 @@ class MainWrapperState extends State<MainWrapper> {
       _currentIndex = index;
     });
     currentTabNotifier.value = index;
+    if (kIsWeb) {
+      final path = AppRoutes.pathForTab(index);
+      AppRoutes.syncWebUrl(path);
+    }
     GroupChatScreen.activeState?.clearSearch();
     if (index == 0) {
       FeedScreen.activeState?.reload();

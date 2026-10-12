@@ -13,6 +13,7 @@ import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hidely_new/config/categories.dart';
+import 'package:hidely_new/config/routes.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -1039,6 +1040,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
+                                        settings: RouteSettings(
+                                          name: '/place?title=${Uri.encodeComponent(caption)}&location=${Uri.encodeComponent(locationStr)}&image=${Uri.encodeComponent(imageUrl)}&category=${Uri.encodeComponent(categoryStr)}',
+                                        ),
                                         builder: (context) => LocationDetailScreen(
                                           title: caption,
                                           location: locationStr,
@@ -1046,7 +1050,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                           category: categoryStr,
                                         ),
                                       ),
-                                    ).then((_) => _fetchExplorePosts());
+                                    ).then((_) {
+                                      AppRoutes.syncWebUrl('/explore');
+                                      _fetchExplorePosts();
+                                    });
                                   },
                                   child: Container(
                                     clipBehavior: Clip.antiAlias,

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hidely_new/config/config.dart';
 import 'package:hidely_new/services/notification_polling_service.dart';
 
@@ -15,6 +16,14 @@ Future<void> main() async {
 
   // Load saved auth session & token from SharedPreferences before UI mounts
   await AuthService().init();
+
+  String? savedRoute;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    savedRoute = prefs.getString('hidely_last_active_route');
+  } catch (_) {}
+
+  final initialRoute = AppRoutes.determineInitialRoute(savedRoute);
 
   // Global Error Handling & Custom Error Screen (>99.5% Crash Free Target)
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -45,8 +54,8 @@ Future<void> main() async {
   });
 
   runApp(
-    const ProviderScope(
-      child: HidelyApp(),
+    ProviderScope(
+      child: HidelyApp(initialRoute: initialRoute),
     ),
   );
 }
@@ -55,7 +64,8 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
 
 class HidelyApp extends StatelessWidget {
-  const HidelyApp({super.key});
+  final String initialRoute;
+  const HidelyApp({super.key, this.initialRoute = AppRoutes.home});
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +75,7 @@ class HidelyApp extends StatelessWidget {
       title: 'Hidely — Social Places Discovery',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      initialRoute: AppRoutes.home,
+      initialRoute: initialRoute,
       onGenerateRoute: AppRoutes.onGenerateRoute,
       builder: (context, child) {
         final mediaQueryData = MediaQuery.of(context);

@@ -4,6 +4,7 @@ import 'package:hidely_new/screens/location_detail_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/config/categories.dart';
+import 'package:hidely_new/config/routes.dart';
 
 class CategoryScreen extends StatefulWidget {
   final String categoryName;
@@ -24,6 +25,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
   @override
   void initState() {
     super.initState();
+    AppRoutes.syncWebUrl('/category?name=${widget.categoryName}');
     _fetchCategoryPosts();
   }
 

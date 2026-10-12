@@ -534,6 +534,7 @@ class _FeedScreenState extends State<FeedScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
+              settings: RouteSettings(name: '/category?name=$title'),
               builder: (context) => CategoryScreen(categoryName: title),
             ),
           );

@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../screens/splash_screen.dart';
 import '../screens/main_wrapper.dart';
 import '../screens/edit_profile_screen.dart';
 import '../screens/leaderboard_screen.dart';
 import '../screens/create_post_screen.dart';
 import '../screens/creator_profile_screen.dart';
+import '../screens/category_screen.dart';
+import '../screens/location_detail_screen.dart';
+import '../utils/web_history.dart';
 
 /// Centralized route constants and route map definitions for Web & Mobile.
 class AppRoutes {
@@ -19,16 +24,108 @@ class AppRoutes {
   static const String rank = '/rank';
   static const String create = '/create';
   static const String editProfile = '/edit-profile';
+  static const String category = '/category';
+  static const String place = '/place';
+
+  static String pathForTab(int index) {
+    switch (index) {
+      case 1:
+        return map;
+      case 2:
+        return chat;
+      case 3:
+        return explore;
+      case 4:
+        return profile;
+      case 0:
+      default:
+        return home;
+    }
+  }
+
+  static int tabForPath(String path) {
+    final clean = path.trim().toLowerCase();
+    if (clean == '/map' || clean.startsWith('/map')) return 1;
+    if (clean == '/chat' || clean.startsWith('/chat')) return 2;
+    if (clean == '/explore' || clean.startsWith('/explore')) return 3;
+    if (clean == '/profile' || clean.startsWith('/profile')) return 4;
+    return 0;
+  }
+
+  /// Syncs browser address bar to the current route on web
+  static void syncWebUrl(String path) {
+    if (kIsWeb) {
+      updateBrowserUrl(path);
+      saveLastActiveRoute(path);
+    }
+  }
+
+  /// Persists last active route so refresh always restores the current screen
+  static Future<void> saveLastActiveRoute(String path) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('hidely_last_active_route', path);
+    } catch (_) {}
+  }
+
+  static String determineInitialRoute([String? savedRoute]) {
+    if (kIsWeb) {
+      final browserPath = getBrowserCurrentPath();
+      if (browserPath.isNotEmpty && browserPath != '/') {
+        return browserPath;
+      }
+      if (savedRoute != null && savedRoute.isNotEmpty && savedRoute != '/') {
+        return savedRoute;
+      }
+    }
+    return home;
+  }
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
-    final Uri uri = Uri.parse(settings.name ?? '/');
+    final String routeName = settings.name ?? '/';
+    final Uri uri = Uri.parse(routeName);
 
-    // Dynamic Route Parsing
+    // Sync address bar on web when route generates
+    syncWebUrl(routeName);
+
+    // Dynamic Route: /profile/:username
     if (uri.pathSegments.length == 2 && uri.pathSegments.first == 'profile') {
       final username = uri.pathSegments.last;
       return MaterialPageRoute(
         settings: settings,
         builder: (_) => CreatorProfileScreen(username: username),
+      );
+    }
+
+    // Dynamic Route: /category/:name or /category?name=...
+    if (uri.pathSegments.isNotEmpty && uri.pathSegments.first == 'category') {
+      String categoryName = 'Mountains';
+      if (uri.pathSegments.length >= 2) {
+        categoryName = Uri.decodeComponent(uri.pathSegments[1]);
+      } else if (uri.queryParameters.containsKey('name')) {
+        categoryName = uri.queryParameters['name']!;
+      }
+      return MaterialPageRoute(
+        settings: settings,
+        builder: (_) => CategoryScreen(categoryName: categoryName),
+      );
+    }
+
+    // Dynamic Route: /place or /location
+    if (uri.pathSegments.isNotEmpty &&
+        (uri.pathSegments.first == 'place' || uri.pathSegments.first == 'location')) {
+      final title = uri.queryParameters['title'] ?? (uri.pathSegments.length >= 2 ? Uri.decodeComponent(uri.pathSegments[1]) : 'Hidden Place');
+      final location = uri.queryParameters['location'] ?? '';
+      final image = uri.queryParameters['image'] ?? 'assets/images/explore_2.png';
+      final category = uri.queryParameters['category'] ?? 'Waterfalls';
+      return MaterialPageRoute(
+        settings: settings,
+        builder: (_) => LocationDetailScreen(
+          title: title,
+          location: location,
+          image: image,
+          category: category,
+        ),
       );
     }
 
@@ -46,6 +143,7 @@ class AppRoutes {
       case profile:
         return MaterialPageRoute(settings: settings, builder: (_) => const MainWrapper(initialIndex: 4));
       case rank:
+      case '/leaderboard':
         return MaterialPageRoute(settings: settings, builder: (_) => const LeaderboardScreen());
       case create:
         return MaterialPageRoute(settings: settings, builder: (_) => const CreatePostScreen());

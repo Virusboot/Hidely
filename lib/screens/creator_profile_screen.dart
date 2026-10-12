@@ -11,6 +11,7 @@ import 'package:hidely_new/screens/group_chat_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:hidely_new/widgets/report_bottom_sheet.dart';
 import 'package:hidely_new/widgets/video_thumbnail_preview.dart';
+import 'package:hidely_new/config/routes.dart';
 
 class CreatorProfileScreen extends StatefulWidget {
   final String username;
@@ -88,6 +89,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
   @override
   void initState() {
     super.initState();
+    AppRoutes.syncWebUrl('/profile/${widget.username}');
     _tabController = TabController(length: 2, vsync: this);
     _loadCreatorProfile();
   }
