@@ -5,6 +5,7 @@ import 'package:hidely_new/screens/location_detail_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/widgets/empty_state.dart';
+import 'package:hidely_new/config/categories.dart';
 
 class NearbyLocationsScreen extends StatefulWidget {
   const NearbyLocationsScreen({super.key});
@@ -14,7 +15,7 @@ class NearbyLocationsScreen extends StatefulWidget {
 }
 
 class _NearbyLocationsScreenState extends State<NearbyLocationsScreen> {
-  final List<String> _categories = ["All", "Waterfalls", "Rivers", "Mountains"];
+  final List<String> _categories = AppCategories.exploreCategories;
   List<String> _selectedCategories = ["All"];
 
   final TextEditingController _searchController = TextEditingController();
@@ -94,7 +95,9 @@ class _NearbyLocationsScreenState extends State<NearbyLocationsScreen> {
 
       // Category filter
       if (!_selectedCategories.contains("All") && _selectedCategories.isNotEmpty) {
-        results = results.where((post) => _selectedCategories.contains(post["category"]?.toString())).toList();
+        results = results.where((post) {
+          return _selectedCategories.any((cat) => AppCategories.matches(post, cat));
+        }).toList();
       }
 
       // Search filter
@@ -297,13 +300,20 @@ class _NearbyLocationsScreenState extends State<NearbyLocationsScreen> {
                                                       color: isSelected ? const Color(0xff2B1564) : const Color(0xffF1F5F9),
                                                       borderRadius: BorderRadius.circular(20),
                                                     ),
-                                                    child: Text(
-                                                      cat,
-                                                      style: TextStyle(
-                                                        color: isSelected ? Colors.white : const Color(0xff1C0D5A).withOpacity(0.7),
-                                                        fontSize: 13,
-                                                        fontWeight: FontWeight.bold,
-                                                      ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Text(AppCategories.getEmoji(cat), style: const TextStyle(fontSize: 13)),
+                                                        const SizedBox(width: 6),
+                                                        Text(
+                                                          cat,
+                                                          style: TextStyle(
+                                                            color: isSelected ? Colors.white : const Color(0xff1C0D5A).withOpacity(0.7),
+                                                            fontSize: 13,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ],
                                                     ),
                                                   ),
                                                 );

@@ -12,6 +12,7 @@ import 'package:hidely_new/widgets/video_thumbnail_preview.dart';
 import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hidely_new/config/categories.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -21,7 +22,7 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
-  final List<String> _categories = ["All", "Waterfalls", "Rivers", "Mountains"];
+  final List<String> _categories = AppCategories.exploreCategories;
   List<String> _selectedCategories = ["All"]; 
 
   final TextEditingController _searchController = TextEditingController();
@@ -39,10 +40,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
   static final List<Map<String, dynamic>> _defaultCuratedExplorePosts = [
     {
       "id": 38,
-      "caption": "Naini Lake, Nainital 🌊🏔️ | Where the Mountains Meet the Water",
+      "caption": "Naini Lake, Nainital 🛶 | Serene Emerald Lake in the Kumaon Foothills",
       "image_url": "https://res.cloudinary.com/lxfbzehh/image/upload/v1791547096/hidely/posts/bqenz5vj8wlydhl3skxz.jpg",
       "location": "Naini Lake, Nainital, Uttarakhand, India",
-      "category": "Waterfalls",
+      "category": "Lakes",
       "likes_count": 12,
       "author_id": 24,
       "author_name": "Harsh Bhardwaj",
@@ -54,7 +55,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     },
     {
       "id": 37,
-      "caption": "Panghot Pine Forests & Valleys 😍",
+      "caption": "Panghot Pine Forests & Himalayan Valleys 😍",
       "image_url": "https://res.cloudinary.com/lxfbzehh/image/upload/v1788429824/hidely/posts/wevhqazq91nw66ynbznc.jpg",
       "location": "Panghot, Nainital, Uttarakhand",
       "category": "Mountains",
@@ -98,6 +99,96 @@ class _ExploreScreenState extends State<ExploreScreen> {
       "comments_count": 0
     },
     {
+      "id": 101,
+      "caption": "Jog Falls: Roaring Cataract Waterfall of Karnataka 🌊",
+      "image_url": "https://images.unsplash.com/photo-1546548970-71785318a17b?w=800",
+      "location": "Jog Falls, Shimoga, Karnataka",
+      "category": "Waterfalls",
+      "likes_count": 310,
+      "author_id": 20,
+      "author_name": "Hidely Picks",
+      "author_username": "hidely_picks",
+      "author_profile_picture": "",
+      "is_liked": false,
+      "is_bookmarked": false,
+      "comments_count": 0
+    },
+    {
+      "id": 102,
+      "caption": "Rishikesh Ganga Ghat: Sacred Riverbank Rapids and Morning Aarti 🏞️",
+      "image_url": "https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800",
+      "location": "Rishikesh Ganga Ghat, Uttarakhand",
+      "category": "Rivers",
+      "likes_count": 395,
+      "author_id": 20,
+      "author_name": "Hidely Picks",
+      "author_username": "hidely_picks",
+      "author_profile_picture": "",
+      "is_liked": false,
+      "is_bookmarked": false,
+      "comments_count": 0
+    },
+    {
+      "id": 103,
+      "caption": "Teesta River Gorge: Rushing Alpine Glacier River of Sikkim 🏞️",
+      "image_url": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800",
+      "location": "Teesta River Gorge, Sikkim",
+      "category": "Rivers",
+      "likes_count": 280,
+      "author_id": 20,
+      "author_name": "Hidely Picks",
+      "author_username": "hidely_picks",
+      "author_profile_picture": "",
+      "is_liked": false,
+      "is_bookmarked": false,
+      "comments_count": 0
+    },
+    {
+      "id": 104,
+      "caption": "Triund Trek: Panoramic Dhauladhar Ridge Hiking Trail 🥾",
+      "image_url": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800",
+      "location": "Triund Trek, Dharamshala, Himachal Pradesh",
+      "category": "Trekking Spots",
+      "likes_count": 420,
+      "author_id": 20,
+      "author_name": "Hidely Picks",
+      "author_username": "hidely_picks",
+      "author_profile_picture": "",
+      "is_liked": false,
+      "is_bookmarked": false,
+      "comments_count": 0
+    },
+    {
+      "id": 105,
+      "caption": "Pawna Lake Lakeside Camping Under the Stars ⛺",
+      "image_url": "https://images.unsplash.com/photo-1510312305653-8ed496efae75?w=800",
+      "location": "Pawna Lake, Lonavala, Maharashtra",
+      "category": "Camping Spots",
+      "likes_count": 380,
+      "author_id": 20,
+      "author_name": "Hidely Picks",
+      "author_username": "hidely_picks",
+      "author_profile_picture": "",
+      "is_liked": false,
+      "is_bookmarked": false,
+      "comments_count": 0
+    },
+    {
+      "id": 106,
+      "caption": "Palolem Beach: Pristine Golden Sand & Palm Groves 🏖️",
+      "image_url": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800",
+      "location": "Palolem Beach, South Goa",
+      "category": "Beaches",
+      "likes_count": 315,
+      "author_id": 20,
+      "author_name": "Hidely Picks",
+      "author_username": "hidely_picks",
+      "author_profile_picture": "",
+      "is_liked": false,
+      "is_bookmarked": false,
+      "comments_count": 0
+    },
+    {
       "id": 29,
       "caption": "Red Fort: The Grand Red Sandstone Fortress of Delhi 🇮🇳",
       "image_url": "https://images.unsplash.com/photo-1585135497273-1a86b09fe70e?w=800",
@@ -129,10 +220,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
     },
     {
       "id": 27,
-      "caption": "Gateway of India: Majestic Colonial Arch Overlooking the Sea 🌊",
+      "caption": "Gateway of India: Majestic Colonial Arch Overlooking Mumbai Harbor 🌊",
       "image_url": "https://images.unsplash.com/photo-1562979314-bee7453e911c?w=800",
       "location": "Gateway of India, Mumbai, Maharashtra",
-      "category": "Rivers",
+      "category": "Heritage",
       "likes_count": 205,
       "author_id": 20,
       "author_name": "Hidely Picks",
@@ -344,8 +435,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     // Apply local multi-filters BEFORE sorting
     if (!_selectedCategories.contains("All") && _selectedCategories.isNotEmpty) {
       posts = posts.where((p) {
-        final cat = (p['category'] ?? '').toString();
-        return _selectedCategories.contains(cat);
+        return _selectedCategories.any((cat) => AppCategories.matches(p, cat));
       }).toList();
     }
     if (!_selectedCities.contains("All") && _selectedCities.isNotEmpty) {
@@ -395,9 +485,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
       });
     }
 
-    // Never show an empty explore if the user hasn't typed an active search or selected a filter
-    if (posts.isEmpty && _searchQuery.trim().isEmpty && _selectedCategories.contains("All") && _selectedCities.contains("All")) {
-      posts = List.from(_defaultCuratedExplorePosts);
+    // Never show an empty explore if the user hasn't typed an active search
+    if (posts.isEmpty && _searchQuery.trim().isEmpty && _selectedCities.contains("All")) {
+      posts = _defaultCuratedExplorePosts.where((p) {
+        if (_selectedCategories.contains("All") || _selectedCategories.isEmpty) return true;
+        return _selectedCategories.any((cat) => AppCategories.matches(p, cat));
+      }).toList();
     }
 
     _filteredPosts = posts;
@@ -605,13 +698,20 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                       color: isSelected ? const Color(0xff2B1564) : const Color(0xffF1F5F9),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
-                                    child: Text(
-                                      cat,
-                                      style: TextStyle(
-                                        color: isSelected ? Colors.white : const Color(0xff1C0D5A).withOpacity(0.7),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(AppCategories.getEmoji(cat), style: const TextStyle(fontSize: 13)),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          cat,
+                                          style: TextStyle(
+                                            color: isSelected ? Colors.white : const Color(0xff1C0D5A).withOpacity(0.7),
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 );
@@ -859,6 +959,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   ],
                 ),
               ),
+
+              // --- Quick Category Horizontal Pill Bar ---
+              _buildQuickCategorySelector(),
 
               // --- Instagram-Style Professional Search Results List ---
               if (_searchQuery.trim().isNotEmpty && _searchResultsUsers.isNotEmpty) ...[
@@ -1145,6 +1248,91 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildQuickCategorySelector() {
+    return Container(
+      height: 40,
+      margin: const EdgeInsets.only(top: 8, bottom: 6),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _categories.length,
+        itemBuilder: (context, index) {
+          final cat = _categories[index];
+          final bool isSelected = _selectedCategories.contains(cat);
+          final emoji = AppCategories.getEmoji(cat);
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (cat == "All") {
+                    _selectedCategories = ["All"];
+                  } else {
+                    if (isSelected && _selectedCategories.length == 1) {
+                      _selectedCategories = ["All"];
+                    } else {
+                      _selectedCategories = [cat];
+                    }
+                  }
+                  _applyLocalFiltersAndSorting();
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: isSelected
+                      ? const LinearGradient(
+                          colors: [Color(0xFF2B1564), Color(0xFF5D3EBC)],
+                        )
+                      : null,
+                  color: isSelected ? null : Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected ? Colors.transparent : const Color(0xFFE2E8F0),
+                    width: 1,
+                  ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF5D3EBC).withOpacity(0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          )
+                        ]
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          )
+                        ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(emoji, style: const TextStyle(fontSize: 13)),
+                    const SizedBox(width: 6),
+                    Text(
+                      cat,
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : const Color(0xFF1C0D5A),
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

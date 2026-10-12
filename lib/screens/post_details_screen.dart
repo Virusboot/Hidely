@@ -8,6 +8,7 @@ import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:video_player/video_player.dart';
 import 'main_wrapper.dart';
 import 'package:hidely_new/services/location_capture_service.dart';
+import 'package:hidely_new/config/categories.dart';
 
 class PostDetailsScreen extends StatefulWidget {
   final File? selectedImage;
@@ -546,10 +547,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   }
 
   void _showCategoryPicker(BuildContext context) {
-    final categories = [
-      'Nature', 'City', 'Mountains', 'Beach', 'Forest', 
-      'Desert', 'Historical', 'Adventure', 'Relaxation', 'Other'
-    ];
+    const categories = AppCategories.creationCategories;
 
     showModalBottomSheet(
       context: context,
@@ -573,10 +571,20 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                   itemCount: categories.length,
                   itemBuilder: (context, index) {
                     final cat = categories[index];
+                    final emoji = AppCategories.getEmoji(cat);
+                    final isSelected = _selectedCategory == cat;
                     return ListTile(
-                      title: Text(cat),
-                      trailing: _selectedCategory == cat
-                          ? const Icon(Icons.check, color: Color(0xff5D3EBC))
+                      leading: Text(emoji, style: const TextStyle(fontSize: 22)),
+                      title: Text(
+                        cat,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected ? const Color(0xff5D3EBC) : const Color(0xff1C0D5A),
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(Icons.check_circle_rounded, color: Color(0xff5D3EBC))
                           : null,
                       onTap: () {
                         setState(() {
