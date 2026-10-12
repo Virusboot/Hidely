@@ -4,6 +4,7 @@ import 'package:hidely_new/models/gamification_models.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
+import 'creator_profile_screen.dart';
 import 'user_profile_screen.dart';
 import 'points_history_screen.dart';
 
@@ -377,6 +378,34 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
     );
   }
 
+  void _navigateToUserProfile(LeaderboardUser user) {
+    final currentUsername = AuthService().userUsername.replaceAll('@', '').trim().toLowerCase();
+    final currentUserId = AuthService().userId.trim();
+    final targetUsername = user.username.replaceAll('@', '').trim().toLowerCase();
+    final targetId = user.id.toString();
+
+    final bool isSelf = (currentUsername.isNotEmpty && targetUsername == currentUsername) ||
+        (currentUserId.isNotEmpty && targetId == currentUserId);
+
+    if (isSelf) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const UserProfileScreen(isFromLeaderboard: true)),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CreatorProfileScreen(
+            username: user.username,
+            avatarPath: user.profilePicture ?? '',
+            rank: user.levelName,
+          ),
+        ),
+      );
+    }
+  }
+
   Widget _buildPodiumColumn({
     required LeaderboardUser user,
     required int rank,
@@ -387,12 +416,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
     bool isFirst = false,
   }) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const UserProfileScreen(isFromLeaderboard: true)),
-        );
-      },
+      onTap: () => _navigateToUserProfile(user),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -512,12 +536,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const UserProfileScreen(isFromLeaderboard: true)),
-          );
-        },
+        onTap: () => _navigateToUserProfile(user),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
@@ -635,63 +654,66 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
   }
 
   Widget _buildStickyMyRankCard(LeaderboardUser myRank) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xff2B1564), Color(0xff1C0D5A)],
-        ),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xff2B1564).withOpacity(0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+    return GestureDetector(
+      onTap: () => _navigateToUserProfile(myRank),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xff2B1564), Color(0xff1C0D5A)],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xffF59E0B),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(color: const Color(0xffF59E0B).withOpacity(0.4), blurRadius: 6),
-              ],
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xff2B1564).withOpacity(0.4),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
-            child: Text(
-              "#${myRank.rank}",
-              style: const TextStyle(
-                fontFamily: 'PublicSans',
-                fontWeight: FontWeight.w900,
-                fontSize: 14,
-                color: Colors.white,
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xffF59E0B),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(color: const Color(0xffF59E0B).withOpacity(0.4), blurRadius: 6),
+                ],
+              ),
+              child: Text(
+                "#${myRank.rank}",
+                style: const TextStyle(
+                  fontFamily: 'PublicSans',
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  color: Colors.white,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          UserAvatar(avatarUrl: myRank.profilePicture, displayName: myRank.name, radius: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  "Your Current Rank",
-                  style: TextStyle(fontFamily: 'PublicSans', color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500),
-                ),
-                Text(
-                  "${myRank.points} Points · Lvl ${myRank.level}",
-                  style: const TextStyle(fontFamily: 'PublicSans', color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-              ],
+            const SizedBox(width: 12),
+            UserAvatar(avatarUrl: myRank.profilePicture, displayName: myRank.name, radius: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Your Current Rank",
+                    style: TextStyle(fontFamily: 'PublicSans', color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500),
+                  ),
+                  Text(
+                    "${myRank.points} Points · Lvl ${myRank.level}",
+                    style: const TextStyle(fontFamily: 'PublicSans', color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 16),
-        ],
+            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 16),
+          ],
+        ),
       ),
     );
   }
