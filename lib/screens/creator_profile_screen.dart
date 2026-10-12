@@ -196,6 +196,10 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
     }
   }
 
+  void _handleBack() {
+    AppRoutes.safePop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     String? rawAvatar = _creatorData?["profile_picture"]?.toString();
@@ -206,85 +210,148 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
         ? (rawAvatar.startsWith("http") ? rawAvatar : "${ApiService().baseUrl}/$rawAvatar")
         : null;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
-      ),
-      child: Scaffold(
-        backgroundColor: const Color(0xffF6F9FC),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xffE0F2FE),
-              Color(0xffFDF7FF),
-            ],
-          ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBack();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
         ),
-        child: SafeArea(
-          child: _isLoading
-              ? const SizedBox.shrink()
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // --- 1. TOP APP BAR WITH BACK ARROW & OPTIONS BUTTON ---
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          GestureDetector(
-                            onTap: () => Navigator.pop(context),
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Image.asset(
-                                  'assets/images/back_icon.png',
-                                  width: 18,
-                                  height: 18,
-                                  color: const Color(0xFF1C0D5A),
+        child: Scaffold(
+          backgroundColor: const Color(0xffF6F9FC),
+          body: Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xffE0F2FE),
+                  Color(0xffFDF7FF),
+                ],
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // --- 1. TOP APP BAR WITH BACK ARROW, HOME BUTTON & OPTIONS BUTTON ---
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              onTap: _handleBack,
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Image.asset(
+                                    'assets/images/back_icon.png',
+                                    width: 18,
+                                    height: 18,
+                                    color: const Color(0xFF1C0D5A),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          Text(
-                            (_creatorData?["username"] ?? widget.username).toString().contains(' ')
-                                ? (_creatorData?["username"] ?? widget.username)
-                                : ((_creatorData?["username"] ?? widget.username).toString().startsWith('@')
-                                    ? (_creatorData?["username"] ?? widget.username)
-                                    : "@${_creatorData?["username"] ?? widget.username}"),
-                            style: const TextStyle(
-                              color: Color(0xff1C0D5A),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () => _showOptionsSheet(context),
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: () => Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false),
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.home_rounded, color: Color(0xFF1C0D5A), size: 22),
                               ),
-                              child: const Icon(Icons.more_vert, color: Color(0xff1C0D5A), size: 22),
                             ),
+                          ],
+                        ),
+                        Text(
+                          (_creatorData?["username"] ?? widget.username).toString().contains(' ')
+                              ? (_creatorData?["username"] ?? widget.username)
+                              : ((_creatorData?["username"] ?? widget.username).toString().startsWith('@')
+                                  ? (_creatorData?["username"] ?? widget.username)
+                                  : "@${_creatorData?["username"] ?? widget.username}"),
+                          style: const TextStyle(
+                            color: Color(0xff1C0D5A),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
                           ),
-                        ],
-                      ),
+                        ),
+                        GestureDetector(
+                          onTap: () => _showOptionsSheet(context),
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.more_vert, color: Color(0xff1C0D5A), size: 22),
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
+
+                  if (_isLoading)
+                    const Expanded(
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xff1C0D5A),
+                        ),
+                      ),
+                    )
+                  else if (_creatorData == null)
+                    Expanded(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.person_off_rounded, size: 54, color: Colors.black38),
+                              const SizedBox(height: 12),
+                              Text(
+                                "Creator @${widget.username} not found",
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A)),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                onPressed: _handleBack,
+                                icon: const Icon(Icons.home_rounded, size: 18),
+                                label: const Text("Go to Home Feed"),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xff1C0D5A),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  else ...[
 
                     // --- 2. PROFILE HEADER (AVATAR + STATS) ---
                     Padding(
@@ -621,10 +688,13 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                       ),
                     ),
                   ],
-                ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
-    ),);
+    );
   }
 
   bool _isPostVideo(dynamic post) {

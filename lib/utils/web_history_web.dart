@@ -32,17 +32,9 @@ String getBrowserCurrentPath() {
       return _cleanPath('$path$search');
     }
 
-    // Fallback to localStorage or sessionStorage if browser pathname is root
-    final sessionPath = html.window.sessionStorage['hidely_active_route'];
-    if (sessionPath != null && sessionPath.isNotEmpty && sessionPath != '/') {
-      return _cleanPath(sessionPath);
-    }
-
-    final localPath = html.window.localStorage['hidely_active_route'];
-    if (localPath != null && localPath.isNotEmpty && localPath != '/') {
-      return _cleanPath(localPath);
-    }
-
+    // Explicitly at root '/', clear any stale deep link from localStorage
+    html.window.localStorage.remove('hidely_active_route');
+    html.window.sessionStorage.remove('hidely_active_route');
     return '/';
   } catch (_) {
     return '/';
@@ -56,6 +48,13 @@ String _cleanPath(String p) {
     trimmed = trimmed.substring(0, trimmed.length - 1);
   }
   return trimmed;
+}
+
+void clearWebActiveRoute() {
+  try {
+    html.window.localStorage.remove('hidely_active_route');
+    html.window.sessionStorage.remove('hidely_active_route');
+  } catch (_) {}
 }
 
 void listenToPopState(void Function(String path) onRouteChanged) {

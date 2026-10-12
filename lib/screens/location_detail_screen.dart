@@ -8,6 +8,7 @@ import 'package:hidely_new/screens/main_wrapper.dart';
 import 'package:hidely_new/widgets/travel_squad_sheet.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/config/routes.dart';
 
 class LocationDetailScreen extends StatefulWidget {
   final String title;
@@ -563,7 +564,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           GestureDetector(
-                            onTap: () => Navigator.pop(context),
+                            onTap: () => AppRoutes.safePop(context),
                             child: Container(
                               width: 44,
                               height: 44,

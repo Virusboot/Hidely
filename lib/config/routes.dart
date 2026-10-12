@@ -68,15 +68,25 @@ class AppRoutes {
     } catch (_) {}
   }
 
+  /// Safely pops the current screen, or gracefully returns to home feed if opening directly from web URL
+  static void safePop(BuildContext context, [String fallbackRoute = AppRoutes.home]) {
+    if (kIsWeb) {
+      syncWebUrl(fallbackRoute);
+    }
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    } else {
+      Navigator.pushNamedAndRemoveUntil(context, fallbackRoute, (route) => false);
+    }
+  }
+
   static String determineInitialRoute([String? savedRoute]) {
     if (kIsWeb) {
       final browserPath = getBrowserCurrentPath();
       if (browserPath.isNotEmpty && browserPath != '/') {
         return browserPath;
       }
-      if (savedRoute != null && savedRoute.isNotEmpty && savedRoute != '/') {
-        return savedRoute;
-      }
+      return home;
     }
     return home;
   }
@@ -90,12 +100,23 @@ class AppRoutes {
 
     final RouteSettings settings = RouteSettings(name: routeName, arguments: arguments);
 
-    // Dynamic Route: /profile/:username
-    if (uri.pathSegments.length == 2 && uri.pathSegments.first == 'profile') {
-      final username = uri.pathSegments.last;
+    // Dynamic Route: /profile or /profile/:username or /profile?username=...
+    if (uri.pathSegments.isNotEmpty && uri.pathSegments.first == 'profile') {
+      String? username;
+      if (uri.pathSegments.length >= 2) {
+        username = Uri.decodeComponent(uri.pathSegments[1]);
+      } else if (uri.queryParameters.containsKey('username')) {
+        username = uri.queryParameters['username'];
+      }
+      if (username != null && username.isNotEmpty && username != 'me') {
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => CreatorProfileScreen(username: username!),
+        );
+      }
       return MaterialPageRoute(
         settings: settings,
-        builder: (_) => CreatorProfileScreen(username: username),
+        builder: (_) => const MainWrapper(initialIndex: 4),
       );
     }
 

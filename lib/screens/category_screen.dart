@@ -290,7 +290,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                 child: GestureDetector(
-                  onTap: () => Navigator.pop(context),
+                  onTap: () => AppRoutes.safePop(context),
                   child: Container(
                     width: 44,
                     height: 44,
