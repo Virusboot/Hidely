@@ -202,23 +202,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Future<void> _captureImageFromCamera() async {
     if (!kIsWeb) {
-      final cameraStatus = await Permission.camera.request();
-      if (cameraStatus.isPermanentlyDenied) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Camera permission disabled. Please enable in Settings.")),
-          );
-          openAppSettings();
+      try {
+        final cameraStatus = await Permission.camera.request();
+        if (cameraStatus.isPermanentlyDenied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Camera permission disabled. Please enable in Settings.")),
+            );
+            openAppSettings();
+          }
+          return;
         }
-        return;
-      }
-      if (!cameraStatus.isGranted) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Camera permission is required.")),
-          );
-        }
-        return;
+      } catch (e) {
+        debugPrint("Camera permission request warning: $e");
       }
     }
     
@@ -248,24 +244,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Future<void> _captureVideoFromCamera() async {
     if (!kIsWeb) {
-      final cameraStatus = await Permission.camera.request();
-      final micStatus = await Permission.microphone.request();
-      if (cameraStatus.isPermanentlyDenied || micStatus.isPermanentlyDenied) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Camera/Microphone permission disabled. Please enable in Settings.")),
-          );
-          openAppSettings();
+      try {
+        final cameraStatus = await Permission.camera.request();
+        final micStatus = await Permission.microphone.request();
+        if (cameraStatus.isPermanentlyDenied || micStatus.isPermanentlyDenied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Camera/Microphone permission disabled. Please enable in Settings.")),
+            );
+            openAppSettings();
+          }
+          return;
         }
-        return;
-      }
-      if (!cameraStatus.isGranted) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Camera permission is required.")),
-          );
-        }
-        return;
+      } catch (e) {
+        debugPrint("Camera/Mic permission request warning: $e");
       }
     }
 

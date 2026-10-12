@@ -108,15 +108,15 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
 
   Future<void> _pickImageFromCamera() async {
     if (!kIsWeb) {
-      final status = await Permission.camera.request();
-      if (status.isPermanentlyDenied) {
-        _snack('Camera permission disabled. Please enable it in Settings.', error: true);
-        openAppSettings();
-        return;
-      }
-      if (!status.isGranted) {
-        _snack('Camera permission is required.', error: true);
-        return;
+      try {
+        final status = await Permission.camera.request();
+        if (status.isPermanentlyDenied) {
+          _snack('Camera permission disabled. Please enable it in Settings.', error: true);
+          openAppSettings();
+          return;
+        }
+      } catch (e) {
+        debugPrint("Camera permission request notice: $e");
       }
     }
 
@@ -149,16 +149,16 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
 
   Future<void> _pickVideoFromCamera() async {
     if (!kIsWeb) {
-      final camStatus = await Permission.camera.request();
-      final micStatus = await Permission.microphone.request();
-      if (camStatus.isPermanentlyDenied || micStatus.isPermanentlyDenied) {
-        _snack('Camera/Microphone permission disabled. Please enable in Settings.', error: true);
-        openAppSettings();
-        return;
-      }
-      if (!camStatus.isGranted) {
-        _snack('Camera permission is required.', error: true);
-        return;
+      try {
+        final camStatus = await Permission.camera.request();
+        final micStatus = await Permission.microphone.request();
+        if (camStatus.isPermanentlyDenied || micStatus.isPermanentlyDenied) {
+          _snack('Camera/Microphone permission disabled. Please enable in Settings.', error: true);
+          openAppSettings();
+          return;
+        }
+      } catch (e) {
+        debugPrint("Camera/Mic permission request notice: $e");
       }
     }
 
@@ -536,11 +536,11 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
               Icon(Icons.keyboard_arrow_down_rounded, color: const Color(0xff1C0D5A).withOpacity(0.7), size: 18),
             ]),
             GestureDetector(
-              onTap: _pickImageFromCamera,
+              onTap: _currentModeIndex == 1 ? _handleReelCameraTap : _pickImageFromCamera,
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(color: const Color(0xff2B1564).withOpacity(0.1), shape: BoxShape.circle),
-                child: const Icon(Icons.camera_alt_outlined, color: Color(0xff2B1564), size: 20),
+                child: Icon(_currentModeIndex == 1 ? Icons.videocam_rounded : Icons.camera_alt_outlined, color: const Color(0xff2B1564), size: 20),
               ),
             ),
           ],

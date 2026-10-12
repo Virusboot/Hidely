@@ -181,55 +181,100 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
     setState(() => _isCameraInitialized = false);
     await _cameraController?.dispose();
 
-    CameraController controller = CameraController(
-      _cameras![index],
-      ResolutionPreset.high,
-      enableAudio: true,
-      imageFormatGroup: ImageFormatGroup.jpeg,
-    );
-
+    // 1. Try High preset with audio
     try {
+      final controller = CameraController(
+        _cameras![index],
+        ResolutionPreset.high,
+        enableAudio: true,
+      );
       await controller.initialize();
       _cameraController = controller;
-      // Ensure default 1.0x optical unzoomed lens
-      try {
-        await _cameraController!.setZoomLevel(1.0);
-      } catch (_) {}
+      try { await _cameraController!.setZoomLevel(1.0); } catch (_) {}
       if (mounted) {
         setState(() {
           _isCameraInitialized = true;
           _cameraErrorMessage = null;
         });
       }
+      return;
     } catch (e) {
-      debugPrint("Camera Setup Error with audio: $e. Retrying without audio...");
-      try {
-        await controller.dispose();
-        controller = CameraController(
-          _cameras![index],
-          ResolutionPreset.high,
-          enableAudio: false,
-          imageFormatGroup: ImageFormatGroup.jpeg,
-        );
-        await controller.initialize();
-        _cameraController = controller;
-        try {
-          await _cameraController!.setZoomLevel(1.0);
-        } catch (_) {}
-        if (mounted) {
-          setState(() {
-            _isCameraInitialized = true;
-            _cameraErrorMessage = null;
-          });
-        }
-      } catch (fallbackError) {
-        debugPrint("Camera Setup Fallback Error: $fallbackError");
-        if (mounted) {
-          setState(() {
-            _cameraErrorMessage = "Camera failed to initialize: $fallbackError";
-          });
-        }
+      debugPrint("Camera setup (high + audio) failed: $e, trying medium preset...");
+    }
+
+    // 2. Try Medium preset with audio
+    try {
+      final controller = CameraController(
+        _cameras![index],
+        ResolutionPreset.medium,
+        enableAudio: true,
+      );
+      await controller.initialize();
+      _cameraController = controller;
+      try { await _cameraController!.setZoomLevel(1.0); } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _isCameraInitialized = true;
+          _cameraErrorMessage = null;
+        });
       }
+      return;
+    } catch (e) {
+      debugPrint("Camera setup (medium + audio) failed: $e, trying without audio...");
+    }
+
+    // 3. Fallback without audio (handles microphone permission issues or hardware lock)
+    try {
+      final controller = CameraController(
+        _cameras![index],
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
+      await controller.initialize();
+      _cameraController = controller;
+      try { await _cameraController!.setZoomLevel(1.0); } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _isCameraInitialized = true;
+          _cameraErrorMessage = null;
+        });
+      }
+    } catch (fallbackError) {
+      debugPrint("Camera all fallbacks failed: $fallbackError");
+      if (mounted) {
+        setState(() {
+          _cameraErrorMessage = "Camera failed to initialize: $fallbackError";
+        });
+      }
+    }
+  }
+
+  Future<void> _recordWithSystemCamera() async {
+    final ImagePicker picker = ImagePicker();
+    try {
+      final XFile? file = await picker.pickVideo(
+        source: ImageSource.camera,
+        maxDuration: const Duration(seconds: 60),
+      );
+      if (file != null && mounted) {
+        final Uint8List bytes = await file.readAsBytes();
+        final capLoc = await LocationCaptureService().captureCameraLocation();
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PostDetailsScreen(
+              selectedImage: kIsWeb ? null : File(file.path),
+              imageBytes: bytes,
+              filename: file.name,
+              mediaSource: MediaSource.camera,
+              initialCapturedLocation: capLoc,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("System camera error: $e");
     }
   }
 
@@ -516,9 +561,21 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                         style: const TextStyle(color: Colors.white60, fontSize: 13),
                       ),
                       const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        alignment: WrapAlignment.center,
                         children: [
+                          ElevatedButton.icon(
+                            onPressed: _recordWithSystemCamera,
+                            icon: const Icon(Icons.videocam_rounded, size: 18),
+                            label: const Text("Use Phone Camera"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xff2B1564),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            ),
+                          ),
                           ElevatedButton.icon(
                             onPressed: _initCamera,
                             icon: const Icon(Icons.refresh, size: 18),
@@ -526,9 +583,20 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white24,
                               foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          if (!kIsWeb)
+                            ElevatedButton.icon(
+                              onPressed: openAppSettings,
+                              icon: const Icon(Icons.settings_outlined, size: 18),
+                              label: const Text("Settings"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white24,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              ),
+                            ),
                           ElevatedButton.icon(
                             onPressed: _pickFromGallery,
                             icon: const Icon(Icons.photo_library, size: 18),
@@ -536,6 +604,7 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xffE1306C),
                               foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             ),
                           ),
                         ],
