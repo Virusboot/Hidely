@@ -582,20 +582,6 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                               child: Center(child: Image.asset('assets/images/back_icon.png', color: const Color(0xff1C0D5A), width: 18.0, height: 18.0)),
                             ),
                           ),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                              child: Text(
-                                widget.location,
-                                style: const TextStyle(
-                                  color: Color(0xff1C0D5A),
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
                           // Only Navigation button in top right
                           GestureDetector(
                             onTap: _navigateToLocationInApp,
