@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:hidely_new/widgets/report_bottom_sheet.dart';
 import 'package:hidely_new/widgets/video_thumbnail_preview.dart';
 import 'package:hidely_new/config/routes.dart';
+import 'package:hidely_new/utils/verification_utils.dart';
 
 class CreatorProfileScreen extends StatefulWidget {
   final String username;
@@ -198,6 +199,18 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
 
   void _handleBack() {
     AppRoutes.safePop(context);
+  }
+
+  bool get _isVerifiedBadgeEligible {
+    final uname = (_creatorData?["username"] ?? widget.username).toString();
+    final pCount = int.tryParse(_postsCount) ?? (_creatorPosts.length);
+    final fCount = int.tryParse(_followers) ?? (_creatorData?['followers_count'] is int ? _creatorData!['followers_count'] : 0);
+    return isVerifiedCreator(
+      username: uname,
+      hidelysCount: pCount,
+      followersCount: fCount,
+      isVerifiedFlag: _creatorData?['is_verified'] == true,
+    );
   }
 
   @override
@@ -463,7 +476,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                                 _creatorData?["name"] ?? _creatorData?["username"] ?? widget.username,
                                 style: const TextStyle(color: Color(0xff1C0D5A), fontSize: 16, fontWeight: FontWeight.bold),
                               ),
-                              if (_creatorData?["is_verified"] == true || widget.username == 'hidely_official') ...[
+                              if (_isVerifiedBadgeEligible) ...[
                                 const SizedBox(width: 4),
                                 const Icon(Icons.verified_rounded, color: Color(0xFF2563EB), size: 17),
                               ],

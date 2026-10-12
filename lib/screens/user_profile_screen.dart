@@ -16,6 +16,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hidely_new/widgets/video_thumbnail_preview.dart';
 
 import 'package:hidely_new/models/gamification_models.dart';
+import 'package:hidely_new/utils/verification_utils.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final bool isFromLeaderboard;
@@ -105,6 +106,17 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   List<dynamic> _userPosts = [];
   List<dynamic> _savedPosts = [];
   String _rankBadge = "NOVICE";
+
+  bool get _isVerifiedBadgeEligible {
+    final uname = _username.isNotEmpty ? _username : AuthService().userUsername;
+    final pCount = _postsCount > 0 ? _postsCount : _userPosts.length;
+    final fCount = _followersCount;
+    return isVerifiedCreator(
+      username: uname,
+      hidelysCount: pCount,
+      followersCount: fCount,
+    );
+  }
 
   @override
   void initState() {
@@ -514,7 +526,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold),
                                 ),
-                                if (_username == 'hidely_official' || _username == 'hidely') ...[
+                                if (_isVerifiedBadgeEligible) ...[
                                   const SizedBox(width: 4),
                                   const Icon(Icons.verified_rounded, color: Color(0xff2563EB), size: 18),
                                 ],
