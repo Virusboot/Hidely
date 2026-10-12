@@ -201,14 +201,25 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _captureImageFromCamera() async {
-    final cameraStatus = await Permission.camera.request();
-    if (cameraStatus.isDenied || cameraStatus.isPermanentlyDenied) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Camera permission is required.")),
-        );
+    if (!kIsWeb) {
+      final cameraStatus = await Permission.camera.request();
+      if (cameraStatus.isPermanentlyDenied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Camera permission disabled. Please enable in Settings.")),
+          );
+          openAppSettings();
+        }
+        return;
       }
-      return;
+      if (!cameraStatus.isGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Camera permission is required.")),
+          );
+        }
+        return;
+      }
     }
     
     try {
@@ -221,7 +232,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         setState(() {
           _selectedImageBytes = bytes;
           _selectedFileName = pickedFile.name;
-          _selectedImage = File(pickedFile.path);
+          _selectedImage = kIsWeb ? null : File(pickedFile.path);
           _selectedAsset = null;
         });
       }
@@ -229,21 +240,33 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       debugPrint("Error capturing image: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Failed to open camera.")),
+          SnackBar(content: Text("Failed to open camera: $e")),
         );
       }
     }
   }
 
   Future<void> _captureVideoFromCamera() async {
-    final cameraStatus = await Permission.camera.request();
-    if (cameraStatus.isDenied || cameraStatus.isPermanentlyDenied) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Camera permission is required.")),
-        );
+    if (!kIsWeb) {
+      final cameraStatus = await Permission.camera.request();
+      final micStatus = await Permission.microphone.request();
+      if (cameraStatus.isPermanentlyDenied || micStatus.isPermanentlyDenied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Camera/Microphone permission disabled. Please enable in Settings.")),
+          );
+          openAppSettings();
+        }
+        return;
       }
-      return;
+      if (!cameraStatus.isGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Camera permission is required.")),
+          );
+        }
+        return;
+      }
     }
 
     try {
@@ -256,7 +279,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         setState(() {
           _selectedImageBytes = bytes;
           _selectedFileName = pickedFile.name;
-          _selectedImage = File(pickedFile.path);
+          _selectedImage = kIsWeb ? null : File(pickedFile.path);
           _selectedAsset = null;
         });
       }
@@ -264,7 +287,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       debugPrint("Error capturing video: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Failed to open video camera.")),
+          SnackBar(content: Text("Failed to open video camera: $e")),
         );
       }
     }

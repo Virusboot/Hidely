@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -7,6 +8,7 @@ import 'package:hidely_new/widgets/custom_snackbar.dart';
 class MediaDownloadService {
   /// Downloads image or video media to device local storage / gallery
   static Future<bool> downloadMediaToGallery(BuildContext context, String urlOrPath) async {
+    if (kIsWeb) return false;
     if (urlOrPath.trim().isEmpty) {
       if (context.mounted) {
         showHidelySnackBar(context, "No media file found to download", isError: true);

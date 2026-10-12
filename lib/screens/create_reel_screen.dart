@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:hidely_new/services/media_download_service.dart';
 import 'package:hidely_new/services/location_capture_service.dart';
 import 'post_details_screen.dart';
@@ -20,6 +22,7 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
   List<CameraDescription>? _cameras;
   int _selectedCameraIndex = 0;
   bool _isCameraInitialized = false;
+  String? _cameraErrorMessage;
 
   // Recording State
   bool _isRecording = false;
@@ -131,13 +134,45 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
   }
 
   Future<void> _initCamera() async {
+    setState(() {
+      _cameraErrorMessage = null;
+    });
+
+    if (!kIsWeb) {
+      try {
+        final camStatus = await Permission.camera.request();
+        final micStatus = await Permission.microphone.request();
+        if (camStatus.isPermanentlyDenied || micStatus.isPermanentlyDenied) {
+          if (mounted) {
+            setState(() {
+              _cameraErrorMessage = "Camera or microphone permission is denied. Please enable them in app settings.";
+            });
+          }
+          return;
+        }
+      } catch (e) {
+        debugPrint("Permission check error: $e");
+      }
+    }
+
     try {
       _cameras = await availableCameras();
       if (_cameras != null && _cameras!.isNotEmpty) {
         await _setupCamera(_selectedCameraIndex);
+      } else {
+        if (mounted) {
+          setState(() {
+            _cameraErrorMessage = "No camera found on this device.";
+          });
+        }
       }
     } catch (e) {
       debugPrint("Camera Initialization Error: $e");
+      if (mounted) {
+        setState(() {
+          _cameraErrorMessage = "Could not initialize camera: ${e.toString()}";
+        });
+      }
     }
   }
 
@@ -146,7 +181,7 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
     setState(() => _isCameraInitialized = false);
     await _cameraController?.dispose();
 
-    _cameraController = CameraController(
+    CameraController controller = CameraController(
       _cameras![index],
       ResolutionPreset.high,
       enableAudio: true,
@@ -154,16 +189,47 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
     );
 
     try {
-      await _cameraController!.initialize();
+      await controller.initialize();
+      _cameraController = controller;
       // Ensure default 1.0x optical unzoomed lens
       try {
         await _cameraController!.setZoomLevel(1.0);
       } catch (_) {}
       if (mounted) {
-        setState(() => _isCameraInitialized = true);
+        setState(() {
+          _isCameraInitialized = true;
+          _cameraErrorMessage = null;
+        });
       }
     } catch (e) {
-      debugPrint("Camera Setup Error: $e");
+      debugPrint("Camera Setup Error with audio: $e. Retrying without audio...");
+      try {
+        await controller.dispose();
+        controller = CameraController(
+          _cameras![index],
+          ResolutionPreset.high,
+          enableAudio: false,
+          imageFormatGroup: ImageFormatGroup.jpeg,
+        );
+        await controller.initialize();
+        _cameraController = controller;
+        try {
+          await _cameraController!.setZoomLevel(1.0);
+        } catch (_) {}
+        if (mounted) {
+          setState(() {
+            _isCameraInitialized = true;
+            _cameraErrorMessage = null;
+          });
+        }
+      } catch (fallbackError) {
+        debugPrint("Camera Setup Fallback Error: $fallbackError");
+        if (mounted) {
+          setState(() {
+            _cameraErrorMessage = "Camera failed to initialize: $fallbackError";
+          });
+        }
+      }
     }
   }
 
@@ -266,8 +332,11 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
     try {
       HapticFeedback.mediumImpact();
       final XFile photo = await _cameraController!.takePicture();
-      // Auto-save photo to phone gallery
-      await MediaDownloadService.downloadMediaToGallery(context, photo.path);
+      final Uint8List bytes = await photo.readAsBytes();
+      // Auto-save photo to phone gallery on mobile
+      if (!kIsWeb) {
+        await MediaDownloadService.downloadMediaToGallery(context, photo.path);
+      }
       // Capture camera recording location
       final capLoc = await LocationCaptureService().captureCameraLocation();
 
@@ -276,7 +345,9 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => PostDetailsScreen(
-              selectedImage: File(photo.path),
+              selectedImage: kIsWeb ? null : File(photo.path),
+              imageBytes: bytes,
+              filename: photo.name,
               mediaSource: MediaSource.camera,
               initialCapturedLocation: capLoc,
             ),
@@ -336,8 +407,11 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
 
       if (mounted) {
         final navigator = Navigator.of(context);
-        // Auto-save recorded video to phone gallery
-        await MediaDownloadService.downloadMediaToGallery(context, file.path);
+        final Uint8List bytes = await file.readAsBytes();
+        // Auto-save recorded video to phone gallery on mobile
+        if (!kIsWeb) {
+          await MediaDownloadService.downloadMediaToGallery(context, file.path);
+        }
         
         // Capture camera recording location
         final capLoc = await LocationCaptureService().captureCameraLocation();
@@ -346,7 +420,9 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
         navigator.push(
           MaterialPageRoute(
             builder: (context) => PostDetailsScreen(
-              selectedImage: File(file.path),
+              selectedImage: kIsWeb ? null : File(file.path),
+              imageBytes: bytes,
+              filename: file.name,
               mediaSource: MediaSource.camera,
               initialCapturedLocation: capLoc,
             ),
@@ -369,11 +445,14 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
         : await picker.pickVideo(source: ImageSource.gallery);
 
     if (media != null && mounted) {
+      final Uint8List bytes = await media.readAsBytes();
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => PostDetailsScreen(
-            selectedImage: File(media.path),
+            selectedImage: kIsWeb ? null : File(media.path),
+            imageBytes: bytes,
+            filename: media.name,
             mediaSource: MediaSource.gallery,
           ),
         ),
@@ -413,6 +492,55 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
                       colorFilter: ColorFilter.matrix(_luts[_selectedLutIndex]['matrix'] as List<double>),
                       child: CameraPreview(_cameraController!),
                     ),
+                  ),
+                ),
+              )
+            else if (_cameraErrorMessage != null)
+              Container(
+                color: const Color(0xff111111),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.videocam_off_outlined, color: Colors.white70, size: 64),
+                      const SizedBox(height: 16),
+                      const Text(
+                        "Camera Unavailable",
+                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _cameraErrorMessage!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white60, fontSize: 13),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: _initCamera,
+                            icon: const Icon(Icons.refresh, size: 18),
+                            label: const Text("Retry"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white24,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: _pickFromGallery,
+                            icon: const Icon(Icons.photo_library, size: 18),
+                            label: const Text("Gallery"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xffE1306C),
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               )
