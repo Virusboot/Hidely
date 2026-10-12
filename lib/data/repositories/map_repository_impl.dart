@@ -75,38 +75,33 @@ class MapRepositoryImpl implements MapRepository {
       debugPrint('Google Geocoding failed for $address: $e');
     }
 
-    // Fallback: OpenStreetMap Nominatim API (Free and no key required)
+    // Fallback: Photon Geocoding API (Free OpenStreetMap based, no key required, CORS supported)
     try {
-      debugPrint('[Geocode] Falling back to OpenStreetMap Nominatim for: $address');
+      debugPrint('[Geocode] Falling back to Photon for: $address');
       final fallbackUrl = Uri.parse(
-        'https://nominatim.openstreetmap.org/search'
-        '?q=${Uri.encodeComponent(address)}'
-        '&format=json'
-        '&limit=1'
+        'https://photon.komoot.io/api/?q=${Uri.encodeComponent(address)}&limit=1'
       );
-      final fallbackResponse = await http.get(
-        fallbackUrl,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-        },
-      ).timeout(const Duration(seconds: 15));
+      final fallbackResponse = await http.get(fallbackUrl).timeout(const Duration(seconds: 10));
       if (fallbackResponse.statusCode == 200) {
         final fallbackData = json.decode(fallbackResponse.body);
-        if (fallbackData is List && fallbackData.isNotEmpty) {
-          final first = fallbackData[0];
-          final lat = double.parse(first['lat'] as String);
-          final lng = double.parse(first['lon'] as String);
-          final latLng = LatLng(lat, lng);
-          
-          _geocodingCache[cleanName] = latLng;
-          _saveGeocodeToPrefs(cleanName, latLng);
+        if (fallbackData is Map && fallbackData['features'] is List && (fallbackData['features'] as List).isNotEmpty) {
+          final first = (fallbackData['features'] as List)[0];
+          final coords = first['geometry']?['coordinates'] as List? ?? [];
+          if (coords.length >= 2) {
+            final lng = (coords[0] as num).toDouble();
+            final lat = (coords[1] as num).toDouble();
+            final latLng = LatLng(lat, lng);
+            
+            _geocodingCache[cleanName] = latLng;
+            _saveGeocodeToPrefs(cleanName, latLng);
 
-          debugPrint('[Geocode] Nominatim succeeded: Lat $lat, Lng $lng');
-          return latLng;
+            debugPrint('[Geocode] Photon succeeded: Lat $lat, Lng $lng');
+            return latLng;
+          }
         }
       }
     } catch (e) {
-      debugPrint('OSM Nominatim Geocoding fallback failed: $e');
+      debugPrint('Photon Geocoding fallback failed: $e');
     }
     return null;
   }
@@ -147,17 +142,9 @@ class MapRepositoryImpl implements MapRepository {
       debugPrint('[Autocomplete] Local search lookup failed: $e');
     }
 
-    // 2. Google Places Autocomplete API
+    // 2. Google Places / Backend Autocomplete API
     try {
-      const apiKey = AppConstants.googleMapsApiKey;
-      final url = kIsWeb
-          ? Uri.parse('${ApiService().baseUrl}/api/map/autocomplete?input=${Uri.encodeComponent(input)}')
-          : Uri.parse(
-              'https://maps.googleapis.com/maps/api/place/autocomplete/json'
-              '?input=${Uri.encodeComponent(input)}'
-              '&components=country:in'
-              '&key=$apiKey'
-            );
+      final url = Uri.parse('${ApiService().baseUrl}/api/map/autocomplete?input=${Uri.encodeComponent(input)}');
       final response = await http.get(url).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -169,47 +156,56 @@ class MapRepositoryImpl implements MapRepository {
               predictions.add({
                 'description': desc,
                 'place_id': pred['place_id'] as String? ?? '',
-                'subtitle': 'Search Location',
+                'subtitle': pred['structured_formatting']?['secondary_text'] as String? ?? 'Search Location',
               });
             }
           }
         }
       }
     } catch (e) {
-      debugPrint('Autocomplete Google API failed: $e');
+      debugPrint('Autocomplete Backend/Google API failed: $e');
     }
 
-    // 3. Fallback: OpenStreetMap Nominatim search for dynamic location suggestions
+    // 3. Fallback: Photon API for dynamic global & Indian location suggestions
     if (predictions.length < 3) {
       try {
         final fallbackUrl = Uri.parse(
-          'https://nominatim.openstreetmap.org/search'
-          '?q=${Uri.encodeComponent(input)}'
-          '&format=json'
-          '&limit=5'
+          'https://photon.komoot.io/api/?q=${Uri.encodeComponent(input)}&limit=8'
         );
-        final res = await http.get(
-          fallbackUrl,
-          headers: {'User-Agent': 'HidelyApp/1.0'},
-        ).timeout(const Duration(seconds: 8));
+        final res = await http.get(fallbackUrl).timeout(const Duration(seconds: 8));
         if (res.statusCode == 200) {
-          final list = json.decode(res.body);
-          if (list is List) {
-            for (final item in list) {
-              final dispName = item['display_name'] as String? ?? '';
-              if (dispName.isNotEmpty && !addedNames.contains(dispName.toLowerCase())) {
-                addedNames.add(dispName.toLowerCase());
+          final data = json.decode(res.body);
+          if (data is Map && data['features'] is List) {
+            for (final f in data['features']) {
+              final props = f['properties'] as Map<String, dynamic>? ?? {};
+              final geom = f['geometry'] as Map<String, dynamic>? ?? {};
+              final coords = geom['coordinates'] as List? ?? [];
+
+              final name = props['name']?.toString() ?? '';
+              final street = props['street']?.toString() ?? '';
+              final city = props['city']?.toString() ?? props['county']?.toString() ?? '';
+              final state = props['state']?.toString() ?? '';
+              final country = props['country']?.toString() ?? '';
+
+              final parts = [name, street, city, state, country].where((s) => s.isNotEmpty).toSet().toList();
+              final desc = parts.join(', ');
+
+              if (desc.isNotEmpty && !addedNames.contains(desc.toLowerCase())) {
+                addedNames.add(desc.toLowerCase());
+                final lat = coords.length > 1 ? coords[1] : '';
+                final lng = coords.isNotEmpty ? coords[0] : '';
+                final placeId = (lat != '' && lng != '') ? 'photon_${lat}_$lng' : '';
                 predictions.add({
-                  'description': dispName,
-                  'place_id': '',
-                  'subtitle': 'Location Result',
+                  'description': desc,
+                  'place_id': placeId,
+                  'subtitle': city.isNotEmpty ? '$city, $state' : (state.isNotEmpty ? '$state, $country' : 'Location'),
                 });
               }
             }
           }
         }
       } catch (e) {
-        debugPrint('[Autocomplete] Nominatim fallback error: $e');
+        debugPrint('[Autocomplete] Photon fallback error: $e');
       }
     }
 
@@ -218,16 +214,20 @@ class MapRepositoryImpl implements MapRepository {
 
   @override
   Future<LatLng?> getLatLngFromPlaceId(String placeId) async {
+    // Instant resolution if place_id was created by Photon
+    if (placeId.startsWith('photon_')) {
+      final parts = placeId.split('_');
+      if (parts.length >= 3) {
+        final lat = double.tryParse(parts[1]);
+        final lng = double.tryParse(parts[2]);
+        if (lat != null && lng != null) {
+          return LatLng(lat, lng);
+        }
+      }
+    }
+
     try {
-      const apiKey = AppConstants.googleMapsApiKey;
-      final url = kIsWeb
-          ? Uri.parse('${ApiService().baseUrl}/api/map/details?place_id=$placeId')
-          : Uri.parse(
-              'https://maps.googleapis.com/maps/api/place/details/json'
-              '?place_id=$placeId'
-              '&fields=geometry'
-              '&key=$apiKey'
-            );
+      final url = Uri.parse('${ApiService().baseUrl}/api/map/details?place_id=$placeId');
       final response = await http.get(url).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
