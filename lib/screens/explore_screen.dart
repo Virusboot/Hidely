@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hidely_new/config/responsive_breakpoints.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'package:hidely_new/screens/location_detail_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
@@ -28,9 +29,135 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   List<String> _selectedCities = ["All"];
 
+  static List<dynamic> _cachedExplorePosts = [];
+  List<dynamic> _allPosts = [];
   List<dynamic> _filteredPosts = [];
   List<dynamic> _searchResultsUsers = [];
+  bool _isLoading = false;
   Timer? _debounceTimer;
+
+  static final List<Map<String, dynamic>> _defaultCuratedExplorePosts = [
+    {
+      "id": 38,
+      "caption": "Naini Lake, Nainital 🌊🏔️ | Where the Mountains Meet the Water",
+      "image_url": "https://res.cloudinary.com/lxfbzehh/image/upload/v1791547096/hidely/posts/bqenz5vj8wlydhl3skxz.jpg",
+      "location": "Naini Lake, Nainital, Uttarakhand, India",
+      "category": "Waterfalls",
+      "likes_count": 12,
+      "author_id": 24,
+      "author_name": "Harsh Bhardwaj",
+      "author_username": "realharsh",
+      "author_profile_picture": "https://res.cloudinary.com/lxfbzehh/image/upload/v1788417595/hidely/profiles/un5musigoacnzd8qlmet.jpg",
+      "is_liked": false,
+      "is_bookmarked": false,
+      "comments_count": 0
+    },
+    {
+      "id": 37,
+      "caption": "Panghot Pine Forests & Valleys 😍",
+      "image_url": "https://res.cloudinary.com/lxfbzehh/image/upload/v1788429824/hidely/posts/wevhqazq91nw66ynbznc.jpg",
+      "location": "Panghot, Nainital, Uttarakhand",
+      "category": "Mountains",
+      "likes_count": 15,
+      "author_id": 26,
+      "author_name": "Dharmesh Kumar",
+      "author_username": "dharmesh",
+      "author_profile_picture": "https://res.cloudinary.com/lxfbzehh/image/upload/v1788429535/hidely/profiles/qph4kxtwkhrmksqq9h7v.jpg",
+      "is_liked": false,
+      "is_bookmarked": false,
+      "comments_count": 1
+    },
+    {
+      "id": 34,
+      "caption": "Rohtang Pass: Snow-Capped Himalayan Peak Adventure Route ❄️",
+      "image_url": "https://images.unsplash.com/photo-1605649487212-47bdab064df7?w=800",
+      "location": "Rohtang Pass, Himachal Pradesh",
+      "category": "Mountains",
+      "likes_count": 346,
+      "author_id": 20,
+      "author_name": "Hidely Picks",
+      "author_username": "hidely_picks",
+      "author_profile_picture": "",
+      "is_liked": false,
+      "is_bookmarked": false,
+      "comments_count": 1
+    },
+    {
+      "id": 31,
+      "caption": "Athirappilly Waterfalls: Scenic Forest Torrent Cascade 🌲",
+      "image_url": "https://images.unsplash.com/photo-1598091383021-15ddea10925d?w=800",
+      "location": "Athirappilly Waterfalls, Kerala",
+      "category": "Waterfalls",
+      "likes_count": 355,
+      "author_id": 20,
+      "author_name": "Hidely Picks",
+      "author_username": "hidely_picks",
+      "author_profile_picture": "",
+      "is_liked": false,
+      "is_bookmarked": false,
+      "comments_count": 0
+    },
+    {
+      "id": 29,
+      "caption": "Red Fort: The Grand Red Sandstone Fortress of Delhi 🇮🇳",
+      "image_url": "https://images.unsplash.com/photo-1585135497273-1a86b09fe70e?w=800",
+      "location": "Red Fort, Delhi",
+      "category": "Heritage",
+      "likes_count": 273,
+      "author_id": 20,
+      "author_name": "Hidely Picks",
+      "author_username": "hidely_picks",
+      "author_profile_picture": "",
+      "is_liked": false,
+      "is_bookmarked": false,
+      "comments_count": 0
+    },
+    {
+      "id": 28,
+      "caption": "Hawa Mahal: Beautiful Honeycomb Pink Palace of Winds 🪟",
+      "image_url": "https://images.unsplash.com/photo-1603262110263-fb0112e7cc33?w=800",
+      "location": "Hawa Mahal, Jaipur, Rajasthan",
+      "category": "Heritage",
+      "likes_count": 261,
+      "author_id": 20,
+      "author_name": "Hidely Picks",
+      "author_username": "hidely_picks",
+      "author_profile_picture": "",
+      "is_liked": false,
+      "is_bookmarked": false,
+      "comments_count": 1
+    },
+    {
+      "id": 27,
+      "caption": "Gateway of India: Majestic Colonial Arch Overlooking the Sea 🌊",
+      "image_url": "https://images.unsplash.com/photo-1562979314-bee7453e911c?w=800",
+      "location": "Gateway of India, Mumbai, Maharashtra",
+      "category": "Rivers",
+      "likes_count": 205,
+      "author_id": 20,
+      "author_name": "Hidely Picks",
+      "author_username": "hidely_picks",
+      "author_profile_picture": "",
+      "is_liked": false,
+      "is_bookmarked": false,
+      "comments_count": 0
+    },
+    {
+      "id": 25,
+      "caption": "Taj Mahal: The Epitome of Mughal Architecture and Love 🥇",
+      "image_url": "https://images.unsplash.com/photo-1564507592333-c60657eea523?w=800",
+      "location": "Taj Mahal, Agra, Uttar Pradesh",
+      "category": "Heritage",
+      "likes_count": 650,
+      "author_id": 20,
+      "author_name": "Hidely Picks",
+      "author_username": "hidely_picks",
+      "author_profile_picture": "",
+      "is_liked": false,
+      "is_bookmarked": false,
+      "comments_count": 0
+    }
+  ];
 
   // Personalization recommendation state
   List<String> _userPreferredCategories = [];
@@ -44,7 +171,47 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _searchFocusNode.addListener(() {
       if (mounted) setState(() {});
     });
+
+    if (_cachedExplorePosts.isNotEmpty) {
+      _allPosts = List.from(_cachedExplorePosts);
+      _applyLocalFiltersAndSorting();
+      _isLoading = false;
+    } else {
+      _loadCachedPostsFromDisk();
+    }
+
     _fetchExplorePosts();
+  }
+
+  Future<void> _loadCachedPostsFromDisk() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('cached_explore_posts_v1');
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is List && decoded.isNotEmpty) {
+          if (mounted && _filteredPosts.isEmpty) {
+            setState(() {
+              _allPosts = List.from(decoded);
+              _cachedExplorePosts = List.from(decoded);
+              _applyLocalFiltersAndSorting();
+              _isLoading = false;
+            });
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[Explore] Error reading disk cache: $e');
+    }
+
+    // Default curated fallback so explore is NEVER blank on first load
+    if (mounted && _filteredPosts.isEmpty) {
+      setState(() {
+        _allPosts = List.from(_defaultCuratedExplorePosts);
+        _applyLocalFiltersAndSorting();
+      });
+    }
   }
 
   @override
@@ -171,10 +338,87 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
-  Future<void> _fetchExplorePosts() async {
-    if (!_isPersonalizationLoaded) {
-      await _fetchUserPreferences();
+  void _applyLocalFiltersAndSorting() {
+    List<dynamic> posts = List.from(_allPosts);
+
+    // Apply local multi-filters BEFORE sorting
+    if (!_selectedCategories.contains("All") && _selectedCategories.isNotEmpty) {
+      posts = posts.where((p) {
+        final cat = (p['category'] ?? '').toString();
+        return _selectedCategories.contains(cat);
+      }).toList();
     }
+    if (!_selectedCities.contains("All") && _selectedCities.isNotEmpty) {
+      posts = posts.where((p) {
+        final loc = (p['location'] ?? '').toString();
+        return _selectedCities.any((city) => loc.contains(city));
+      }).toList();
+    }
+
+    if (_userPreferredCategories.isNotEmpty) {
+      posts.sort((a, b) {
+        final catA = a['category']?.toString() ?? '';
+        final catB = b['category']?.toString() ?? '';
+        
+        final indexA = _userPreferredCategories.indexOf(catA);
+        final indexB = _userPreferredCategories.indexOf(catB);
+        
+        if (indexA != -1 && indexB != -1) {
+          return indexA.compareTo(indexB);
+        } else if (indexA != -1) {
+          return -1;
+        } else if (indexB != -1) {
+          return 1;
+        }
+        
+        final likesA = int.tryParse(a['likes_count']?.toString() ?? '0') ?? 0;
+        final likesB = int.tryParse(b['likes_count']?.toString() ?? '0') ?? 0;
+        if (likesA != likesB) {
+          return likesB.compareTo(likesA);
+        }
+        
+        final idA = int.tryParse(a['id']?.toString() ?? '0') ?? 0;
+        final idB = int.tryParse(b['id']?.toString() ?? '0') ?? 0;
+        return idB.compareTo(idA);
+      });
+    } else {
+      posts.sort((a, b) {
+        final likesA = int.tryParse(a['likes_count']?.toString() ?? '0') ?? 0;
+        final likesB = int.tryParse(b['likes_count']?.toString() ?? '0') ?? 0;
+        if (likesA != likesB) {
+          return likesB.compareTo(likesA);
+        }
+        
+        final idA = int.tryParse(a['id']?.toString() ?? '0') ?? 0;
+        final idB = int.tryParse(b['id']?.toString() ?? '0') ?? 0;
+        return idB.compareTo(idA);
+      });
+    }
+
+    // Never show an empty explore if the user hasn't typed an active search or selected a filter
+    if (posts.isEmpty && _searchQuery.trim().isEmpty && _selectedCategories.contains("All") && _selectedCities.contains("All")) {
+      posts = List.from(_defaultCuratedExplorePosts);
+    }
+
+    _filteredPosts = posts;
+  }
+
+  Future<void> _fetchExplorePosts({bool showLoading = false}) async {
+    if (showLoading && _filteredPosts.isEmpty) {
+      setState(() => _isLoading = true);
+    }
+
+    // Fetch user preferences in the background without blocking the explore query
+    if (!_isPersonalizationLoaded) {
+      _fetchUserPreferences().then((_) {
+        if (mounted) {
+          setState(() {
+            _applyLocalFiltersAndSorting();
+          });
+        }
+      });
+    }
+
     final token = AuthService().token;
 
     final result = await ApiService().getExplorePosts(
@@ -195,70 +439,34 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     if (mounted) {
       setState(() {
+        _isLoading = false;
         _searchResultsUsers = users;
-        List<dynamic> posts = result.success ? (result.data?['posts'] as List? ?? []) : [];
 
-          
-          // Apply local multi-filters BEFORE sorting
-          if (!_selectedCategories.contains("All") && _selectedCategories.isNotEmpty) {
-            posts = posts.where((p) {
-              final cat = (p['category'] ?? '').toString();
-              return _selectedCategories.contains(cat);
-            }).toList();
-          }
-          if (!_selectedCities.contains("All") && _selectedCities.isNotEmpty) {
-            posts = posts.where((p) {
-              final loc = (p['location'] ?? '').toString();
-              return _selectedCities.any((city) => loc.contains(city));
-            }).toList();
-          }
-
-          if (_userPreferredCategories.isNotEmpty) {
-            posts.sort((a, b) {
-              final catA = a['category']?.toString() ?? '';
-              final catB = b['category']?.toString() ?? '';
-              
-              final indexA = _userPreferredCategories.indexOf(catA);
-              final indexB = _userPreferredCategories.indexOf(catB);
-              
-              if (indexA != -1 && indexB != -1) {
-                return indexA.compareTo(indexB);
-              } else if (indexA != -1) {
-                return -1;
-              } else if (indexB != -1) {
-                return 1;
-              }
-              
-              final likesA = int.tryParse(a['likes_count']?.toString() ?? '0') ?? 0;
-              final likesB = int.tryParse(b['likes_count']?.toString() ?? '0') ?? 0;
-              if (likesA != likesB) {
-                return likesB.compareTo(likesA);
-              }
-              
-              final idA = int.tryParse(a['id']?.toString() ?? '0') ?? 0;
-              final idB = int.tryParse(b['id']?.toString() ?? '0') ?? 0;
-              return idB.compareTo(idA);
-            });
-          } else {
-            posts.sort((a, b) {
-              final likesA = int.tryParse(a['likes_count']?.toString() ?? '0') ?? 0;
-              final likesB = int.tryParse(b['likes_count']?.toString() ?? '0') ?? 0;
-              if (likesA != likesB) {
-                return likesB.compareTo(likesA);
-              }
-              
-              final idA = int.tryParse(a['id']?.toString() ?? '0') ?? 0;
-              final idB = int.tryParse(b['id']?.toString() ?? '0') ?? 0;
-              return idB.compareTo(idA);
+        if (result.success) {
+          final serverPosts = result.data?['posts'] as List? ?? [];
+          if (serverPosts.isNotEmpty) {
+            _allPosts = serverPosts;
+            _cachedExplorePosts = serverPosts;
+            SharedPreferences.getInstance().then((prefs) {
+              prefs.setString('cached_explore_posts_v1', jsonEncode(serverPosts));
             });
           }
-          _filteredPosts = posts;
-        });
-      }
+        }
+
+        // If server failed or was empty and _allPosts is still empty, seed with curated fallback
+        if (_allPosts.isEmpty) {
+          _allPosts = List.from(_defaultCuratedExplorePosts);
+        }
+
+        _applyLocalFiltersAndSorting();
+      });
+    }
   }
 
   void _filterPosts() {
-    _fetchExplorePosts();
+    setState(() {
+      _applyLocalFiltersAndSorting();
+    });
   }
 
   void _showFilterSheet(BuildContext context) {
@@ -660,108 +868,123 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
               // --- 3. STAGGERED PINTEREST-STYLE GRID DISPLAY ---
               Expanded(
-                child: (_filteredPosts.isEmpty && _searchResultsUsers.isEmpty)
-                    ? EmptyStateWidget(
-                        icon: Icons.landscape_outlined,
-                        title: "No Hidden Places Found",
-                        description: "No matching destinations found. Try resetting your search or filters.",
-                        actionLabel: "Reset Search & Retry",
-                        onAction: () {
-                          setState(() {
-                            _searchController.clear();
-                            _searchQuery = "";
-                            _selectedCategories = ["All"];
-                            _selectedCities = ["All"];
-                          });
-                          _fetchExplorePosts();
-                        },
-                      )
-                    : GridView.builder(
-                        cacheExtent: 1000.0,
-                        padding: EdgeInsets.only(
-                          left: 0.0,
-                          right: 0.0,
-                          top: 4.0,
-                          bottom: 120 + MediaQuery.of(context).padding.bottom,
-                        ),
-                        physics: const BouncingScrollPhysics(),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: ResponsiveBreakpoints.isLargeDesktop(context)
-                              ? 6
-                              : ResponsiveBreakpoints.isDesktop(context)
-                                  ? 5
-                                  : ResponsiveBreakpoints.isTablet(context)
-                                      ? 4
-                                      : 3,
-                          mainAxisSpacing: 4,
-                          crossAxisSpacing: 4,
-                          childAspectRatio: 0.85,
-                        ),
-                        itemCount: _filteredPosts.length,
-                        itemBuilder: (context, index) {
-                          final post = _filteredPosts[index];
-                          final imageUrl = post["image_url"]?.toString() ?? "";
-                          final caption = post["caption"]?.toString() ?? "Tiger Hills Water Fall";
-                          final locationStr = post["location"]?.toString() ?? "Nenital, Uttrakhand";
-                          final categoryStr = post["category"]?.toString() ?? "Waterfalls";
-
-                          final bool isNetwork = imageUrl.startsWith("http") || imageUrl.startsWith("uploads");
-                          final bool isVideo = imageUrl.toLowerCase().endsWith('.mp4') || imageUrl.toLowerCase().endsWith('.mov') || imageUrl.toLowerCase().endsWith('.mkv') || imageUrl.toLowerCase().endsWith('.avi');
-
-                          return GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => LocationDetailScreen(
-                                    title: caption,
-                                    location: locationStr,
-                                    image: imageUrl,
-                                    category: categoryStr,
-                                  ),
+                child: RefreshIndicator(
+                  color: const Color(0xff1C0D5A),
+                  onRefresh: () => _fetchExplorePosts(showLoading: true),
+                  child: (_isLoading && _filteredPosts.isEmpty)
+                      ? _buildExploreShimmerGrid()
+                      : (_filteredPosts.isEmpty && _searchResultsUsers.isEmpty)
+                          ? SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              child: SizedBox(
+                                height: MediaQuery.of(context).size.height * 0.6,
+                                child: EmptyStateWidget(
+                                  icon: Icons.landscape_outlined,
+                                  title: "No Hidden Places Found",
+                                  description: "No matching destinations found. Try resetting your search or filters.",
+                                  actionLabel: "Reset Search & Retry",
+                                  onAction: () {
+                                    setState(() {
+                                      _searchController.clear();
+                                      _searchQuery = "";
+                                      _selectedCategories = ["All"];
+                                      _selectedCities = ["All"];
+                                      _applyLocalFiltersAndSorting();
+                                    });
+                                    _fetchExplorePosts(showLoading: true);
+                                  },
                                 ),
-                              ).then((_) => _fetchExplorePosts());
-                            },
-                            child: Container(
-                              clipBehavior: Clip.antiAlias,
-                              decoration: const BoxDecoration(
-                                color: Color(0xffF1F5F9),
                               ),
-                              child: isVideo
-                                  ? VideoThumbnailPreview(
-                                      videoUrl: imageUrl,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : isNetwork
-                                  ? CachedNetworkImage(
-                                      imageUrl: imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
-                                      fit: BoxFit.cover,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      memCacheWidth: 600,
-                                      alignment: Alignment.center,
-                                      placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
-                                      errorWidget: (context, url, error) => Container(
-                                        color: const Color(0xffCBD5E1),
-                                        child: const Icon(Icons.landscape_outlined, color: Colors.white38),
+                            )
+                          : GridView.builder(
+                              cacheExtent: 1000.0,
+                              padding: EdgeInsets.only(
+                                left: 0.0,
+                                right: 0.0,
+                                top: 4.0,
+                                bottom: 120 + MediaQuery.of(context).padding.bottom,
+                              ),
+                              physics: const AlwaysScrollableScrollPhysics(
+                                parent: BouncingScrollPhysics(),
+                              ),
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: ResponsiveBreakpoints.isLargeDesktop(context)
+                                    ? 6
+                                    : ResponsiveBreakpoints.isDesktop(context)
+                                        ? 5
+                                        : ResponsiveBreakpoints.isTablet(context)
+                                            ? 4
+                                            : 3,
+                                mainAxisSpacing: 4,
+                                crossAxisSpacing: 4,
+                                childAspectRatio: 0.85,
+                              ),
+                              itemCount: _filteredPosts.length,
+                              itemBuilder: (context, index) {
+                                final post = _filteredPosts[index];
+                                final imageUrl = post["image_url"]?.toString() ?? "";
+                                final caption = post["caption"]?.toString() ?? "Tiger Hills Water Fall";
+                                final locationStr = post["location"]?.toString() ?? "Nenital, Uttrakhand";
+                                final categoryStr = post["category"]?.toString() ?? "Waterfalls";
+
+                                final bool isNetwork = imageUrl.startsWith("http") || imageUrl.startsWith("uploads");
+                                final bool isVideo = imageUrl.toLowerCase().endsWith('.mp4') || imageUrl.toLowerCase().endsWith('.mov') || imageUrl.toLowerCase().endsWith('.mkv') || imageUrl.toLowerCase().endsWith('.avi');
+
+                                return GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => LocationDetailScreen(
+                                          title: caption,
+                                          location: locationStr,
+                                          image: imageUrl,
+                                          category: categoryStr,
+                                        ),
                                       ),
-                                    )
-                                  : Image.asset(
-                                      imageUrl.isNotEmpty ? imageUrl : "assets/images/onboarding_bg.jpg",
-                                      fit: BoxFit.cover,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      alignment: Alignment.center,
-                                      errorBuilder: (context, error, stackTrace) => Container(
-                                        color: const Color(0xffCBD5E1),
-                                        child: const Icon(Icons.landscape_outlined, color: Colors.white38),
-                                      ),
+                                    ).then((_) => _fetchExplorePosts());
+                                  },
+                                  child: Container(
+                                    clipBehavior: Clip.antiAlias,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xffF1F5F9),
                                     ),
+                                    child: isVideo
+                                        ? VideoThumbnailPreview(
+                                            videoUrl: imageUrl,
+                                            fit: BoxFit.cover,
+                                          )
+                                        : isNetwork
+                                        ? CachedNetworkImage(
+                                            imageUrl: imageUrl.startsWith("http") ? imageUrl : '${ApiService().baseUrl}/$imageUrl',
+                                            fit: BoxFit.cover,
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                            memCacheWidth: 600,
+                                            alignment: Alignment.center,
+                                            placeholder: (context, url) => Container(color: const Color(0xffF1F5F9)),
+                                            errorWidget: (context, url, error) => Container(
+                                              color: const Color(0xffCBD5E1),
+                                              child: const Icon(Icons.landscape_outlined, color: Colors.white38),
+                                            ),
+                                          )
+                                        : Image.asset(
+                                            imageUrl.isNotEmpty ? imageUrl : "assets/images/onboarding_bg.jpg",
+                                            fit: BoxFit.cover,
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                            alignment: Alignment.center,
+                                            errorBuilder: (context, error, stackTrace) => Container(
+                                              color: const Color(0xffCBD5E1),
+                                              child: const Icon(Icons.landscape_outlined, color: Colors.white38),
+                                            ),
+                                          ),
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
+                ),
               ),
             ],
           ),
@@ -888,6 +1111,37 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 ),
               ],
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildExploreShimmerGrid() {
+    return GridView.builder(
+      padding: EdgeInsets.only(
+        top: 4.0,
+        bottom: 120 + MediaQuery.of(context).padding.bottom,
+      ),
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: ResponsiveBreakpoints.isLargeDesktop(context)
+            ? 6
+            : ResponsiveBreakpoints.isDesktop(context)
+                ? 5
+                : ResponsiveBreakpoints.isTablet(context)
+                    ? 4
+                    : 3,
+        mainAxisSpacing: 4,
+        crossAxisSpacing: 4,
+        childAspectRatio: 0.85,
+      ),
+      itemCount: 15,
+      itemBuilder: (context, index) {
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xffE2E8F0),
+            borderRadius: BorderRadius.circular(4),
           ),
         );
       },
