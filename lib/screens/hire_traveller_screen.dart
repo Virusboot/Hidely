@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/user_avatar.dart';
 import 'creator_profile_screen.dart';
+import '../config/responsive_breakpoints.dart';
 
 class HireTravellerScreen extends StatefulWidget {
   const HireTravellerScreen({super.key});
@@ -24,9 +25,235 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
     'Gokarna',
     'Shimla',
     'Kerala',
+    'Agra',
+    'Udaipur',
+    'Varanasi',
+    'Kasol',
+    'Nainital',
+    'Munnar',
+    'Ooty',
+    'Darjeeling',
+    'Meghalaya',
+    'Hampi',
+    'Pondicherry',
+    'Amritsar',
+    'Dharamshala',
+    'Kashmir',
+    'Coorg',
+    'Lonavala',
+    'Jodhpur',
+    'Andaman',
+    'Spiti Valley',
+    'Pushkar',
+    'Kodaikanal',
   ];
 
-  final List<Map<String, dynamic>> _allTravellers = [];
+  final List<Map<String, dynamic>> _allTravellers = [
+    {
+      'id': '1',
+      'name': 'Aarav Sharma',
+      'city': 'Manali',
+      'avatar': 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=400&q=80',
+      'role': 'High Altitude Trek Guide & Drone Specialist',
+      'rating': 4.9,
+      'reviewsCount': 52,
+      'pricePerDay': 1500,
+      'experienceYears': 5,
+      'languages': ['Hindi', 'English', 'Pahari'],
+      'isVerified': true,
+      'badge': 'Master Explorer',
+      'bio': 'Born & raised in Solang Valley. Led over 120+ successful treks to Hampta Pass, Bhrigu Lake, and Beas Kund. Drone photography expert.',
+      'specialties': ['Trekking', 'Camp Bonfire', 'Photography', 'Hidden Trails'],
+      'available': true,
+    },
+    {
+      'id': '2',
+      'name': 'Riya Verma',
+      'city': 'Rishikesh',
+      'avatar': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+      'role': 'River Rafting Instructor & Yoga Host',
+      'rating': 4.8,
+      'reviewsCount': 41,
+      'pricePerDay': 1200,
+      'experienceYears': 4,
+      'languages': ['Hindi', 'English'],
+      'isVerified': true,
+      'badge': 'Pro Guide',
+      'bio': 'Certified white-water rafting captain & morning yoga practitioner at Ganga Ghats. Know all secret waterfalls around Tapovan.',
+      'specialties': ['Rafting', 'Cliff Jumping', 'Ganga Aarti', 'Cafe Hopping'],
+      'available': true,
+    },
+    {
+      'id': '3',
+      'name': 'Vikram D’Souza',
+      'city': 'Goa',
+      'avatar': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+      'role': 'Beach Shack & Secret Island Host',
+      'rating': 4.95,
+      'reviewsCount': 68,
+      'pricePerDay': 1800,
+      'experienceYears': 6,
+      'languages': ['English', 'Hindi', 'Konkani'],
+      'isVerified': true,
+      'badge': 'Beach Specialist',
+      'bio': 'South & North Goa local legend. Expert in private boat trips, hidden cliff sunset points, and secret seafood shacks.',
+      'specialties': ['Water Sports', 'Sunset Kayaking', 'Seafood Trail', 'Scooter Tours'],
+      'available': true,
+    },
+    {
+      'id': '4',
+      'name': 'Kaviraj Singh Rathore',
+      'city': 'Jaipur',
+      'avatar': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80',
+      'role': 'Heritage Fort Historian & Thali Host',
+      'rating': 4.85,
+      'reviewsCount': 36,
+      'pricePerDay': 1400,
+      'experienceYears': 7,
+      'languages': ['Hindi', 'English', 'Rajasthani'],
+      'isVerified': true,
+      'badge': 'Heritage Guide',
+      'bio': 'Passionate storyteller of Amer Fort, Nahargarh secret tunnels, and authentic Rajasthani food bazaars.',
+      'specialties': ['Fort Architecture', 'Bazaar Walking', 'Authentic Dining', 'Night Views'],
+      'available': true,
+    },
+    {
+      'id': '5',
+      'name': 'Stanzin Norbu',
+      'city': 'Leh Ladakh',
+      'avatar': 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80',
+      'role': 'High Pass Biker & Monastery Guide',
+      'rating': 5.0,
+      'reviewsCount': 74,
+      'pricePerDay': 2200,
+      'experienceYears': 8,
+      'languages': ['English', 'Hindi', 'Ladakhi'],
+      'isVerified': true,
+      'badge': 'Himalayan Veteran',
+      'bio': 'Royal Enfield expedition leader across Khardung La & Pangong Tso. Stargazing host at Nubra Valley Sand Dunes.',
+      'specialties': ['Motorbike Expeditions', 'Monastery Culture', 'Homestay Booking', 'Stargazing'],
+      'available': true,
+    },
+    {
+      'id': '6',
+      'name': 'Ananya Patel',
+      'city': 'Gokarna',
+      'avatar': 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80',
+      'role': 'Coastal Beach Trekker & Solo Travel Host',
+      'rating': 4.75,
+      'reviewsCount': 29,
+      'pricePerDay': 1100,
+      'experienceYears': 3,
+      'languages': ['English', 'Hindi', 'Kannada'],
+      'isVerified': true,
+      'badge': 'Coastal Explorer',
+      'bio': '5-Beach Trek specialist (Kuddle, Om, Half Moon, Paradise, Belekan). Passionate about eco-travel and quiet sunset spots.',
+      'specialties': ['Coastal Trekking', 'Beach Camping', 'Cafe Culture', 'Solo Safety'],
+      'available': true,
+    },
+    {
+      'id': '7',
+      'name': 'Rohit Thakur',
+      'city': 'Shimla',
+      'avatar': 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=400&q=80',
+      'role': 'Apple Orchard & Heritage Walk Host',
+      'rating': 4.88,
+      'reviewsCount': 45,
+      'pricePerDay': 1300,
+      'experienceYears': 5,
+      'languages': ['Hindi', 'English', 'Pahari'],
+      'isVerified': true,
+      'badge': 'Local Host',
+      'bio': 'Kotgarh apple orchard owner & Jakhu hill expert. Guides peaceful pine forest walks away from overcrowded Mall Road.',
+      'specialties': ['Forest Walks', 'Orchard Stay', 'Colonial History', 'Local Dhaba'],
+      'available': true,
+    },
+    {
+      'id': '8',
+      'name': 'Meera Menon',
+      'city': 'Kerala',
+      'avatar': 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80',
+      'role': 'Backwater Houseboat & Spice Trail Guide',
+      'rating': 4.92,
+      'reviewsCount': 63,
+      'pricePerDay': 1600,
+      'experienceYears': 6,
+      'languages': ['English', 'Hindi', 'Malayalam'],
+      'isVerified': true,
+      'badge': 'Nature Explorer',
+      'bio': 'Alleppey native specializing in serene village canoe rides, Munnar tea plantation walks, and authentic Sadya feast.',
+      'specialties': ['Backwater Canoe', 'Tea Gardens', 'Ayurveda Trail', 'Local Cuisine'],
+      'available': true,
+    },
+    {
+      'id': '9',
+      'name': 'Harshita Chouhan',
+      'city': 'Udaipur',
+      'avatar': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+      'role': 'Lake City Sunset & Haveli Heritage Host',
+      'rating': 4.9,
+      'reviewsCount': 38,
+      'pricePerDay': 1400,
+      'experienceYears': 4,
+      'languages': ['Hindi', 'English', 'Mewari'],
+      'isVerified': true,
+      'badge': 'Heritage Host',
+      'bio': 'Local guide around Lake Pichola, Fatehsagar, and Monsoon Palace. Authentic Rajasthani cultural storyteller.',
+      'specialties': ['Lake Kayaking', 'Rooftop Cafes', 'Palace History', 'Photography'],
+      'available': true,
+    },
+    {
+      'id': '10',
+      'name': 'Amit Pandey',
+      'city': 'Varanasi',
+      'avatar': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+      'role': 'Ganga Sunrise Boatman & Ghats Chronicler',
+      'rating': 4.94,
+      'reviewsCount': 57,
+      'pricePerDay': 1100,
+      'experienceYears': 7,
+      'languages': ['Hindi', 'English', 'Bhojpuri'],
+      'isVerified': true,
+      'badge': 'Cultural Master',
+      'bio': 'Generations on Dashashwamedh and Assi Ghat. Leads soul-stirring sunrise row-boat tours and secret street-food alley walks.',
+      'specialties': ['Sunrise Boating', 'Ghats Walk', 'Aarti Darshan', 'Street Food'],
+      'available': true,
+    },
+    {
+      'id': '11',
+      'name': 'Tenzing Sherpa',
+      'city': 'Darjeeling',
+      'avatar': 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80',
+      'role': 'Kanchenjunga Sunrise & Tea Estate Guide',
+      'rating': 4.96,
+      'reviewsCount': 49,
+      'pricePerDay': 1500,
+      'experienceYears': 6,
+      'languages': ['English', 'Hindi', 'Nepali'],
+      'isVerified': true,
+      'badge': 'Mountain Ace',
+      'bio': 'Tiger Hill sunrise specialist, vintage toy train enthusiast, and Glenary’s bakery secret recommendations.',
+      'specialties': ['Tiger Hill Sunrise', 'Tea Tasting', 'Sandakphu Trek', 'Monasteries'],
+      'available': true,
+    },
+    {
+      'id': '12',
+      'name': 'Karan Rawat',
+      'city': 'Kashmir',
+      'avatar': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80',
+      'role': 'Dal Lake Shikara & Meadow Expedition Host',
+      'rating': 4.98,
+      'reviewsCount': 81,
+      'pricePerDay': 2000,
+      'experienceYears': 9,
+      'languages': ['Kashmiri', 'Hindi', 'English', 'Urdu'],
+      'isVerified': true,
+      'badge': 'Paradise Guide',
+      'bio': 'Pahalgam Betaab Valley, Gulmarg ski trails, and authentic floating flower market insider tour leader.',
+      'specialties': ['Shikara Cruise', 'Ski Guiding', 'Wazwan Dining', 'Pine Trails'],
+      'available': true,
+    },
+  ];
 
   @override
   void dispose() {
@@ -447,6 +674,8 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDesktopOrTablet = ResponsiveBreakpoints.isDesktopOrTablet(context);
+
     final filteredTravellers = _allTravellers.where((t) {
       final matchesCity = (_selectedCity == 'All Cities') || (t['city'] == _selectedCity);
       final query = _searchQuery.toLowerCase().trim();
@@ -474,8 +703,9 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
         ),
         child: SafeArea(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Bar (Simple, Clean & Corrected Back Arrow!)
+              // Header Bar
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
                 child: Row(
@@ -574,59 +804,36 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
 
               const SizedBox(height: 10),
 
-              // Horizontal City Filter Chips Bar
-              SizedBox(
-                height: 36,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: _cities.length,
-                  itemBuilder: (context, index) {
-                    final city = _cities[index];
-                    final isSelected = city == _selectedCity;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () => setState(() => _selectedCity = city),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFF1C0D5A) : Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isSelected ? const Color(0xFF1C0D5A) : const Color(0xFFE2E8F0),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                city == 'All Cities' ? Icons.travel_explore_rounded : Icons.location_on_rounded,
-                                size: 13,
-                                color: isSelected ? Colors.white : const Color(0xFF64748B),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                city,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                  color: isSelected ? Colors.white : const Color(0xFF334155),
-                                ),
-                              ),
-                            ],
-                          ),
+              // City Filters: On Desktop/Tablet, show full Wrap of all cities across full width; On Mobile, use horizontal scrolling bar.
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: isDesktopOrTablet
+                    ? Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _cities.map((city) {
+                          return _buildCityChip(city, city == _selectedCity);
+                        }).toList(),
+                      )
+                    : SizedBox(
+                        height: 38,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _cities.length,
+                          itemBuilder: (context, index) {
+                            final city = _cities[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: _buildCityChip(city, city == _selectedCity),
+                            );
+                          },
                         ),
                       ),
-                    );
-                  },
-                ),
               ),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
-              // Travellers Cards List (Ultra Clean Layout!)
+              // Travellers Cards Grid/List
               Expanded(
                 child: filteredTravellers.isEmpty
                     ? Center(
@@ -642,232 +849,30 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                           ],
                         ),
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 2, 16, 20),
-                        itemCount: filteredTravellers.length,
-                        itemBuilder: (context, index) {
-                          final t = filteredTravellers[index];
-                          final List<String> specialties = List<String>.from(t['specialties'] ?? []);
-
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.025),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
+                    : isDesktopOrTablet
+                        ? GridView.builder(
+                            padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
+                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 440,
+                              mainAxisExtent: 228,
+                              crossAxisSpacing: 14,
+                              mainAxisSpacing: 14,
                             ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(16),
-                                onTap: () => _showTravellerDetailModal(t),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(14),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      // Top Header: Avatar + Name + Price
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (_) => CreatorProfileScreen(
-                                                      username: t['name'],
-                                                      avatarPath: t['avatar'],
-                                                      rank: t['badge'],
-                                                      bio: t['bio'],
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                              child: Row(
-                                                children: [
-                                                  Stack(
-                                                    children: [
-                                                       UserAvatar(
-                                                         avatarUrl: t['avatar'],
-                                                         displayName: t['name'],
-                                                         radius: 23,
-                                                       ),
-                                                      Positioned(
-                                                        right: 0,
-                                                        bottom: 0,
-                                                        child: Container(
-                                                          width: 11,
-                                                          height: 11,
-                                                          decoration: BoxDecoration(
-                                                            color: const Color(0xFF10B981),
-                                                            shape: BoxShape.circle,
-                                                            border: Border.all(color: Colors.white, width: 2),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                      children: [
-                                                        Row(
-                                                          children: [
-                                                            Expanded(
-                                                              child: Text(
-                                                                t['name'],
-                                                                maxLines: 1,
-                                                                overflow: TextOverflow.ellipsis,
-                                                                style: const TextStyle(
-                                                                  fontSize: 15.5,
-                                                                  fontWeight: FontWeight.bold,
-                                                                  color: Color(0xFF1E1B4B),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            if (t['isVerified'] == true) ...[
-                                                              const SizedBox(width: 4),
-                                                              const Icon(Icons.verified_rounded, color: Color(0xFF0284C7), size: 15),
-                                                            ],
-                                                          ],
-                                                        ),
-                                                        const SizedBox(height: 1),
-                                                        Text(
-                                                          t['role'],
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis,
-                                                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          // Clean Price Tag
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFECFDF5),
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  '₹${t['pricePerDay']}',
-                                                  style: const TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Color(0xFF059669),
-                                                  ),
-                                                ),
-                                                const Text(
-                                                  '/day',
-                                                  style: TextStyle(fontSize: 10, color: Color(0xFF047857), fontWeight: FontWeight.w500),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-
-                                      const SizedBox(height: 10),
-
-                                      // Clean Meta Line: Rating • City • Experience
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 14),
-                                          const SizedBox(width: 3),
-                                          Text(
-                                            '${t['rating']} (${t['reviewsCount']})',
-                                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
-                                          ),
-                                          const Padding(
-                                            padding: EdgeInsets.symmetric(horizontal: 6),
-                                            child: Text('•', style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 11)),
-                                          ),
-                                          const Icon(Icons.location_on_rounded, color: Color(0xFF475569), size: 13),
-                                          const SizedBox(width: 2),
-                                          Text(
-                                            t['city'],
-                                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
-                                          ),
-                                          const Padding(
-                                            padding: EdgeInsets.symmetric(horizontal: 6),
-                                            child: Text('•', style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 11)),
-                                          ),
-                                          Text(
-                                            '${t['experienceYears']} yrs exp',
-                                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-                                          ),
-                                        ],
-                                      ),
-
-                                      // Specialty Chips
-                                      if (specialties.isNotEmpty) ...[
-                                        const SizedBox(height: 8),
-                                        SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: Row(
-                                            children: specialties.take(3).map((spec) {
-                                              return Container(
-                                                margin: const EdgeInsets.only(right: 6),
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                decoration: BoxDecoration(
-                                                  color: const Color(0xFFF8FAFC),
-                                                  borderRadius: BorderRadius.circular(6),
-                                                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                                                ),
-                                                child: Text(
-                                                  spec,
-                                                  style: const TextStyle(fontSize: 10.5, color: Color(0xFF475569), fontWeight: FontWeight.w500),
-                                                ),
-                                              );
-                                            }).toList(),
-                                          ),
-                                        ),
-                                      ],
-
-                                      const SizedBox(height: 12),
-
-                                      // Full Width Primary CTA: View Profile & Hire
-                                      SizedBox(
-                                        width: double.infinity,
-                                        child: ElevatedButton(
-                                          onPressed: () => _showTravellerDetailModal(t),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(0xFF1C0D5A),
-                                            foregroundColor: Colors.white,
-                                            elevation: 0,
-                                            padding: const EdgeInsets.symmetric(vertical: 10),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                          ),
-                                          child: const Text(
-                                            'View Profile & Hire',
-                                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                            itemCount: filteredTravellers.length,
+                            itemBuilder: (context, index) {
+                              return _buildTravellerCard(filteredTravellers[index]);
+                            },
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(16, 2, 16, 20),
+                            itemCount: filteredTravellers.length,
+                            itemBuilder: (context, index) {
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                child: _buildTravellerCard(filteredTravellers[index]),
+                              );
+                            },
+                          ),
               ),
             ],
           ),
@@ -875,4 +880,271 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
       ),
     );
   }
+
+  Widget _buildCityChip(String city, bool isSelected) {
+    return GestureDetector(
+      onTap: () => setState(() => _selectedCity = city),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7.5),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF1C0D5A) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF1C0D5A) : const Color(0xFFE2E8F0),
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected ? const Color(0xFF1C0D5A).withOpacity(0.18) : Colors.black.withOpacity(0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              city == 'All Cities' ? Icons.travel_explore_rounded : Icons.location_on_rounded,
+              size: 13,
+              color: isSelected ? Colors.white : const Color(0xFF64748B),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              city,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? Colors.white : const Color(0xFF334155),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTravellerCard(Map<String, dynamic> t) {
+    final List<String> specialties = List<String>.from(t['specialties'] ?? []);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.025),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _showTravellerDetailModal(t),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Top Header: Avatar + Name + Price
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CreatorProfileScreen(
+                                username: t['name'],
+                                avatarPath: t['avatar'],
+                                rank: t['badge'],
+                                bio: t['bio'],
+                              ),
+                            ),
+                          );
+                        },
+                        child: Row(
+                          children: [
+                            Stack(
+                              children: [
+                                UserAvatar(
+                                  avatarUrl: t['avatar'],
+                                  displayName: t['name'],
+                                  radius: 23,
+                                ),
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 11,
+                                    height: 11,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF10B981),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          t['name'],
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 15.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF1E1B4B),
+                                          ),
+                                        ),
+                                      ),
+                                      if (t['isVerified'] == true) ...[
+                                        const SizedBox(width: 4),
+                                        const Icon(Icons.verified_rounded, color: Color(0xFF0284C7), size: 15),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 1),
+                                  Text(
+                                    t['role'],
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Clean Price Tag
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '₹${t['pricePerDay']}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF059669),
+                            ),
+                          ),
+                          const Text(
+                            '/day',
+                            style: TextStyle(fontSize: 10, color: Color(0xFF047857), fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                // Clean Meta Line: Rating • City • Experience
+                Row(
+                  children: [
+                    const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 14),
+                    const SizedBox(width: 3),
+                    Text(
+                      '${t['rating']} (${t['reviewsCount']})',
+                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Text('•', style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 11)),
+                    ),
+                    const Icon(Icons.location_on_rounded, color: Color(0xFF475569), size: 13),
+                    const SizedBox(width: 2),
+                    Text(
+                      t['city'],
+                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Text('•', style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 11)),
+                    ),
+                    Text(
+                      '${t['experienceYears']} yrs exp',
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+
+                // Specialty Chips
+                if (specialties.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: specialties.take(3).map((spec) {
+                        return Container(
+                          margin: const EdgeInsets.only(right: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Text(
+                            spec,
+                            style: const TextStyle(fontSize: 10.5, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 12),
+
+                // Full Width Primary CTA: View Profile & Hire
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => _showTravellerDetailModal(t),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1C0D5A),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text(
+                      'View Profile & Hire',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
+
