@@ -140,17 +140,22 @@ class _AiSearchSheetState extends State<AiSearchSheet> {
                 border: Border.all(color: const Color(0xFFCBD5E1)),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const Icon(Icons.psychology_rounded, color: Color(0xFF7C3AED), size: 22),
                   const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
                       controller: _queryController,
+                      textAlignVertical: TextAlignVertical.center,
+                      style: const TextStyle(fontSize: 13.5, color: Color(0xff1C0D5A), height: 1.2),
                       onSubmitted: (val) => _performAiSearch(val),
                       decoration: const InputDecoration(
+                        isDense: true,
                         hintText: 'e.g. Delhi ke paas hidden waterfall...',
-                        hintStyle: TextStyle(fontSize: 13.5, color: Colors.black45),
+                        hintStyle: TextStyle(fontSize: 13.5, color: Colors.black45, height: 1.2),
                         border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
                       ),
                     ),
                   ),

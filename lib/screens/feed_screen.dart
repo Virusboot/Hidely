@@ -1681,12 +1681,16 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
               ),
               child: TextField(
                 controller: _searchController,
+                textAlignVertical: TextAlignVertical.center,
+                style: const TextStyle(fontSize: 15, color: Colors.black87, height: 1.2),
                 decoration: const InputDecoration(
+                  isDense: true,
                   hintText: "Search",
-                  hintStyle: TextStyle(color: Colors.black38, fontSize: 15),
+                  hintStyle: TextStyle(color: Colors.black38, fontSize: 15, height: 1.2),
                   prefixIcon: Icon(Icons.search_rounded, color: Colors.black45, size: 20),
+                  prefixIconConstraints: BoxConstraints(minWidth: 42, minHeight: 44),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 11),
+                  contentPadding: EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
             ),

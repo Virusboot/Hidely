@@ -808,17 +808,21 @@ class _ItineraryPlannerSheetState extends State<ItineraryPlannerSheet> {
                             ),
                             child: TextField(
                               controller: _locationController,
+                              textAlignVertical: TextAlignVertical.center,
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.primaryDark,
+                                height: 1.2,
                               ),
                               decoration: const InputDecoration(
+                                isDense: true,
                                 hintText: 'Where are you going?',
-                                hintStyle: TextStyle(fontSize: 13, color: Colors.black38),
+                                hintStyle: TextStyle(fontSize: 13, color: Colors.black38, height: 1.2),
                                 prefixIcon: Icon(Icons.location_on_rounded, color: AppColors.primary, size: 20),
+                                prefixIconConstraints: BoxConstraints(minWidth: 42, minHeight: 46),
                                 border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                contentPadding: EdgeInsets.zero,
                               ),
                             ),
                           ),

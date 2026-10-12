@@ -655,15 +655,19 @@ class _SettingsAndPrivacyScreenState
                     ),
                     child: TextField(
                       controller: _searchController,
+                      textAlignVertical: TextAlignVertical.center,
                       onChanged: (val) => setState(() => _searchQuery = val),
                       style: const TextStyle(
                         fontFamily: 'PublicSans',
                         fontSize: 14,
                         color: Color(0xff1A1235),
+                        height: 1.2,
                       ),
                       decoration: InputDecoration(
+                        isDense: true,
                         prefixIcon: Icon(Icons.search_rounded,
                             color: _primary.withOpacity(0.4), size: 20),
+                        prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 46),
                         suffixIcon: _searchQuery.isNotEmpty
                             ? GestureDetector(
                                 onTap: () {
@@ -679,10 +683,11 @@ class _SettingsAndPrivacyScreenState
                           fontFamily: 'PublicSans',
                           fontSize: 14,
                           color: _subtitleColor.withOpacity(0.7),
+                          height: 1.2,
                         ),
                         border: InputBorder.none,
                         contentPadding:
-                            const EdgeInsets.symmetric(vertical: 14),
+                            const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),

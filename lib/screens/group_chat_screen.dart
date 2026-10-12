@@ -368,6 +368,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: userSearchCtrl,
+                textAlignVertical: TextAlignVertical.center,
+                style: const TextStyle(fontSize: 14, color: Color(0xff1C0D5A), height: 1.2),
                 onChanged: (val) async {
                   if (val.trim().length >= 2) {
                     setModalState(() => isLoading = true);
@@ -381,12 +383,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   }
                 },
                 decoration: InputDecoration(
+                  isDense: true,
                   hintText: 'Search username or name...',
-                  prefixIcon: const Icon(Icons.search, color: Color(0xff1C0D5A)),
+                  hintStyle: const TextStyle(color: Colors.black45, fontSize: 14, height: 1.2),
+                  prefixIcon: const Icon(Icons.search, color: Color(0xff1C0D5A), size: 20),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 46),
                   filled: true,
                   fillColor: const Color(0xffF1F5F9),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  contentPadding: EdgeInsets.zero,
                 ),
               ),
               const SizedBox(height: 16),
@@ -836,12 +841,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         ),
         child: TextField(
           controller: _searchController,
+          textAlignVertical: TextAlignVertical.center,
           onChanged: (_) => setState(() {}),
-          style: const TextStyle(fontSize: 15, color: Colors.black87),
+          style: const TextStyle(fontSize: 15, color: Colors.black87, height: 1.2),
           decoration: InputDecoration(
+            isDense: true,
             hintText: 'Search messages, groups, or travelers...',
-            hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
+            hintStyle: const TextStyle(color: Colors.black38, fontSize: 14, height: 1.2),
             prefixIcon: const Icon(Icons.search, color: Color(0xff1C0D5A), size: 20),
+            prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 48),
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.cancel_rounded, color: Colors.black38, size: 18),

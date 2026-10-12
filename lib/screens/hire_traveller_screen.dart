@@ -751,11 +751,12 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                 ),
               ),
 
-              // Search Bar
+              // Search Bar (Perfect Center Vertical Alignment)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: Container(
                   height: 44,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
@@ -768,36 +769,52 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                       ),
                     ],
                   ),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 12),
-                      const Icon(Icons.search_rounded, color: Color(0xFF94A3B8), size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          onChanged: (val) => setState(() => _searchQuery = val),
-                          textAlignVertical: TextAlignVertical.center,
-                          style: const TextStyle(fontSize: 13.5, color: Color(0xFF1E1B4B)),
-                          decoration: const InputDecoration(
-                            hintText: 'Search city, guide or skill...',
-                            hintStyle: TextStyle(fontSize: 13.5, color: Color(0xFF94A3B8)),
-                            border: InputBorder.none,
-                            isCollapsed: true,
-                          ),
-                        ),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (val) => setState(() => _searchQuery = val),
+                    textAlignVertical: TextAlignVertical.center,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      color: Color(0xFF1E1B4B),
+                      height: 1.2,
+                    ),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      border: InputBorder.none,
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        color: Color(0xFF94A3B8),
+                        size: 20,
                       ),
-                      if (_searchQuery.isNotEmpty) ...[
-                        GestureDetector(
-                          onTap: () {
-                            _searchController.clear();
-                            setState(() => _searchQuery = '');
-                          },
-                          child: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8), size: 18),
-                        ),
-                        const SizedBox(width: 10),
-                      ],
-                    ],
+                      prefixIconConstraints: const BoxConstraints(
+                        minWidth: 42,
+                        minHeight: 44,
+                      ),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? GestureDetector(
+                              onTap: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                              child: const Icon(
+                                Icons.close_rounded,
+                                color: Color(0xFF94A3B8),
+                                size: 18,
+                              ),
+                            )
+                          : null,
+                      suffixIconConstraints: const BoxConstraints(
+                        minWidth: 40,
+                        minHeight: 44,
+                      ),
+                      hintText: 'Search city, guide or skill...',
+                      hintStyle: const TextStyle(
+                        fontSize: 13.5,
+                        color: Color(0xFF94A3B8),
+                        height: 1.2,
+                      ),
+                    ),
                   ),
                 ),
               ),

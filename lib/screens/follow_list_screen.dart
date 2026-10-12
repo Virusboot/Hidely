@@ -348,11 +348,14 @@ class _FollowListScreenState extends State<FollowListScreen> with SingleTickerPr
                     ),
                     child: TextField(
                       controller: _searchController,
-                      style: const TextStyle(fontSize: 14, color: Colors.black87),
+                      textAlignVertical: TextAlignVertical.center,
+                      style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.2),
                       decoration: const InputDecoration(
+                        isDense: true,
                         hintText: "Search creators...",
-                        hintStyle: TextStyle(color: Colors.black38, fontSize: 13.5),
+                        hintStyle: TextStyle(color: Colors.black38, fontSize: 13.5, height: 1.2),
                         prefixIcon: Icon(Icons.search, color: Color(0xff2B1564), size: 20),
+                        prefixIconConstraints: BoxConstraints(minWidth: 44, minHeight: 46),
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.symmetric(vertical: 12),
                       ),

@@ -976,24 +976,20 @@ class _TagPeopleSheetState extends State<TagPeopleSheet> {
                 color: const Color(0xffF1F5F9),
                 borderRadius: BorderRadius.circular(16),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 14.0),
-              child: Row(
-                children: [
-                  const Icon(Icons.search, color: Colors.grey, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: _onSearchChanged,
-                      decoration: const InputDecoration(
-                        hintText: "Search creators...",
-                        border: InputBorder.none,
-                        hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
-                      ),
-                      style: const TextStyle(fontSize: 15, color: Colors.black87),
-                    ),
-                  ),
-                ],
+              child: TextField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                textAlignVertical: TextAlignVertical.center,
+                style: const TextStyle(fontSize: 15, color: Colors.black87, height: 1.2),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  prefixIcon: Icon(Icons.search, color: Colors.grey, size: 20),
+                  prefixIconConstraints: BoxConstraints(minWidth: 42, minHeight: 46),
+                  contentPadding: EdgeInsets.symmetric(vertical: 12),
+                  hintText: "Search creators...",
+                  hintStyle: TextStyle(color: Colors.grey, fontSize: 14, height: 1.2),
+                ),
               ),
             ),
           ),

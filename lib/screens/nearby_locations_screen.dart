@@ -169,7 +169,7 @@ class _NearbyLocationsScreenState extends State<NearbyLocationsScreen> {
                     Expanded(
                       child: Container(
                         height: 54,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.7),
                           borderRadius: BorderRadius.circular(27),
@@ -178,26 +178,23 @@ class _NearbyLocationsScreenState extends State<NearbyLocationsScreen> {
                             width: 1.2,
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.search, color: Colors.black38, size: 22),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _searchController,
-                                onChanged: (value) {
-                                  _searchQuery = value;
-                                  _filterPosts();
-                                },
-                                style: const TextStyle(color: Color(0xff1C0D5A), fontSize: 15),
-                                decoration: const InputDecoration(
-                                  hintText: "Search ancient wonders...",
-                                  hintStyle: TextStyle(color: Colors.black26),
-                                  border: InputBorder.none,
-                                ),
-                              ),
-                            ),
-                          ],
+                        child: TextField(
+                          controller: _searchController,
+                          textAlignVertical: TextAlignVertical.center,
+                          onChanged: (value) {
+                            _searchQuery = value;
+                            _filterPosts();
+                          },
+                          style: const TextStyle(color: Color(0xff1C0D5A), fontSize: 15, height: 1.2),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 14),
+                            prefixIcon: Icon(Icons.search, color: Colors.black38, size: 22),
+                            prefixIconConstraints: BoxConstraints(minWidth: 46, minHeight: 54),
+                            hintText: "Search ancient wonders...",
+                            hintStyle: TextStyle(color: Colors.black26, fontSize: 15, height: 1.2),
+                            border: InputBorder.none,
+                          ),
                         ),
                       ),
                     ),

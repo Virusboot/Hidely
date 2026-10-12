@@ -583,13 +583,17 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: TextField(
                 onChanged: (val) => setState(() => _searchQuery = val),
+                textAlignVertical: TextAlignVertical.center,
+                style: const TextStyle(fontSize: 13.5, color: AppColors.textPrimary, height: 1.2),
                 decoration: InputDecoration(
+                  isDense: true,
                   hintText: 'Search saved destinations...',
-                  hintStyle: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                  hintStyle: const TextStyle(fontSize: 13.5, color: AppColors.textMuted, height: 1.2),
                   prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted, size: 20),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                   filled: true,
                   fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: const BorderSide(color: Color(0xFFE2E8F0)),

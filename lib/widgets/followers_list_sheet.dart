@@ -161,17 +161,20 @@ class _FollowersListSheetState extends State<FollowersListSheet> with SingleTick
                 ),
                 child: TextField(
                   controller: _searchController,
+                  textAlignVertical: TextAlignVertical.center,
                   onChanged: (val) {
                     setState(() => _searchFilter = val);
                   },
                   decoration: const InputDecoration(
+                    isDense: true,
                     hintText: "Search accounts...",
-                    hintStyle: TextStyle(fontFamily: 'PublicSans', color: Colors.black38, fontSize: 13),
+                    hintStyle: TextStyle(fontFamily: 'PublicSans', color: Colors.black38, fontSize: 13, height: 1.2),
                     prefixIcon: Icon(Icons.search, color: Color(0xff1C0D5A), size: 18),
+                    prefixIconConstraints: BoxConstraints(minWidth: 40, minHeight: 40),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(vertical: 10),
                   ),
-                  style: const TextStyle(fontFamily: 'PublicSans', fontSize: 13.5, color: Colors.black87),
+                  style: const TextStyle(fontFamily: 'PublicSans', fontSize: 13.5, color: Colors.black87, height: 1.2),
                 ),
               ),
             ),

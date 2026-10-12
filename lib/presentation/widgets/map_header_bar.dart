@@ -52,6 +52,7 @@ class MapHeaderBar extends StatelessWidget {
             child: TextField(
               controller: searchController,
               textInputAction: TextInputAction.search,
+              textAlignVertical: TextAlignVertical.center,
               onSubmitted: (value) {
                 if (value.trim().isNotEmpty) {
                   onSearchSubmitted(value.trim());
@@ -62,6 +63,7 @@ class MapHeaderBar extends StatelessWidget {
                 color: AppColors.primaryDark,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
+                height: 1.2,
               ),
               decoration: InputDecoration(
                 hintText: searchPlaceholder,
@@ -69,9 +71,11 @@ class MapHeaderBar extends StatelessWidget {
                   fontFamily: 'PublicSans',
                   color: AppColors.textMuted.withOpacity(0.8),
                   fontSize: 14,
+                  height: 1.2,
                 ),
                 border: InputBorder.none,
                 isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),

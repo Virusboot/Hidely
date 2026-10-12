@@ -885,6 +885,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         child: TextField(
                           controller: _searchController,
                           focusNode: _searchFocusNode,
+                          textAlignVertical: TextAlignVertical.center,
                           onChanged: (val) {
                             setState(() {
                               _searchQuery = val;
@@ -899,9 +900,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             _fetchExplorePosts();
                           },
                           decoration: InputDecoration(
+                            isDense: true,
                             hintText: "Search accounts or places...",
-                            hintStyle: const TextStyle(color: Colors.black38, fontSize: 13),
+                            hintStyle: const TextStyle(color: Colors.black38, fontSize: 13.5, height: 1.2),
                             prefixIcon: const Icon(Icons.search, color: Color(0xff1C0D5A), size: 20),
+                            prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 46),
                             suffixIcon: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -933,7 +936,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(vertical: 13),
                           ),
-                          style: const TextStyle(fontSize: 14, color: Colors.black87),
+                          style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.2),
                         ),
                       ),
                     ),

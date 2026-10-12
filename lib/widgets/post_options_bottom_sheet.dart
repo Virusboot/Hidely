@@ -601,12 +601,15 @@ class _ShareToChatBottomSheetState extends State<ShareToChatBottomSheet> {
                 ),
                 child: TextField(
                   controller: _searchController,
+                  textAlignVertical: TextAlignVertical.center,
                   onChanged: (val) => setState(() => _searchQuery = val),
-                  style: const TextStyle(fontSize: 14, color: Color(0xff1C0D5A)),
+                  style: const TextStyle(fontSize: 14, color: Color(0xff1C0D5A), height: 1.2),
                   decoration: InputDecoration(
+                    isDense: true,
                     hintText: "Search...",
-                    hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                    hintStyle: const TextStyle(color: Colors.grey, fontSize: 14, height: 1.2),
                     prefixIcon: const Icon(Icons.search_rounded, color: Colors.grey, size: 20),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 42),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? GestureDetector(
                             onTap: () {
@@ -616,8 +619,9 @@ class _ShareToChatBottomSheetState extends State<ShareToChatBottomSheet> {
                             child: const Icon(Icons.close_rounded, color: Colors.grey, size: 18),
                           )
                         : null,
+                    suffixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 42),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                    contentPadding: EdgeInsets.zero,
                   ),
                 ),
               ),
