@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hidely_new/services/api_service.dart';
 
@@ -20,24 +21,59 @@ class UserAvatar extends StatelessWidget {
     this.textColor,
   });
 
+  static final List<List<Color>> _avatarGradients = [
+    [const Color(0xff6366F1), const Color(0xff8B5CF6)], // Indigo - Purple
+    [const Color(0xffEC4899), const Color(0xffF43F5E)], // Pink - Rose
+    [const Color(0xff3B82F6), const Color(0xff06B6D4)], // Blue - Cyan
+    [const Color(0xff10B981), const Color(0xff059669)], // Emerald - Green
+    [const Color(0xffF59E0B), const Color(0xffD97706)], // Amber - Orange
+    [const Color(0xff8B5CF6), const Color(0xffD946EF)], // Purple - Fuchsia
+    [const Color(0xff14B8A6), const Color(0xff0D9488)], // Teal
+    [const Color(0xffF97316), const Color(0xffEA580C)], // Orange
+  ];
+
+  static String _extractInitials(String name) {
+    final clean = name.trim();
+    if (clean.isEmpty) return '?';
+    final parts = clean.split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      final f = parts[0].isNotEmpty ? parts[0][0] : '';
+      final s = parts[1].isNotEmpty ? parts[1][0] : '';
+      return '$f$s'.toUpperCase();
+    }
+    return clean.substring(0, clean.length >= 2 ? 2 : 1).toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasImage = avatarUrl != null && avatarUrl!.trim().isNotEmpty;
-    final bg = backgroundColor ?? const Color(0xffEFEFEF);
-    final tc = textColor ?? const Color(0xff9E9E9E);
-    
     final double diameter = radius * 2;
-    final double iconSize = fontSize ?? (radius * 1.2);
+
+    // Stylish colorful gradient initials fallback
+    final int colorIndex = displayName.hashCode.abs() % _avatarGradients.length;
+    final gradient = _avatarGradients[colorIndex];
+    final initials = _extractInitials(displayName);
 
     Widget fallbackChild = Container(
       width: diameter,
       height: diameter,
-      color: bg,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: gradient,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
       alignment: Alignment.center,
-      child: Icon(
-        Icons.person,
-        color: tc,
-        size: iconSize,
+      child: Text(
+        initials,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: fontSize ?? (radius * 0.76),
+          fontWeight: FontWeight.bold,
+          fontFamily: 'PublicSans',
+        ),
       ),
     );
 
@@ -61,6 +97,26 @@ class UserAvatar extends StatelessWidget {
       }
     } else {
       resolvedUrl = '${ApiService().baseUrl}/${trimmedUrl.startsWith('/') ? trimmedUrl.substring(1) : trimmedUrl}';
+    }
+
+    // On Flutter Web, use Image.network to prevent CanvasKit black texture rendering bugs
+    if (kIsWeb) {
+      return ClipOval(
+        child: SizedBox(
+          width: diameter,
+          height: diameter,
+          child: Image.network(
+            resolvedUrl,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            errorBuilder: (context, error, stackTrace) => fallbackChild,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(color: const Color(0xffE2E8F0));
+            },
+          ),
+        ),
+      );
     }
 
     return ClipOval(
