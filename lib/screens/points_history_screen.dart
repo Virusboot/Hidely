@@ -16,6 +16,7 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
   UserPointsProfile? _profile;
   late TabController _tabController;
   int _selectedTabIndex = 0;
+  bool _isClaimingCheckIn = false;
 
   @override
   void initState() {
@@ -68,13 +69,45 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
     }
   }
 
+  Future<void> _handleClaimDailyCheckIn() async {
+    if (_isClaimingCheckIn) return;
+    setState(() => _isClaimingCheckIn = true);
+
+    final res = await ApiService().claimDailyCheckIn();
+    setState(() => _isClaimingCheckIn = false);
+
+    if (!mounted) return;
+
+    if (res.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res.message.isNotEmpty ? res.message : "+10 Daily Check-In points claimed!"),
+          backgroundColor: const Color(0xff10B981),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      _loadData();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res.message.isNotEmpty ? res.message : "Daily check-in already recorded."),
+          backgroundColor: const Color(0xffF59E0B),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   Color _getEventColor(String eventType) {
     final lower = eventType.toLowerCase();
     if (lower.contains('hidden_place') || lower.contains('verified') || lower.contains('place')) {
       return const Color(0xff10B981);
     }
-    if (lower.contains('camera') || lower.contains('post') || lower.contains('high_accuracy')) {
+    if (lower.contains('camera') || lower.contains('post') || lower.contains('quality')) {
       return const Color(0xff3B82F6);
+    }
+    if (lower.contains('accuracy') || lower.contains('gps')) {
+      return const Color(0xffF59E0B);
     }
     if (lower.contains('level') || lower.contains('badge') || lower.contains('milestone')) {
       return const Color(0xff8B5CF6);
@@ -82,16 +115,22 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
     if (lower.contains('check') || lower.contains('daily') || lower.contains('streak')) {
       return const Color(0xffEF4444);
     }
+    if (lower.contains('like') || lower.contains('save') || lower.contains('share')) {
+      return const Color(0xffEC4899);
+    }
     return const Color(0xffF59E0B);
   }
 
   IconData _getEventIcon(String eventType) {
     final lower = eventType.toLowerCase();
     if (lower.contains('hidden_place') || lower.contains('place')) return Icons.place_rounded;
-    if (lower.contains('camera') || lower.contains('post')) return Icons.camera_alt_rounded;
-    if (lower.contains('accuracy') || lower.contains('verified')) return Icons.gps_fixed_rounded;
-    if (lower.contains('level') || lower.contains('badge')) return Icons.emoji_events_rounded;
+    if (lower.contains('camera') || lower.contains('quality') || lower.contains('post')) return Icons.camera_alt_rounded;
+    if (lower.contains('accuracy') || lower.contains('gps')) return Icons.gps_fixed_rounded;
+    if (lower.contains('level') || lower.contains('badge') || lower.contains('milestone')) return Icons.emoji_events_rounded;
     if (lower.contains('check') || lower.contains('daily') || lower.contains('streak')) return Icons.local_fire_department_rounded;
+    if (lower.contains('like')) return Icons.favorite_rounded;
+    if (lower.contains('save')) return Icons.bookmark_rounded;
+    if (lower.contains('share')) return Icons.share_rounded;
     return Icons.stars_rounded;
   }
 
@@ -471,6 +510,10 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
       padding: const EdgeInsets.all(16),
       physics: const BouncingScrollPhysics(),
       children: [
+        // Daily Check-in Interactive Action Banner
+        _buildDailyCheckInBanner(),
+        const SizedBox(height: 16),
+
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -496,7 +539,7 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         const Text(
           "Points Action Breakdown",
           style: TextStyle(
@@ -512,7 +555,7 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
         _buildRuleCard(
           title: "Share Camera Post",
           points: "+50 pts",
-          subtitle: "Take & upload real-time photos/videos using the camera",
+          subtitle: "Take & upload real-time photos/videos using in-app camera (+20 base + 30 camera bonus)",
           icon: Icons.camera_alt_rounded,
           iconColor: const Color(0xff3B82F6),
         ),
@@ -522,7 +565,7 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
         _buildRuleCard(
           title: "Explore Hidden Spot",
           points: "+100 pts",
-          subtitle: "Discover, visit, and check-in at a verified hidden place",
+          subtitle: "Discover, visit, and post a new genuine hidden place",
           icon: Icons.place_rounded,
           iconColor: const Color(0xff10B981),
         ),
@@ -532,7 +575,7 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
         _buildRuleCard(
           title: "GPS Spot Verification",
           points: "+25 pts",
-          subtitle: "High accuracy GPS check-in & location verification",
+          subtitle: "High accuracy GPS verification (≤ 25m) on real-time check-in",
           icon: Icons.gps_fixed_rounded,
           iconColor: const Color(0xffF59E0B),
         ),
@@ -542,7 +585,7 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
         _buildRuleCard(
           title: "Daily App Check-In",
           points: "+10 pts",
-          subtitle: "Open Hidely and explore posts daily",
+          subtitle: "Open Hidely and explore spots daily to maintain your streak",
           icon: Icons.local_fire_department_rounded,
           iconColor: const Color(0xffEF4444),
         ),
@@ -556,8 +599,148 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
           icon: Icons.emoji_events_rounded,
           iconColor: const Color(0xff8B5CF6),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
+
+        // Section 2: Engagement Points
+        const Text(
+          "Community Engagement Points",
+          style: TextStyle(
+            fontFamily: 'PublicSans',
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Color(0xff1C0D5A),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        _buildRuleCard(
+          title: "Spot Like Received",
+          points: "+1 pt",
+          subtitle: "Earned whenever an explorer likes your travel spot or reel",
+          icon: Icons.favorite_rounded,
+          iconColor: const Color(0xffEC4899),
+        ),
+        const SizedBox(height: 10),
+
+        _buildRuleCard(
+          title: "Spot Bookmarked",
+          points: "+2 pts",
+          subtitle: "Earned when someone saves your spot to their bucket list",
+          icon: Icons.bookmark_rounded,
+          iconColor: const Color(0xff8B5CF6),
+        ),
+        const SizedBox(height: 10),
+
+        _buildRuleCard(
+          title: "Spot Shared",
+          points: "+3 pts",
+          subtitle: "Earned when your travel place is shared across the community",
+          icon: Icons.share_rounded,
+          iconColor: const Color(0xff3B82F6),
+        ),
+        const SizedBox(height: 24),
       ],
+    );
+  }
+
+  Widget _buildDailyCheckInBanner() {
+    final isClaimed = _profile?.isDailyCheckInClaimed ?? false;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isClaimed
+              ? [const Color(0xff065F46), const Color(0xff047857)]
+              : [const Color(0xffEA580C), const Color(0xffDC2626)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: (isClaimed ? const Color(0xff059669) : const Color(0xffDC2626)).withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isClaimed ? Icons.check_circle_rounded : Icons.local_fire_department_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isClaimed ? "Daily Check-In Claimed! (+10 pts)" : "Daily App Check-In (+10 pts)",
+                  style: const TextStyle(
+                    fontFamily: 'PublicSans',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14.5,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  isClaimed
+                      ? "Great job! Keep your exploration streak alive tomorrow."
+                      : "Claim your daily exploration bonus today!",
+                  style: TextStyle(
+                    fontFamily: 'PublicSans',
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (isClaimed)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white.withOpacity(0.3)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.done_all_rounded, color: Colors.white, size: 14),
+                  SizedBox(width: 4),
+                  Text("Claimed", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5)),
+                ],
+              ),
+            )
+          else
+            ElevatedButton(
+              onPressed: _isClaimingCheckIn ? null : _handleClaimDailyCheckIn,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xffDC2626),
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              ),
+              child: _isClaimingCheckIn
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text("Claim +10", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5)),
+            ),
+        ],
+      ),
     );
   }
 

@@ -134,6 +134,7 @@ class UserPointsProfile {
   final int minXp;
   final int nextLevelMinXp;
   final int rank;
+  final bool isDailyCheckInClaimed;
   final BadgeModel? featuredBadge;
   final List<BadgeModel> badges;
 
@@ -148,6 +149,7 @@ class UserPointsProfile {
     required this.minXp,
     required this.nextLevelMinXp,
     required this.rank,
+    this.isDailyCheckInClaimed = false,
     this.featuredBadge,
     this.badges = const [],
   });
@@ -169,6 +171,7 @@ class UserPointsProfile {
       minXp: json['minXp'] is int ? json['minXp'] : int.tryParse(json['minXp']?.toString() ?? '0') ?? 0,
       nextLevelMinXp: json['nextLevelMinXp'] is int ? json['nextLevelMinXp'] : int.tryParse(json['nextLevelMinXp']?.toString() ?? '200') ?? 200,
       rank: json['rank'] is int ? json['rank'] : int.tryParse(json['rank']?.toString() ?? '1') ?? 1,
+      isDailyCheckInClaimed: json['isDailyCheckInClaimed'] == true,
       featuredBadge: json['featuredBadge'] != null && json['featuredBadge'] is Map<String, dynamic>
           ? BadgeModel.fromJson(json['featuredBadge'])
           : null,

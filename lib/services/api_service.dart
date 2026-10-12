@@ -1155,6 +1155,27 @@ class ApiService {
     }
   }
 
+  /// Claim Daily App Check-in (+10 pts)
+  Future<ApiResult> claimDailyCheckIn() async {
+    try {
+      final token = AuthService().token;
+      if (token == null) return ApiResult(success: false, message: 'Not authenticated.');
+
+      final response = await _client.post(
+        Uri.parse('$baseUrl/api/gamification/checkin'),
+        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 15));
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        return ApiResult(success: true, message: body['message'] ?? 'Check-in recorded.', data: body);
+      }
+      return ApiResult(success: false, message: body['message'] ?? body['error'] ?? 'Error claiming daily check-in.', data: body);
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
   /// Get all available badges with user earned status
   Future<ApiResult> getBadges() async {
     try {
