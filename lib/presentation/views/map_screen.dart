@@ -1066,10 +1066,10 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
 
   Widget _buildTravelModeRow(String currentMode, AppLocalizations l10n) {
     final modes = [
-      {'id': 'walking', 'label': l10n.walking, 'icon': Icons.directions_walk_rounded},
-      {'id': 'bicycling', 'label': l10n.biking, 'icon': Icons.directions_bike_rounded},
       {'id': 'driving', 'label': l10n.driving, 'icon': Icons.directions_car_rounded},
+      {'id': 'bicycling', 'label': l10n.biking, 'icon': Icons.directions_bike_rounded},
       {'id': 'transit', 'label': l10n.transit, 'icon': Icons.directions_transit_rounded},
+      {'id': 'walking', 'label': l10n.walking, 'icon': Icons.directions_walk_rounded},
     ];
 
     final int selectedIndex = modes.indexWhere((m) => m['id'] == currentMode).clamp(0, 3);

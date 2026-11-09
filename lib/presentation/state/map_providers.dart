@@ -283,11 +283,8 @@ final mapCenterProvider = StateProvider<LatLng>((ref) {
 // Travel Selection State
 final activeDestinationProvider = StateProvider<NearbyPlace?>((ref) => null);
 final travelModeProvider = StateProvider<String>((ref) {
-  if (defaultTargetPlatform == TargetPlatform.android) {
-    return 'bicycling';
-  }
-  return 'walking';
-}); // 'walking', 'driving', 'transit'
+  return 'driving';
+}); // 'driving', 'bicycling', 'transit', 'walking'
 
 // Provider to cache original online route coordinates
 final originalRouteCoordinatesProvider = StateProvider<List<LatLng>>((ref) => []);
