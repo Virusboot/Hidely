@@ -28,7 +28,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
   // OTP Verification state & controllers
   final List<TextEditingController> _otpControllers =
-      List.generate(4, (_) => TextEditingController(text: " "));
+      List.generate(4, (_) => TextEditingController());
   final List<FocusNode> _otpFocusNodes =
       List.generate(4, (_) => FocusNode());
 
@@ -96,9 +96,21 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   void initState() {
     super.initState();
     for (int i = 0; i < 4; i++) {
-      _otpFocusNodes[i].addListener(() {
+      final index = i;
+      _otpFocusNodes[index].addListener(() {
         if (mounted) setState(() {});
       });
+      _otpFocusNodes[index].onKeyEvent = (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.backspace) {
+          if (_otpControllers[index].text.isEmpty && index > 0) {
+            _otpControllers[index - 1].clear();
+            _otpFocusNodes[index - 1].requestFocus();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      };
     }
   }
 
@@ -175,7 +187,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
   void _clearOtpFields() {
     for (var c in _otpControllers) {
-      c.text = " ";
+      c.clear();
     }
   }
 
@@ -990,10 +1002,15 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         ],
         const SizedBox(height: 32),
 
-        // 4 DIGIT OTP BOXES
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: List.generate(4, (index) => _buildOtpBox(index)),
+        // 4 DIGIT OTP BOXES (Centered with clean spacing)
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(4, (index) => _buildOtpBox(index)),
+            ),
+          ),
         ),
         const SizedBox(height: 28),
 
@@ -1062,59 +1079,62 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           ),
         ],
       ),
-      child: Center(
-        child: TextField(
-          controller: _otpControllers[index],
-          focusNode: _otpFocusNodes[index],
-          keyboardType: TextInputType.number,
-          textAlign: TextAlign.center,
-          textAlignVertical: TextAlignVertical.center,
-          style: const TextStyle(
-            color: Color(0xff1C0D5A),
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-          decoration: const InputDecoration(
-            border: InputBorder.none,
-            counterText: "",
-            contentPadding: EdgeInsets.zero,
-          ),
-          onChanged: (value) {
-            // Support pasting 4-digit OTP code
-            final cleanDigits = value.replaceAll(RegExp(r'\D'), '');
-            if (cleanDigits.length == 4) {
-              for (int i = 0; i < 4; i++) {
-                _otpControllers[i].text = cleanDigits[i];
-              }
-              _otpFocusNodes[3].unfocus();
-              _onOtpNext();
-              return;
-            }
-
-            if (value.length > 1) {
-              final newChar = value.substring(value.length - 1);
-              _otpControllers[index].text = newChar;
-              _otpControllers[index].selection = TextSelection.fromPosition(
-                const TextPosition(offset: 1),
-              );
-              if (index < 3) {
-                _otpFocusNodes[index + 1].requestFocus();
-              } else {
-                _otpFocusNodes[index].unfocus();
-                final fullOtp = _otpControllers.map((c) => c.text.trim()).join();
-                if (fullOtp.length == 4) {
-                  _onOtpNext();
-                }
-              }
-            } else if (value.isEmpty) {
-              _otpControllers[index].text = " ";
-              if (index > 0) {
-                _otpControllers[index - 1].text = " ";
-                _otpFocusNodes[index - 1].requestFocus();
-              }
-            }
-          },
+      alignment: Alignment.center,
+      child: TextField(
+        controller: _otpControllers[index],
+        focusNode: _otpFocusNodes[index],
+        keyboardType: TextInputType.number,
+        textAlign: TextAlign.center,
+        textAlignVertical: TextAlignVertical.center,
+        showCursor: false,
+        style: const TextStyle(
+          color: Color(0xff1C0D5A),
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          height: 1.0,
+          leadingDistribution: TextLeadingDistribution.even,
         ),
+        decoration: const InputDecoration(
+          isDense: true,
+          isCollapsed: true,
+          border: InputBorder.none,
+          counterText: "",
+          contentPadding: EdgeInsets.zero,
+        ),
+        onChanged: (value) {
+          // Support pasting 4-digit OTP code
+          final cleanDigits = value.replaceAll(RegExp(r'\D'), '');
+          if (cleanDigits.length >= 4) {
+            for (int i = 0; i < 4; i++) {
+              _otpControllers[i].text = cleanDigits[i];
+            }
+            _otpFocusNodes[3].unfocus();
+            _onOtpNext();
+            return;
+          }
+
+          if (cleanDigits.isNotEmpty) {
+            final lastChar = cleanDigits.substring(cleanDigits.length - 1);
+            _otpControllers[index].text = lastChar;
+            _otpControllers[index].selection = TextSelection.fromPosition(
+              const TextPosition(offset: 1),
+            );
+            if (index < 3) {
+              _otpFocusNodes[index + 1].requestFocus();
+            } else {
+              _otpFocusNodes[index].unfocus();
+              final fullOtp = _otpControllers.map((c) => c.text.trim()).join();
+              if (fullOtp.length == 4) {
+                _onOtpNext();
+              }
+            }
+          } else {
+            _otpControllers[index].clear();
+            if (index > 0) {
+              _otpFocusNodes[index - 1].requestFocus();
+            }
+          }
+        },
       ),
     );
   }

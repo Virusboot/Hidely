@@ -24,7 +24,7 @@ class OtpVerificationScreen extends StatefulWidget {
 }
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
-  final List<TextEditingController> _controllers = List.generate(4, (_) => TextEditingController(text: " "));
+  final List<TextEditingController> _controllers = List.generate(4, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
 
   // Countdown timer & OTP limit state
@@ -37,6 +37,21 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   void initState() {
     super.initState();
     _startTimer();
+
+    for (int i = 0; i < 4; i++) {
+      final index = i;
+      _focusNodes[index].onKeyEvent = (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.backspace) {
+          if (_controllers[index].text.isEmpty && index > 0) {
+            _controllers[index - 1].clear();
+            _focusNodes[index - 1].requestFocus();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      };
+    }
 
     // Auto-focus the first box on startup
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -302,22 +317,32 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.2),
       ),
+      alignment: Alignment.center,
       child: TextField(
         controller: _controllers[index],
         focusNode: _focusNodes[index],
         keyboardType: TextInputType.number,
         textAlign: TextAlign.center,
-        textAlignVertical: TextAlignVertical.center, // Vertically center the digit input
-        style: const TextStyle(color: Color(0xff1C0D5A), fontSize: 24, fontWeight: FontWeight.bold),
+        textAlignVertical: TextAlignVertical.center,
+        showCursor: false,
+        style: const TextStyle(
+          color: Color(0xff1C0D5A),
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          height: 1.0,
+          leadingDistribution: TextLeadingDistribution.even,
+        ),
         decoration: const InputDecoration(
+          isDense: true,
+          isCollapsed: true,
           border: InputBorder.none,
           counterText: "",
-          contentPadding: EdgeInsets.zero, // Avoid top shifting padding
+          contentPadding: EdgeInsets.zero,
         ),
         onChanged: (value) {
           // Support pasting 4-digit OTP code
           final cleanDigits = value.replaceAll(RegExp(r'\D'), '');
-          if (cleanDigits.length == 4) {
+          if (cleanDigits.length >= 4) {
             for (int i = 0; i < 4; i++) {
               _controllers[i].text = cleanDigits[i];
             }
@@ -325,19 +350,18 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             return;
           }
 
-          if (value.length > 1) {
-            final newChar = value.substring(value.length - 1);
-            _controllers[index].text = newChar;
+          if (cleanDigits.isNotEmpty) {
+            final lastChar = cleanDigits.substring(cleanDigits.length - 1);
+            _controllers[index].text = lastChar;
             _controllers[index].selection = TextSelection.fromPosition(
               const TextPosition(offset: 1),
             );
             if (index < 3) {
               _focusNodes[index + 1].requestFocus();
             }
-          } else if (value.isEmpty) {
-            _controllers[index].text = " ";
+          } else {
+            _controllers[index].clear();
             if (index > 0) {
-              _controllers[index - 1].text = " ";
               _focusNodes[index - 1].requestFocus();
             }
           }
