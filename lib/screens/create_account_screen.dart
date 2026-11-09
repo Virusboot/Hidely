@@ -50,6 +50,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   bool _isPasswordObscured = true;
   bool _isConfirmPasswordObscured = true;
   bool _isLoading = false;
+  bool _isCheckingUsername = false;
   String? _selectedGender;
 
   late final TapGestureRecognizer _termsRecognizer = TapGestureRecognizer()
@@ -211,7 +212,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   }
 
   // --- Step 2: Username Validation ---
-  void _onUsernameNext() {
+  Future<void> _onUsernameNext() async {
+    if (_isCheckingUsername) return;
+
     final username = _usernameController.text.trim();
     final usernameRegex = RegExp(r'^(?!.*\.\.)(?!.*__)(?!.*_\.)(?!.*\._)[a-zA-Z0-9._]{3,30}$');
     final startEndCheck = RegExp(r'^[a-zA-Z0-9].*[a-zA-Z0-9]$');
@@ -240,6 +243,29 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       _usernameFocusNode.requestFocus();
       return;
     }
+
+    setState(() {
+      _isCheckingUsername = true;
+    });
+
+    final checkResult = await ApiService().checkUsernameAvailable(username: username);
+
+    if (!mounted) return;
+
+    setState(() {
+      _isCheckingUsername = false;
+    });
+
+    if (!checkResult.success) {
+      _showCustomSnackBar(
+        context,
+        checkResult.message.isNotEmpty ? checkResult.message : "Username is already taken. Please choose another.",
+        isError: true,
+      );
+      _usernameFocusNode.requestFocus();
+      return;
+    }
+
     _goToNextStep();
   }
 
@@ -294,6 +320,24 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     setState(() {
       _isSendingOtp = true;
     });
+
+    // 1. Immediately check if an account already exists with this email!
+    final checkResult = await ApiService().checkEmailAvailable(email: email);
+    if (!checkResult.success) {
+      if (!mounted) return;
+      setState(() {
+        _isSendingOtp = false;
+      });
+      _showCustomSnackBar(
+        context,
+        checkResult.message.isNotEmpty
+            ? checkResult.message
+            : "An account already exists with this email. Please sign in or use a different email.",
+        isError: true,
+      );
+      _emailFocusNode.requestFocus();
+      return;
+    }
 
     final result = await ApiService().sendEmailOtp(email: email);
 
@@ -734,7 +778,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         ),
         const SizedBox(height: 24),
         _buildActionButton(
-          text: "Next",
+          text: _isCheckingUsername ? "Checking..." : "Next",
+          isLoading: _isCheckingUsername,
           onPressed: _onUsernameNext,
         ),
       ],

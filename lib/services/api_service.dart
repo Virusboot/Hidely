@@ -122,6 +122,105 @@ class ApiService {
     }
   }
 
+  /// Check if an email is already registered before proceeding with OTP
+  Future<ApiResult> checkEmailAvailable({required String email}) async {
+    final cleanEmail = email.toLowerCase().trim();
+
+    // 1. Try dedicated check-availability endpoint first
+    try {
+      final response = await _client.post(
+        Uri.parse('$baseUrl/api/auth/check-availability'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': cleanEmail}),
+      ).timeout(const Duration(seconds: 6));
+
+      if (response.statusCode == 200) {
+        return ApiResult(success: true, message: 'Email available');
+      } else if (response.statusCode == 400) {
+        final body = jsonDecode(response.body);
+        return ApiResult(
+          success: false,
+          message: body['error'] ?? 'An account already exists with this email.',
+          error: body['error'],
+        );
+      }
+    } catch (_) {}
+
+    // 2. Resilient Fallback: Use live backend forgot-password endpoint
+    // If account exists -> returns 200 (OTP generated for existing user)
+    // If account does NOT exist -> returns 404 ("No account found with this email.")
+    try {
+      final response = await _client.post(
+        Uri.parse('$baseUrl/api/auth/forgot-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': cleanEmail}),
+      ).timeout(const Duration(seconds: 6));
+
+      if (response.statusCode == 200) {
+        return ApiResult(
+          success: false,
+          message: 'An account already exists with this email.',
+          error: 'An account already exists with this email.',
+        );
+      } else if (response.statusCode == 404) {
+        return ApiResult(success: true, message: 'Email available');
+      }
+    } catch (e) {
+      debugPrint('[ApiService] checkEmailAvailable fallback error: $e');
+    }
+
+    return ApiResult(success: true, message: 'Email available');
+  }
+
+  /// Check if a username is already taken before proceeding
+  Future<ApiResult> checkUsernameAvailable({required String username}) async {
+    final cleanUsername = username.toLowerCase().trim();
+
+    // 1. Try dedicated check-availability endpoint
+    try {
+      final response = await _client.post(
+        Uri.parse('$baseUrl/api/auth/check-availability'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'username': cleanUsername}),
+      ).timeout(const Duration(seconds: 6));
+
+      if (response.statusCode == 200) {
+        return ApiResult(success: true, message: 'Username available');
+      } else if (response.statusCode == 400) {
+        final body = jsonDecode(response.body);
+        return ApiResult(
+          success: false,
+          message: body['error'] ?? 'Username is already taken.',
+          error: body['error'],
+        );
+      }
+    } catch (_) {}
+
+    // 2. Resilient Fallback: Use live backend public creator profile endpoint
+    // If username is taken -> returns 200 (profile exists)
+    // If username is not taken -> returns 404 ("Creator not found.")
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/users/profile/$cleanUsername'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 6));
+
+      if (response.statusCode == 200) {
+        return ApiResult(
+          success: false,
+          message: 'Username is already taken. Please choose another.',
+          error: 'Username is already taken.',
+        );
+      } else if (response.statusCode == 404) {
+        return ApiResult(success: true, message: 'Username available');
+      }
+    } catch (e) {
+      debugPrint('[ApiService] checkUsernameAvailable fallback error: $e');
+    }
+
+    return ApiResult(success: true, message: 'Username available');
+  }
+
   /// Send email verification OTP during sign up
   Future<ApiResult> sendEmailOtp({required String email}) async {
     final cleanEmail = email.toLowerCase().trim();
