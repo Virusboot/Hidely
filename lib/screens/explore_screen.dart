@@ -28,6 +28,54 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
+  bool _isSearchFieldHidden = false;
+
+  bool get _hasActiveFilters {
+    final hasCategory = _selectedCategories.isNotEmpty && !_selectedCategories.contains("All");
+    final hasCity = _selectedCities.isNotEmpty && !_selectedCities.contains("All");
+    return hasCategory || hasCity;
+  }
+
+  List<Map<String, String>> get _activeFilterTags {
+    final List<Map<String, String>> tags = [];
+    for (final cat in _selectedCategories) {
+      if (cat != "All") {
+        tags.add({'type': 'category', 'value': cat, 'label': '${AppCategories.getEmoji(cat)} $cat'});
+      }
+    }
+    for (final city in _selectedCities) {
+      if (city != "All") {
+        tags.add({'type': 'city', 'value': city, 'label': '📍 $city'});
+      }
+    }
+    return tags;
+  }
+
+  void _removeFilterTag(String type, String value) {
+    setState(() {
+      if (type == 'category') {
+        _selectedCategories.remove(value);
+        if (_selectedCategories.isEmpty) _selectedCategories = ["All"];
+      } else if (type == 'city') {
+        _selectedCities.remove(value);
+        if (_selectedCities.isEmpty) _selectedCities = ["All"];
+      }
+
+      if (!_hasActiveFilters) {
+        _isSearchFieldHidden = false;
+      }
+      _applyLocalFiltersAndSorting();
+    });
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _selectedCategories = ["All"];
+      _selectedCities = ["All"];
+      _isSearchFieldHidden = false;
+      _applyLocalFiltersAndSorting();
+    });
+  }
 
   List<String> _selectedCities = ["All"];
 
@@ -812,11 +860,25 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           elevation: 0,
                         ),
                         onPressed: () {
+                          final hasActiveCategory = localCategories.isNotEmpty && !localCategories.contains("All");
+                          final hasActiveCity = localCities.isNotEmpty && !localCities.contains("All");
+                          final hasFilters = hasActiveCategory || hasActiveCity;
+
                           setState(() {
                             _selectedCategories = List.from(localCategories);
-                            _selectedCities = localCities;
+                            _selectedCities = List.from(localCities);
+
+                            if (hasFilters) {
+                              // Clear search field & hide it when filter tags are used
+                              _searchController.clear();
+                              _searchQuery = "";
+                              _isSearchFieldHidden = true;
+                            } else {
+                              _isSearchFieldHidden = false;
+                            }
                           });
-                          _filterPosts();
+                          FocusScope.of(context).unfocus();
+                          _fetchExplorePosts(showLoading: true);
                           Navigator.pop(context);
                         },
                         child: const Text(
@@ -863,105 +925,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
             children: [
               const SizedBox(height: 12),
 
-              // --- 1. SEARCH BAR & AI TOOLS IN A ROW ---
+              // --- 1. SEARCH BAR OR ACTIVE FILTERS BAR ---
               Padding(
                 padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 6.0, bottom: 6.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: TextField(
-                          controller: _searchController,
-                          focusNode: _searchFocusNode,
-                          textAlignVertical: TextAlignVertical.center,
-                          onChanged: (val) {
-                            setState(() {
-                              _searchQuery = val;
-                            });
-                            if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-                            _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-                              _fetchExplorePosts();
-                            });
-                          },
-                          onSubmitted: (val) {
-                            _saveSearchQuery(val);
-                            _fetchExplorePosts();
-                          },
-                          decoration: InputDecoration(
-                            isDense: true,
-                            hintText: "Search accounts or places...",
-                            hintStyle: const TextStyle(color: Colors.black38, fontSize: 13.5, height: 1.2),
-                            prefixIcon: const Icon(Icons.search, color: Color(0xff1C0D5A), size: 20),
-                            prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 46),
-                            suffixIcon: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (_searchQuery.isNotEmpty)
-                                  IconButton(
-                                    icon: const Icon(Icons.cancel_rounded, color: Colors.black38, size: 18),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() {
-                                        _searchQuery = "";
-                                      });
-                                      _fetchExplorePosts();
-                                    },
-                                  ),
-                                IconButton(
-                                  icon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF7C3AED), size: 20),
-                                  onPressed: () {
-                                    showModalBottomSheet(
-                                      context: context,
-                                      isScrollControlled: true,
-                                      useSafeArea: true,
-                                      backgroundColor: Colors.transparent,
-                                      builder: (_) => const ItineraryPlannerSheet(locationName: "Trip Destinations"),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 13),
-                          ),
-                          style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => _showFilterSheet(context),
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.tune_rounded, color: Color(0xff1C0D5A), size: 22),
-                      ),
-                    ),
-                  ],
-                ),
+                child: _isSearchFieldHidden && _hasActiveFilters
+                    ? _buildActiveFiltersHeader()
+                    : _buildSearchBarRow(),
               ),
 
               // --- Quick Category Horizontal Pill Bar ---
@@ -1261,6 +1230,310 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
+  Widget _buildSearchBarRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              textAlignVertical: TextAlignVertical.center,
+              onChanged: (val) {
+                setState(() {
+                  _searchQuery = val;
+                });
+                if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+                _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+                  _fetchExplorePosts();
+                });
+              },
+              onSubmitted: (val) {
+                _saveSearchQuery(val);
+                _fetchExplorePosts();
+              },
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: "Search accounts or places...",
+                hintStyle: const TextStyle(color: Colors.black38, fontSize: 13.5, height: 1.2),
+                prefixIcon: const Icon(Icons.search, color: Color(0xff1C0D5A), size: 20),
+                prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 46),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF7C3AED), size: 20),
+                      tooltip: "Trip Planner",
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      onPressed: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          useSafeArea: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => const ItineraryPlannerSheet(locationName: "Trip Destinations"),
+                        );
+                      },
+                    ),
+                    if (_searchQuery.isNotEmpty) ...[
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          _searchController.clear();
+                          setState(() {
+                            _searchQuery = "";
+                          });
+                          _fetchExplorePosts();
+                        },
+                        child: const Padding(
+                          padding: EdgeInsets.only(left: 4.0, right: 14.0),
+                          child: Icon(
+                            Icons.cancel_rounded,
+                            color: Colors.black38,
+                            size: 19,
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      const SizedBox(width: 8),
+                    ],
+                  ],
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 13),
+              ),
+              style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.2),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: () => _showFilterSheet(context),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: _hasActiveFilters ? const Color(0xff2B1564) : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _hasActiveFilters
+                          ? const Color(0xff2B1564).withOpacity(0.25)
+                          : Colors.black.withOpacity(0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.tune_rounded,
+                  color: _hasActiveFilters ? Colors.white : const Color(0xff1C0D5A),
+                  size: 22,
+                ),
+              ),
+              if (_hasActiveFilters)
+                Positioned(
+                  top: -3,
+                  right: -3,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '${_activeFilterTags.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActiveFiltersHeader() {
+    final activeTags = _activeFilterTags;
+
+    return Row(
+      children: [
+        // 1. Container showing Active Filter Tags with Search Icon to re-open search
+        Expanded(
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                // Tap Search Icon to re-open/show search field
+                Tooltip(
+                  message: "Search",
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      setState(() {
+                        _isSearchFieldHidden = false;
+                      });
+                      Future.delayed(const Duration(milliseconds: 100), () {
+                        if (mounted) _searchFocusNode.requestFocus();
+                      });
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Icon(Icons.search, color: Color(0xff1C0D5A), size: 20),
+                    ),
+                  ),
+                ),
+                // Horizontal scroll of active filter chips
+                Expanded(
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(vertical: 7),
+                    itemCount: activeTags.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 6),
+                    itemBuilder: (context, index) {
+                      final tag = activeTags[index];
+                      return Container(
+                        padding: const EdgeInsets.only(left: 10, right: 6),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF2B1564), Color(0xFF5D3EBC)],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              tag['label']!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => _removeFilterTag(tag['type']!, tag['value']!),
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.25),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close_rounded, size: 12, color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                // "Clear" text button
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _clearAllFilters,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(
+                      "Clear",
+                      style: TextStyle(
+                        color: Colors.red.shade400,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+
+        // 2. Filter Button with Active Filter Count Badge
+        GestureDetector(
+          onTap: () => _showFilterSheet(context),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: const Color(0xff2B1564),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xff2B1564).withOpacity(0.25),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.tune_rounded, color: Colors.white, size: 22),
+              ),
+              Positioned(
+                top: -3,
+                right: -3,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEF4444),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '${activeTags.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildQuickCategorySelector() {
     return Container(
       height: 40,
@@ -1288,6 +1561,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     } else {
                       _selectedCategories = [cat];
                     }
+                  }
+                  if (_searchQuery.isNotEmpty) {
+                    _searchController.clear();
+                    _searchQuery = "";
                   }
                   _applyLocalFiltersAndSorting();
                 });
