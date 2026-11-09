@@ -94,59 +94,6 @@ class MainWrapperState extends State<MainWrapper> {
     }
   }
 
-  Future<bool?> _showExitConfirmationDialog(BuildContext context) {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text(
-          "Exit App?",
-          style: TextStyle(
-            color: Color(0xff1C0D5A),
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        content: const Text(
-          "Are you sure you want to close Hidely?",
-          style: TextStyle(
-            color: Colors.black54,
-            fontSize: 14,
-          ),
-        ),
-        actionsPadding: const EdgeInsets.only(right: 16.0, bottom: 16.0),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              "No",
-              style: TextStyle(
-                color: Colors.grey,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xff2B1564),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 0,
-            ),
-            child: const Text(
-              "Yes, Exit",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final bool isDesktopOrTablet = ResponsiveBreakpoints.isDesktopOrTablet(context);
@@ -189,13 +136,15 @@ class MainWrapperState extends State<MainWrapper> {
     );
 
     return PopScope(
-      // On web, allow back navigation freely — exit dialog only makes sense on mobile
-      canPop: kIsWeb,
-      onPopInvokedWithResult: (didPop, result) async {
+      // Instagram-style back navigation:
+      // When on Home (tab 0) or web, allow default system pop (minimizes app on Android without popup)
+      canPop: kIsWeb || _currentIndex == 0,
+      onPopInvokedWithResult: (didPop, result) {
         if (didPop || kIsWeb) return;
-        final shouldExit = await _showExitConfirmationDialog(context);
-        if (shouldExit == true && context.mounted) {
-          await SystemNavigator.pop();
+
+        // If on another tab (Map, Chat, Explore, Profile), navigate directly to Home (tab 0)
+        if (_currentIndex != 0) {
+          setIndex(0);
         }
       },
       child: Scaffold(
