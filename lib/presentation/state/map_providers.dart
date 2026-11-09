@@ -143,7 +143,7 @@ final navigationAlertsProvider = Provider<List<MapAlert>>((ref) {
 final localizationProvider = Provider<Locale>((ref) => const Locale('en'));
 
 enum MapEngine { googleMaps, openStreetMap }
-final mapEngineProvider = StateProvider<MapEngine>((ref) => MapEngine.googleMaps);
+final mapEngineProvider = StateProvider<MapEngine>((ref) => kIsWeb ? MapEngine.openStreetMap : MapEngine.googleMaps);
 
 enum NavigationStatus { idle, ready, navigating }
 

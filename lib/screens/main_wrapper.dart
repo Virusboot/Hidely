@@ -152,6 +152,19 @@ class MainWrapperState extends State<MainWrapper> {
     final bool isDesktopOrTablet = ResponsiveBreakpoints.isDesktopOrTablet(context);
     final bool isLargeDesktop = ResponsiveBreakpoints.isLargeDesktop(context);
 
+    // Calculate dynamic bottom margin: never overlap buttons, never float too high
+    final double bottomInset = MediaQuery.of(context).padding.bottom;
+    final double navBottom;
+    if (kIsWeb) {
+      navBottom = 12.0;
+    } else if (bottomInset > 0) {
+      // 3-button navigation (typically >= 36dp): place 8dp above the buttons
+      // Gesture bar (typically 16-34dp): place 10dp above the gesture indicator
+      navBottom = bottomInset >= 36 ? bottomInset + 8.0 : bottomInset + 10.0;
+    } else {
+      navBottom = 14.0;
+    }
+
     final Widget bodyView = Stack(
       children: [
         Offstage(
@@ -219,10 +232,11 @@ class MainWrapperState extends State<MainWrapper> {
                     child: Positioned(
                       left: 16,
                       right: 16,
-                      bottom: kIsWeb ? 12.0 : (MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom + 4.0 : 16.0),
-                      child: SafeArea(
-                        bottom: !kIsWeb,
-                        child: Container(
+                      bottom: navBottom,
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 480),
+                          child: Container(
                           height: 64,
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.95),
@@ -259,6 +273,7 @@ class MainWrapperState extends State<MainWrapper> {
                         ),
                       ),
                     ),
+                  ),
                 ],
               ),
       ),

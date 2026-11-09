@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:hidely_new/screens/onboarding_controller.dart';
 import 'package:hidely_new/screens/main_wrapper.dart';
 import 'package:hidely_new/services/auth_service.dart';
@@ -24,6 +25,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
+
+    try {
+      FlutterNativeSplash.remove();
+    } catch (_) {}
 
     _animationController = AnimationController(
       vsync: this,

@@ -88,7 +88,7 @@ class AppRoutes {
       }
       return home;
     }
-    return home;
+    return splash;
   }
 
   static Route<dynamic> generateRouteFor(String routeName, [Object? arguments]) {

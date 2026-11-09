@@ -10,7 +10,10 @@ class AuthService {
   factory AuthService() => _instance;
 
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+      resetOnError: true,
+    ),
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
 
@@ -116,7 +119,10 @@ class AuthService {
 
     String? secureToken;
     try {
-      secureToken = await _secureStorage.read(key: 'auth_token');
+      secureToken = await _secureStorage.read(key: 'auth_token').timeout(
+        const Duration(seconds: 2),
+        onTimeout: () => null,
+      );
     } catch (e) {
       debugPrint('[AuthService] SecureStorage read error: $e');
     }
@@ -273,6 +279,14 @@ class AuthService {
         }
       }
     }
+  }
+
+  /// Update local user data fields and persist to storage
+  Future<void> updateUserData(Map<String, dynamic> newFields) async {
+    if (_user == null) return;
+    _user!.addAll(newFields);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auth_user', jsonEncode(_user));
   }
 
   /// Get list of blocked usernames

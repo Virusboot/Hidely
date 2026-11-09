@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hidely_new/config/config.dart';
 import 'package:hidely_new/services/notification_polling_service.dart';
@@ -15,19 +17,12 @@ import 'package:hidely_new/utils/url_strategy.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Configure HTML5 path URL strategy on Web
-  configureUrlStrategy();
-
-  // Load saved auth session & token from SharedPreferences before UI mounts
-  await AuthService().init();
-
-  String? savedRoute;
+  // Dismiss native splash screen immediately so Android 12+ never gets stuck
   try {
-    final prefs = await SharedPreferences.getInstance();
-    savedRoute = prefs.getString('hidely_last_active_route');
-  } catch (_) {}
-
-  final initialRoute = AppRoutes.determineInitialRoute(savedRoute);
+    FlutterNativeSplash.remove();
+  } catch (e) {
+    debugPrint('[main] FlutterNativeSplash remove error: $e');
+  }
 
   // Global Error Handling & Custom Error Screen (>99.5% Crash Free Target)
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -43,6 +38,34 @@ Future<void> main() async {
     debugPrint('Uncaught Platform/Async Error: $error');
     return true; // Prevents crash
   };
+
+  // Configure HTML5 path URL strategy on Web
+  configureUrlStrategy();
+
+  // Load saved auth session & token from SharedPreferences before UI mounts (safe timeout)
+  try {
+    await AuthService().init().timeout(
+      const Duration(seconds: 2),
+      onTimeout: () {
+        debugPrint('[main] AuthService init timed out - continuing startup');
+      },
+    );
+  } catch (e) {
+    debugPrint('[main] AuthService init error: $e');
+  }
+
+  String? savedRoute;
+  try {
+    final prefs = await SharedPreferences.getInstance().timeout(
+      const Duration(seconds: 2),
+      onTimeout: () => throw TimeoutException('SharedPreferences timeout'),
+    );
+    savedRoute = prefs.getString('hidely_last_active_route');
+  } catch (e) {
+    debugPrint('[main] SharedPreferences error: $e');
+  }
+
+  final initialRoute = AppRoutes.determineInitialRoute(savedRoute);
 
   if (!kIsWeb) {
     SystemChrome.setPreferredOrientations([

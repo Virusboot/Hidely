@@ -174,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         final emailRegex = RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+");
 
                         if (email.isEmpty) {
-                          _showCustomSnackBar(context, "Please enter your email or username", isError: true);
+                          _showCustomSnackBar(context, "Please enter your email or password", isError: true);
                         } else if (isEmailFormat && !emailRegex.hasMatch(email)) {
                           _showCustomSnackBar(context, "Please enter a valid email address", isError: true);
                         } else if (password.isEmpty) {

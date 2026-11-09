@@ -1476,8 +1476,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
                     },
                   ),
                   _buildLayerOptionItem(
-                    icon: Icons.wifi_off_rounded,
-                    label: 'Offline Map',
+                    icon: kIsWeb ? Icons.public_rounded : Icons.wifi_off_rounded,
+                    label: kIsWeb ? 'Standard' : 'Offline Map',
                     isSelected: engine == MapEngine.openStreetMap,
                     onTap: () {
                       ref.read(mapEngineProvider.notifier).state = MapEngine.openStreetMap;

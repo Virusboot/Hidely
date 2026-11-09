@@ -795,7 +795,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
       );
     } else {
       // --- Offline/OSM Mode: Interactive Tile Map via flutter_map ---
-      final bool hasLocalTiles = _offlineTilesPath.isNotEmpty && Directory(_offlineTilesPath).existsSync();
+      final bool hasLocalTiles = !kIsWeb && _offlineTilesPath.isNotEmpty && Directory(_offlineTilesPath).existsSync();
       final bool useLocalFileTiles = !isOnline && hasLocalTiles;
 
       return Listener(
@@ -806,7 +806,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
           mapController: _osmMapController,
           options: fm.MapOptions(
             initialCenter: currentLocation,
-            initialZoom: 12.0,
+            initialZoom: 15.5,
             maxZoom: 18.0,
             minZoom: 4.0,
             onPositionChanged: (position, hasGesture) {

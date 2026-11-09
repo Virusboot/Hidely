@@ -136,7 +136,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   _buildInputField(
                     controller: _confirmPasswordController,
                     hintText: "••••••••",
-                    icon: Icons.lock_clock_outlined,
+                    icon: Icons.lock_outline,
                     isPassword: true,
                     obscureText: _isConfirmPasswordObscured,
                     onSuffixTap: () {
@@ -164,10 +164,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           _showCustomSnackBar(context, "Please enter your current password.", isError: true);
                         } else if (password.isEmpty) {
                           _showCustomSnackBar(context, "Please enter your new password.", isError: true);
+                        } else if (!isResetFlow && currentPassword == password) {
+                          _showCustomSnackBar(context, "New password cannot be the same as your current password.", isError: true);
                         } else if (confirmPassword.isEmpty) {
                           _showCustomSnackBar(context, "Please confirm your new password.", isError: true);
                         } else if (password.length < 6) {
                           _showCustomSnackBar(context, "Password must be at least 6 characters long.", isError: true);
+                        } else if (!RegExp(r'[!@#$%^&*(),.?":{}|<>_\-+=\\/\[\]~`]').hasMatch(password)) {
+                          _showCustomSnackBar(context, "Password must contain at least one special character (e.g. !@#\$%^&*).", isError: true);
                         } else if (password != confirmPassword) {
                           _showCustomSnackBar(context, "Passwords do not match.", isError: true);
                         } else {
