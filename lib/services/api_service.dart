@@ -1897,11 +1897,22 @@ class ApiService {
         headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
         body: jsonEncode({'targetUserId': targetUserId}),
       ).timeout(const Duration(seconds: 15));
-      final body = jsonDecode(response.body);
-      if (response.statusCode == 200) {
-        return ApiResult(success: true, message: 'Direct conversation ready.', data: body);
+      final body = _decodeJsonMap(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return ApiResult(
+          success: true,
+          message: 'Direct conversation ready.',
+          data: body,
+          statusCode: response.statusCode,
+        );
       }
-      return ApiResult(success: false, message: body['error'] ?? 'Failed to start direct conversation.');
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Failed to start direct conversation.',
+        error: body['error']?.toString(),
+        data: body,
+        statusCode: response.statusCode,
+      );
     } catch (e) {
       return ApiResult(success: false, message: 'Connection error.', error: e.toString());
     }
@@ -1954,11 +1965,22 @@ class ApiService {
 
       final streamedRes = await _client.send(request).timeout(const Duration(seconds: 45));
       final response = await http.Response.fromStream(streamedRes);
-      final body = jsonDecode(response.body);
-      if (response.statusCode == 201) {
-        return ApiResult(success: true, message: 'Message sent.', data: body);
+      final body = _decodeJsonMap(response.body);
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        return ApiResult(
+          success: true,
+          message: 'Message sent.',
+          data: body,
+          statusCode: response.statusCode,
+        );
       }
-      return ApiResult(success: false, message: body['error'] ?? 'Failed to send message.');
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Failed to send message.',
+        error: body['error']?.toString(),
+        data: body,
+        statusCode: response.statusCode,
+      );
     } catch (e) {
       return ApiResult(success: false, message: 'Connection error.', error: e.toString());
     }

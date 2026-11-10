@@ -10,7 +10,12 @@ class ChatSocketService {
 
   socket_io.Socket? _socket;
   bool _isConnected = false;
+  String? _activeToken;
+  final Set<int> _joinedConversations = <int>{};
   bool get isConnected => _isConnected;
+
+  @visibleForTesting
+  bool skipSocketConnectForTest = false;
 
   final _newMessageController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get onNewMessage => _newMessageController.stream;
@@ -28,8 +33,20 @@ class ChatSocketService {
   Stream<Map<String, dynamic>> get onPresenceUpdate => _presenceController.stream;
 
   void connect(String token) {
-    if (_socket != null && _socket!.connected) return;
+    if (token.trim().isEmpty || skipSocketConnectForTest) return;
 
+    if (_socket != null) {
+      if (_activeToken == token) {
+        if (!_socket!.connected) {
+          _socket!.connect();
+        }
+        return;
+      }
+      // Account / token changed: cleanly tear down old authenticated socket
+      disconnect();
+    }
+
+    _activeToken = token;
     final String serverUrl = ApiService().baseUrl;
 
     _socket = socket_io.io(
@@ -44,6 +61,9 @@ class ChatSocketService {
     _socket!.onConnect((_) {
       debugPrint('[ChatSocketService] Connected to Socket.IO server.');
       _isConnected = true;
+      for (final convId in _joinedConversations) {
+        _socket?.emit('join_conversation', {'conversationId': convId});
+      }
     });
 
     _socket!.onDisconnect((_) {
@@ -85,10 +105,14 @@ class ChatSocketService {
   }
 
   void joinConversation(int conversationId) {
-    _socket?.emit('join_conversation', {'conversationId': conversationId});
+    _joinedConversations.add(conversationId);
+    if (_socket != null && _socket!.connected) {
+      _socket?.emit('join_conversation', {'conversationId': conversationId});
+    }
   }
 
   void leaveConversation(int conversationId) {
+    _joinedConversations.remove(conversationId);
     _socket?.emit('leave_conversation', {'conversationId': conversationId});
   }
 
@@ -104,6 +128,28 @@ class ChatSocketService {
     _socket?.disconnect();
     _socket?.dispose();
     _socket = null;
+    _activeToken = null;
     _isConnected = false;
+    _joinedConversations.clear();
+  }
+
+  @visibleForTesting
+  void emitNewMessageForTest(Map<String, dynamic> data) {
+    _newMessageController.add(data);
+  }
+
+  @visibleForTesting
+  void emitTypingStatusForTest(Map<String, dynamic> data) {
+    _typingController.add(data);
+  }
+
+  @visibleForTesting
+  void emitReactionForTest(Map<String, dynamic> data) {
+    _reactionController.add(data);
+  }
+
+  @visibleForTesting
+  void emitPresenceForTest(Map<String, dynamic> data) {
+    _presenceController.add(data);
   }
 }

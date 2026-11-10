@@ -35,6 +35,7 @@ class CreatorProfileScreen extends StatefulWidget {
 class _CreatorProfileScreenState extends State<CreatorProfileScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isLoading = true;
+  bool _isOpeningChat = false;
   bool _isFollowing = false;
   bool _isBlocked = false;
   bool _isBlockedByTarget = false;
@@ -286,6 +287,108 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
         final currentFollowers = int.tryParse(_followers) ?? 0;
         _followers = "${_isFollowing ? currentFollowers + 1 : (currentFollowers - 1).clamp(0, 999999)}";
       });
+    }
+  }
+
+  Future<void> _openDirectChatWithCreator() async {
+    if (AuthService().isGuest) {
+      showLoginRequiredSheet(context, reason: 'send a message');
+      return;
+    }
+    if (_isOpeningChat) return;
+
+    final token = AuthService().token;
+    if (token == null || token.isEmpty) {
+      showLoginRequiredSheet(context, reason: 'send a message');
+      return;
+    }
+
+    setState(() => _isOpeningChat = true);
+    try {
+      Map<String, dynamic>? creator = _creatorData;
+      int? targetId = int.tryParse('${creator?['id'] ?? ''}');
+      if (targetId == null) {
+        final profileRes = await ApiService().getCreatorProfile(
+          username: widget.username,
+          token: token,
+        );
+        if (!mounted) return;
+        if (profileRes.success && profileRes.data?['creator'] is Map) {
+          creator = Map<String, dynamic>.from(profileRes.data!['creator']);
+          targetId = int.tryParse('${creator['id'] ?? ''}');
+        }
+      }
+
+      if (targetId == null || targetId.toString() == AuthService().userId) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Unable to open chat for this profile.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
+      final res = await ApiService().getOrCreateDirectChat(
+        token: token,
+        targetUserId: targetId,
+      );
+      if (!mounted) return;
+
+      if (!res.success || res.data?['conversationId'] == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              res.message.isNotEmpty ? res.message : 'Could not open direct conversation.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      final convId = res.data!['conversationId'].toString();
+      final rawName = (creator?['name'] ?? creator?['full_name'] ?? '').toString().trim();
+      final resolvedUsername = (creator?['username'] ?? _cleanTargetUsername).toString().trim();
+      final displayName = rawName.isNotEmpty
+          ? rawName
+          : (resolvedUsername.isNotEmpty ? resolvedUsername : widget.username);
+      final rawAvatar = (creator?['profile_picture'] ?? widget.avatarPath).toString().trim();
+      final avatar = (rawAvatar == 'assets/images/user1.jpg' || rawAvatar == 'assets/icons/Profile.png')
+          ? ''
+          : rawAvatar;
+
+      final ChatItem directChat = ChatItem(
+        id: convId,
+        targetUserId: targetId.toString(),
+        targetUsername: resolvedUsername,
+        name: displayName,
+        avatar: avatar,
+        lastMessage: 'No messages yet',
+        time: '',
+        unreadCount: 0,
+        isGroup: false,
+      );
+
+      final mainState = MainWrapperState.activeState;
+      if (mainState != null) {
+        final mainRoute = ModalRoute.of(mainState.context);
+        if (mainRoute != null) {
+          Navigator.of(context).popUntil((route) => route == mainRoute || route.isFirst);
+        } else {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+        mainState.setIndex(2);
+      } else {
+        Navigator.pop(context);
+      }
+      GroupChatScreen.openOrQueueDirectChat(directChat);
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningChat = false);
+      }
     }
   }
 
@@ -831,36 +934,24 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                                           ),
                                         );
                                       }
-                                    : () {
-                                        if (AuthService().isGuest) {
-                                          showLoginRequiredSheet(context, reason: 'send a message');
-                                          return;
-                                        }
-                                         final ChatItem directChat = ChatItem(
-                                           id: 'dm_${widget.username}',
-                                           targetUsername: _cleanTargetUsername,
-                                           name: widget.username,
-                                           avatar: widget.avatarPath.isNotEmpty ? widget.avatarPath : 'assets/icons/Profile.png',
-                                           lastMessage: 'Tap to send a secure private message...',
-                                           time: 'Just Now',
-                                           unreadCount: 0,
-                                           isGroup: false,
-                                         );
-                                         
-                                         Navigator.pop(context);
-                                         MainWrapperState.activeState?.setIndex(2);
-                                         WidgetsBinding.instance.addPostFrameCallback((_) {
-                                           GroupChatScreen.activeState?.openDirectChat(directChat);
-                                         });
-                                      },
-                                child: Text(
-                                  "Message",
-                                  style: TextStyle(
-                                    color: _isBlocked ? Colors.black38 : const Color(0xff1C0D5A),
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                    : (_isOpeningChat ? null : _openDirectChatWithCreator),
+                                child: _isOpeningChat
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Color(0xff1C0D5A),
+                                        ),
+                                      )
+                                    : Text(
+                                        "Message",
+                                        style: TextStyle(
+                                          color: _isBlocked ? Colors.black38 : const Color(0xff1C0D5A),
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                               ),
                             ),
                           ),

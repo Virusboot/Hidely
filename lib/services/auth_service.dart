@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hidely_new/services/api_service.dart';
+import 'package:hidely_new/services/chat_socket_service.dart';
 import 'package:hidely_new/services/notification_polling_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -63,6 +64,8 @@ class AuthService {
 
   final ValueNotifier<Set<String>> blockedUsersNotifier =
       ValueNotifier<Set<String>>(<String>{});
+
+  final ValueNotifier<int> sessionEpochNotifier = ValueNotifier<int>(0);
   Set<String> _blockedUsernames = <String>{};
 
   static const Map<String, dynamic> defaultTagMentionSettings = <String, dynamic>{
@@ -343,6 +346,8 @@ class AuthService {
 
     await _loadBlockedUsersFromStorage(prefs);
     await _loadTagMentionSettingsFromStorage(prefs);
+    ChatSocketService().disconnect();
+    sessionEpochNotifier.value++;
     NotificationPollingService().restartPolling();
   }
 
@@ -372,6 +377,8 @@ class AuthService {
     await prefs.remove(activeUserKey);
     await prefs.remove('cached_feed_posts');
 
+    ChatSocketService().disconnect();
+    sessionEpochNotifier.value++;
     NotificationPollingService().stopPolling();
   }
 
@@ -427,6 +434,8 @@ class AuthService {
       await _loadBlockedUsersFromStorage(prefs);
       await _loadTagMentionSettingsFromStorage(prefs);
       await loadCachedFeed();
+      ChatSocketService().disconnect();
+      sessionEpochNotifier.value++;
       NotificationPollingService().restartPolling();
     }
   }
