@@ -31,6 +31,7 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
   List<AssetEntity> _recentAssets = [];
   bool _loadingAssets = true;
   AssetEntity? _selectedAsset;
+  String? _selectingAssetId;
 
   @override
   void initState() {
@@ -72,13 +73,31 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
   Future<void> _fetchAssets() async {
     setState(() => _loadingAssets = true);
     try {
-      final ps = await PhotoManager.requestPermissionExtend();
-      if (!ps.isAuth) { setState(() => _loadingAssets = false); return; }
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        try {
+          await Permission.accessMediaLocation.request();
+        } catch (_) {}
+      }
 
       final type = _currentModeIndex == 0 ? RequestType.image : RequestType.video;
+      final ps = await PhotoManager.requestPermissionExtend(
+        requestOption: PermissionRequestOption(
+          androidPermission: AndroidPermission(
+            type: type,
+            mediaLocation: true,
+          ),
+        ),
+      );
+      if (!ps.hasAccess) {
+        if (mounted) setState(() => _loadingAssets = false);
+        return;
+      }
+
       final albums = await PhotoManager.getAssetPathList(type: type);
+      if (!mounted) return;
       if (albums.isNotEmpty) {
         final assets = await albums[0].getAssetListRange(start: 0, end: 60);
+        if (!mounted) return;
         setState(() {
           _recentAssets = assets;
           _loadingAssets = false;
@@ -89,18 +108,29 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
       }
     } catch (e) {
       debugPrint('Gallery error: $e');
-      setState(() => _loadingAssets = false);
+      if (mounted) setState(() => _loadingAssets = false);
     }
   }
 
   Future<void> _selectAsset(AssetEntity asset) async {
-    final file = await asset.file;
-    final bytes = await asset.originBytes;
-    if (mounted) {
+    _selectingAssetId = asset.id;
+    final File? file = await asset.originFile ?? await asset.file;
+    Uint8List? bytes;
+    if (asset.type != AssetType.video) {
+      try {
+        bytes = await asset.originBytes;
+      } catch (_) {}
+    } else if (kIsWeb && file != null) {
+      try {
+        bytes = await file.readAsBytes();
+      } catch (_) {}
+    }
+    if (mounted && _selectingAssetId == asset.id) {
       setState(() {
         _selectedFile = file;
         _selectedFileBytes = bytes;
-        _selectedFileName = asset.title ?? 'photo.jpg';
+        _selectedFileName = asset.title ??
+            (asset.type == AssetType.video ? 'video.mp4' : 'photo.jpg');
         _selectedAsset = asset;
       });
     }
@@ -123,13 +153,12 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
     try {
       final f = await _picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 85,
-        maxWidth: 1920,
-        maxHeight: 1920,
+        requestFullMetadata: true,
       );
       if (f != null && mounted) {
+        final locFuture = LocationCaptureService().captureCameraLocation(forceFresh: true);
         final bytes = await f.readAsBytes();
-        final capLoc = await LocationCaptureService().captureCameraLocation();
+        final capLoc = await locFuture;
         if (!mounted) return;
         Navigator.push(context, MaterialPageRoute(
           builder: (context) => PostDetailsScreen(
@@ -168,8 +197,9 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
         maxDuration: const Duration(seconds: 60),
       );
       if (f != null && mounted) {
-        final bytes = await f.readAsBytes();
-        final capLoc = await LocationCaptureService().captureCameraLocation();
+        final locFuture = LocationCaptureService().captureCameraLocation(forceFresh: true);
+        final bytes = kIsWeb ? await f.readAsBytes() : null;
+        final capLoc = await locFuture;
         if (!mounted) return;
         Navigator.push(context, MaterialPageRoute(
           builder: (context) => PostDetailsScreen(
@@ -320,16 +350,28 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
                           SizedBox(
                             height: 38,
                             child: ElevatedButton(
-                              onPressed: () {
-                                if (_selectedFileBytes != null || _selectedFile != null) {
-                                   Navigator.push(context, MaterialPageRoute(
-                                     builder: (context) => PostDetailsScreen(
-                                       selectedImage: _selectedFile,
-                                       imageBytes: _selectedFileBytes,
-                                       filename: _selectedFileName,
-                                       mediaSource: MediaSource.gallery,
-                                     ),
-                                   ));
+                              onPressed: () async {
+                                File? targetFile = _selectedFile;
+                                if (targetFile == null && _selectedAsset != null) {
+                                  targetFile = await _selectedAsset!.originFile ??
+                                      await _selectedAsset!.file;
+                                }
+                                if (!mounted) return;
+                                if (_selectedFileBytes != null || targetFile != null) {
+                                  final bool isVideo =
+                                      _selectedAsset?.type == AssetType.video ||
+                                          _currentModeIndex == 1;
+                                  Navigator.push(context, MaterialPageRoute(
+                                    builder: (context) => PostDetailsScreen(
+                                      selectedImage: targetFile,
+                                      imageBytes: (!kIsWeb && isVideo)
+                                          ? null
+                                          : _selectedFileBytes,
+                                      filename: _selectedFileName,
+                                      mediaSource: MediaSource.gallery,
+                                      mediaAsset: _selectedAsset,
+                                    ),
+                                  ));
                                 } else {
                                   _snack(
                                     _currentModeIndex == 0 ? 'Select a photo first.' : 'Select a video first.',
@@ -479,13 +521,21 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
       // Preview
       GestureDetector(
         onTap: () async {
-          final f = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
-          if (f != null) {
+          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+            try {
+              await Permission.accessMediaLocation.request();
+            } catch (_) {}
+          }
+          final f = await _picker.pickImage(
+            source: ImageSource.gallery,
+            requestFullMetadata: true,
+          );
+          if (f != null && mounted) {
             final bytes = await f.readAsBytes();
             setState(() {
               _selectedFileBytes = bytes;
               _selectedFileName = f.name;
-              _selectedFile = File(f.path);
+              _selectedFile = kIsWeb ? null : File(f.path);
               _selectedAsset = null;
             });
           }
@@ -591,6 +641,8 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
                   setState(() {
                     _currentModeIndex = i;
                     _selectedFile = null;
+                    _selectedFileBytes = null;
+                    _selectedFileName = null;
                     _selectedAsset = null;
                     _recentAssets = [];
                   });

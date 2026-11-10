@@ -29,7 +29,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   bool _loadingAssets = true;
   bool _hasPermission = false;
   AssetEntity? _selectedAsset;
+  String? _selectingAssetId;
   late String _selectedMode;
+  MediaSource _mediaSource = MediaSource.gallery;
+  CapturedLocation? _capturedLocation;
   // Aspect ratio mode: 'original' (Fit), '1:1' (Square), '4:5' (Portrait)
   String _aspectRatioMode = 'original';
 
@@ -89,22 +92,38 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Future<void> _fetchRecentAssets() async {
     try {
-      final PermissionState ps = await PhotoManager.requestPermissionExtend();
-      if (ps.isAuth) {
-        setState(() {
-          _hasPermission = true;
-        });
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        try {
+          await Permission.accessMediaLocation.request();
+        } catch (_) {}
+      }
+
+      final PermissionState ps = await PhotoManager.requestPermissionExtend(
+        requestOption: const PermissionRequestOption(
+          androidPermission: AndroidPermission(
+            type: RequestType.common,
+            mediaLocation: true,
+          ),
+        ),
+      );
+      if (ps.hasAccess) {
+        if (mounted) {
+          setState(() {
+            _hasPermission = true;
+          });
+        }
 
         final List<AssetPathEntity> albums = await PhotoManager.getAssetPathList(
           type: RequestType.image,
         );
 
+        if (!mounted) return;
         if (albums.isNotEmpty) {
           final List<AssetEntity> assets = await albums[0].getAssetListRange(
             start: 0,
             end: 60,
           );
-
+          if (!mounted) return;
           setState(() {
             _recentAssets = assets;
             _loadingAssets = false;
@@ -119,29 +138,42 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           });
         }
       } else {
-        setState(() {
-          _hasPermission = false;
-          _loadingAssets = false;
-        });
+        if (mounted) {
+          setState(() {
+            _hasPermission = false;
+            _loadingAssets = false;
+          });
+        }
       }
     } catch (e) {
       debugPrint("Error fetching assets: $e");
-      setState(() {
-        _loadingAssets = false;
-      });
+      if (mounted) {
+        setState(() {
+          _loadingAssets = false;
+        });
+      }
     }
   }
 
   Future<void> _selectAsset(AssetEntity asset) async {
+    _selectingAssetId = asset.id;
     try {
-      final file = await asset.file;
-      final bytes = await asset.originBytes;
-      if (mounted) {
+      final file = await asset.originFile ?? await asset.file;
+      Uint8List? bytes;
+      if (asset.type != AssetType.video) {
+        try {
+          bytes = await asset.originBytes;
+        } catch (_) {}
+      }
+      if (mounted && _selectingAssetId == asset.id) {
         setState(() {
           _selectedImage = file;
+          _selectedImages = [];
           _selectedImageBytes = bytes;
           _selectedFileName = asset.title ?? 'photo.jpg';
           _selectedAsset = asset;
+          _mediaSource = MediaSource.gallery;
+          _capturedLocation = null;
         });
       }
     } catch (e) {
@@ -151,20 +183,25 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Future<void> _pickImage() async {
     try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        try {
+          await Permission.accessMediaLocation.request();
+        } catch (_) {}
+      }
       final XFile? pickedFile = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 85,
-        maxWidth: 1920,
-        maxHeight: 1920,
+        requestFullMetadata: true,
       );
-      if (pickedFile != null) {
+      if (pickedFile != null && mounted) {
         final bytes = await pickedFile.readAsBytes();
         setState(() {
           _selectedImageBytes = bytes;
           _selectedFileName = pickedFile.name;
-          _selectedImage = File(pickedFile.path);
-          _selectedImages = [File(pickedFile.path)];
+          _selectedImage = kIsWeb ? null : File(pickedFile.path);
+          _selectedImages = kIsWeb ? [] : [File(pickedFile.path)];
           _selectedAsset = null;
+          _mediaSource = MediaSource.gallery;
+          _capturedLocation = null;
         });
       }
     } catch (e) {
@@ -179,20 +216,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Future<void> _pickMultiImages() async {
     try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        try {
+          await Permission.accessMediaLocation.request();
+        } catch (_) {}
+      }
       final List<XFile> pickedFiles = await _picker.pickMultiImage(
-        imageQuality: 85,
-        maxWidth: 1920,
-        maxHeight: 1920,
+        requestFullMetadata: true,
       );
-      if (pickedFiles.isNotEmpty) {
-        final List<File> files = pickedFiles.take(10).map((x) => File(x.path)).toList();
-        final bytes = await files.first.readAsBytes();
+      if (pickedFiles.isNotEmpty && mounted) {
+        final List<File> files = kIsWeb
+            ? []
+            : pickedFiles.take(10).map((x) => File(x.path)).toList();
+        final bytes = await pickedFiles.first.readAsBytes();
         setState(() {
           _selectedImages = files;
-          _selectedImage = files.first;
+          _selectedImage = files.isNotEmpty ? files.first : null;
           _selectedImageBytes = bytes;
           _selectedFileName = pickedFiles.first.name;
           _selectedAsset = null;
+          _mediaSource = MediaSource.gallery;
+          _capturedLocation = null;
         });
       }
     } catch (e) {
@@ -217,19 +261,25 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         debugPrint("Camera permission request warning: $e");
       }
     }
-    
+
     try {
       final XFile? pickedFile = await _picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 90,
+        requestFullMetadata: true,
       );
-      if (pickedFile != null) {
+      if (pickedFile != null && mounted) {
+        final locFuture = LocationCaptureService().captureCameraLocation(forceFresh: true);
         final bytes = await pickedFile.readAsBytes();
+        final capLoc = await locFuture;
+        if (!mounted) return;
         setState(() {
           _selectedImageBytes = bytes;
           _selectedFileName = pickedFile.name;
           _selectedImage = kIsWeb ? null : File(pickedFile.path);
+          _selectedImages = [];
           _selectedAsset = null;
+          _mediaSource = MediaSource.camera;
+          _capturedLocation = capLoc;
         });
       }
     } catch (e) {
@@ -266,13 +316,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         source: ImageSource.camera,
         maxDuration: const Duration(seconds: 60),
       );
-      if (pickedFile != null) {
-        final bytes = await pickedFile.readAsBytes();
+      if (pickedFile != null && mounted) {
+        final locFuture = LocationCaptureService().captureCameraLocation(forceFresh: true);
+        final bytes = kIsWeb ? await pickedFile.readAsBytes() : null;
+        final capLoc = await locFuture;
+        if (!mounted) return;
         setState(() {
           _selectedImageBytes = bytes;
           _selectedFileName = pickedFile.name;
           _selectedImage = kIsWeb ? null : File(pickedFile.path);
+          _selectedImages = [];
           _selectedAsset = null;
+          _mediaSource = MediaSource.camera;
+          _capturedLocation = capLoc;
         });
       }
     } catch (e) {
@@ -403,46 +459,45 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         child: ElevatedButton(
                           onPressed: () async {
                             if (_selectedImageBytes != null || _selectedImage != null) {
-                              Uint8List? bytes = _selectedImageBytes;
-                              if (bytes == null && _selectedImage != null) {
+                              final String pathCheck =
+                                  (_selectedFileName ?? _selectedImage?.path ?? '')
+                                      .toLowerCase();
+                              final bool isVideo =
+                                  _selectedAsset?.type == AssetType.video ||
+                                      pathCheck.endsWith('.mp4') ||
+                                      pathCheck.endsWith('.mov') ||
+                                      pathCheck.endsWith('.m4v') ||
+                                      pathCheck.endsWith('.mkv') ||
+                                      pathCheck.endsWith('.avi');
+
+                              Uint8List bytes = _selectedImageBytes ?? Uint8List(0);
+                              if (!isVideo && bytes.isEmpty && _selectedImage != null && !kIsWeb) {
                                 try {
                                   bytes = await _selectedImage!.readAsBytes();
                                 } catch (_) {}
                               }
 
                               // Check screenshot & media integrity for non-official users
-                              if (bytes != null) {
-                                final isOfficial = AuthService().isOfficialOrAdmin;
-                                final valResult = await LocationCaptureService().validateMediaIntegrity(
-                                  bytes: bytes,
-                                  filename: _selectedFileName ?? _selectedImage?.path,
-                                  isOfficialUser: isOfficial,
-                                );
+                              final isOfficial = AuthService().isOfficialOrAdmin;
+                              final valResult = await LocationCaptureService().validateMediaIntegrity(
+                                bytes: bytes,
+                                filename: _selectedFileName ?? _selectedImage?.path,
+                                isOfficialUser: isOfficial,
+                              );
 
-                                if (!valResult.isValid) {
-                                  if (!mounted) return;
-                                  _showScreenshotBlockedDialog(valResult.reason);
-                                  return;
-                                }
+                              if (!valResult.isValid) {
+                                if (!mounted) return;
+                                _showScreenshotBlockedDialog(valResult.reason);
+                                return;
                               }
 
-                              CapturedLocation? initialLoc;
-                              if (_selectedAsset != null) {
+                              CapturedLocation? initialLoc = _capturedLocation;
+                              if (initialLoc == null &&
+                                  _mediaSource == MediaSource.gallery &&
+                                  _selectedAsset != null) {
                                 try {
-                                  final double lat = _selectedAsset!.latitude ?? 0.0;
-                                  final double lon = _selectedAsset!.longitude ?? 0.0;
-                                  if (lat != 0.0 && lon != 0.0) {
-                                    final placeName = await LocationCaptureService().reverseGeocode(lat, lon);
-                                    initialLoc = CapturedLocation(
-                                      latitude: lat,
-                                      longitude: lon,
-                                      accuracyMeters: 5.0,
-                                      capturedAt: DateTime.now(),
-                                      displayName: placeName,
-                                      source: 'photo_exif',
-                                      confidence: LocationConfidence.high,
-                                    );
-                                  }
+                                  initialLoc = await LocationCaptureService()
+                                      .extractLocationFromAsset(_selectedAsset!);
                                 } catch (e) {
                                   debugPrint("Error fetching asset location: $e");
                                 }
@@ -455,10 +510,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                   builder: (context) => PostDetailsScreen(
                                     selectedImage: _selectedImage,
                                     selectedImages: _selectedImages.isNotEmpty ? _selectedImages : null,
-                                    imageBytes: _selectedImageBytes,
+                                    imageBytes: (!kIsWeb && isVideo) ? null : _selectedImageBytes,
                                     filename: _selectedFileName,
-                                    mediaSource: MediaSource.gallery,
+                                    mediaSource: _mediaSource,
                                     initialCapturedLocation: initialLoc,
+                                    mediaAsset: _selectedAsset,
                                   ),
                                 ),
                               );

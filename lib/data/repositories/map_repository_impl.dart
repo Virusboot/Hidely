@@ -9,6 +9,7 @@ import 'package:isar_community/isar.dart';
 import 'package:latlong2/latlong.dart';
 import '../../services/local_storage_service.dart';
 import '../../services/api_service.dart';
+import '../../services/location_capture_service.dart';
 import '../../domain/repositories/map_repository.dart';
 import '../models/nearby_place.dart';
 import '../models/route_data.dart';
@@ -265,40 +266,51 @@ class MapRepositoryImpl implements MapRepository {
             continue;
           }
 
-          if (locName.isNotEmpty) {
-            final coords = await geocodeAddress(locName);
-            if (coords != null) {
-              double distM = _calculateHaversineDistance(lat, lng, coords.latitude, coords.longitude);
-              final String distanceText = distM < 1000
-                  ? '${distM.round()}m'
-                  : '${(distM / 1000.0).toStringAsFixed(1)}km';
+          final rawLat = double.tryParse(post['latitude']?.toString() ?? '');
+          final rawLng = double.tryParse(post['longitude']?.toString() ?? '');
+          LatLng? coords;
+          if (LocationCaptureService.isValidCoordinatePair(rawLat, rawLng)) {
+            coords = LatLng(rawLat!, rawLng!);
+          } else if (locName.isNotEmpty) {
+            coords = await geocodeAddress(locName);
+          }
 
-              if (imgUrl.isNotEmpty && !imgUrl.startsWith('http') && !imgUrl.startsWith('assets')) {
-                imgUrl = '${ApiService().baseUrl}/${imgUrl.startsWith('/') ? imgUrl.substring(1) : imgUrl}';
-              }
+          if (coords != null) {
+            final effectiveLocName = locName.isNotEmpty
+                ? locName
+                : ((post['canonical_name'] as String?)?.isNotEmpty == true
+                    ? post['canonical_name'] as String
+                    : 'Hidden Place');
+            double distM = _calculateHaversineDistance(lat, lng, coords.latitude, coords.longitude);
+            final String distanceText = distM < 1000
+                ? '${distM.round()}m'
+                : '${(distM / 1000.0).toStringAsFixed(1)}km';
 
-              String postCat = 'attraction';
-              if (pc.contains('hotel') || pc.contains('resort') || pc.contains('stay') || pc.contains('lodging')) {
-                postCat = 'hotel';
-              }
-
-              creatorPlaces.add(
-                NearbyPlace(
-                  id: 'post_${post['id']}',
-                  name: post['caption'] != null && (post['caption'] as String).isNotEmpty 
-                      ? post['caption'] 
-                      : locName,
-                  description: 'Uploaded by Creator • $locName',
-                  category: postCat,
-                  latitude: coords.latitude,
-                  longitude: coords.longitude,
-                  rating: 4.5,
-                  distanceText: distanceText,
-                  distanceM: distM.round(),
-                  imageUrl: imgUrl,
-                ),
-              );
+            if (imgUrl.isNotEmpty && !imgUrl.startsWith('http') && !imgUrl.startsWith('assets')) {
+              imgUrl = '${ApiService().baseUrl}/${imgUrl.startsWith('/') ? imgUrl.substring(1) : imgUrl}';
             }
+
+            String postCat = 'attraction';
+            if (pc.contains('hotel') || pc.contains('resort') || pc.contains('stay') || pc.contains('lodging')) {
+              postCat = 'hotel';
+            }
+
+            creatorPlaces.add(
+              NearbyPlace(
+                id: 'post_${post['id']}',
+                name: post['caption'] != null && (post['caption'] as String).isNotEmpty
+                    ? post['caption']
+                    : effectiveLocName,
+                description: 'Uploaded by Creator • $effectiveLocName',
+                category: postCat,
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                rating: 4.5,
+                distanceText: distanceText,
+                distanceM: distM.round(),
+                imageUrl: imgUrl,
+              ),
+            );
           }
         }
       }

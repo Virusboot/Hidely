@@ -257,8 +257,9 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
         maxDuration: const Duration(seconds: 60),
       );
       if (file != null && mounted) {
-        final Uint8List bytes = await file.readAsBytes();
-        final capLoc = await LocationCaptureService().captureCameraLocation();
+        final locFuture = LocationCaptureService().captureCameraLocation(forceFresh: true);
+        final Uint8List? bytes = kIsWeb ? await file.readAsBytes() : null;
+        final capLoc = await locFuture;
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -377,13 +378,14 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
     try {
       HapticFeedback.mediumImpact();
       final XFile photo = await _cameraController!.takePicture();
+      final locFuture = LocationCaptureService().captureCameraLocation(forceFresh: true);
       final Uint8List bytes = await photo.readAsBytes();
       // Auto-save photo to phone gallery on mobile
-      if (!kIsWeb) {
+      if (!kIsWeb && mounted) {
         await MediaDownloadService.downloadMediaToGallery(context, photo.path);
       }
       // Capture camera recording location
-      final capLoc = await LocationCaptureService().captureCameraLocation();
+      final capLoc = await locFuture;
 
       if (mounted) {
         Navigator.push(
@@ -452,14 +454,15 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
 
       if (mounted) {
         final navigator = Navigator.of(context);
-        final Uint8List bytes = await file.readAsBytes();
+        final locFuture = LocationCaptureService().captureCameraLocation(forceFresh: true);
+        final Uint8List? bytes = kIsWeb ? await file.readAsBytes() : null;
         // Auto-save recorded video to phone gallery on mobile
-        if (!kIsWeb) {
+        if (!kIsWeb && mounted) {
           await MediaDownloadService.downloadMediaToGallery(context, file.path);
         }
-        
+
         // Capture camera recording location
-        final capLoc = await LocationCaptureService().captureCameraLocation();
+        final capLoc = await locFuture;
 
         if (!mounted) return;
         navigator.push(
@@ -484,13 +487,23 @@ class _CreateReelScreenState extends State<CreateReelScreen> {
 
   Future<void> _pickFromGallery() async {
     if (_isRecording) return;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        await Permission.accessMediaLocation.request();
+      } catch (_) {}
+    }
     final ImagePicker picker = ImagePicker();
     final XFile? media = _cameraMode == 'photo'
-        ? await picker.pickImage(source: ImageSource.gallery)
+        ? await picker.pickImage(
+            source: ImageSource.gallery,
+            requestFullMetadata: true,
+          )
         : await picker.pickVideo(source: ImageSource.gallery);
 
     if (media != null && mounted) {
-      final Uint8List bytes = await media.readAsBytes();
+      final Uint8List? bytes =
+          (_cameraMode == 'photo' || kIsWeb) ? await media.readAsBytes() : null;
+      if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
