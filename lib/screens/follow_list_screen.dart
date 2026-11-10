@@ -34,6 +34,7 @@ class _FollowListScreenState extends State<FollowListScreen> with SingleTickerPr
   
   bool _isLoadingFollowers = true;
   bool _isLoadingFollowing = true;
+  bool _isTargetBlocked = false;
   String _searchQuery = "";
   final Map<String, bool> _followingStatus = {};
 
@@ -56,23 +57,74 @@ class _FollowListScreenState extends State<FollowListScreen> with SingleTickerPr
       });
     });
 
+    AuthService().blockedUsersNotifier.addListener(_onBlockedUsersChanged);
     _loadData();
   }
 
   @override
   void dispose() {
+    AuthService().blockedUsersNotifier.removeListener(_onBlockedUsersChanged);
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
+  void _onBlockedUsersChanged() {
+    if (!mounted) return;
+    setState(() {
+      if (AuthService().isUserBlockedSync(widget.username)) {
+        _isTargetBlocked = true;
+        _followers = [];
+        _following = [];
+      } else {
+        _followers = _followers
+            .where((u) => !AuthService().isUserBlockedSync(u is Map ? u['username']?.toString() : null))
+            .toList();
+        _following = _following
+            .where((u) => !AuthService().isUserBlockedSync(u is Map ? u['username']?.toString() : null))
+            .toList();
+      }
+      _applySearch();
+    });
+  }
+
   Future<void> _loadData() async {
+    if (AuthService().isUserBlockedSync(widget.username)) {
+      if (mounted) {
+        setState(() {
+          _isTargetBlocked = true;
+          _followers = [];
+          _following = [];
+          _filteredFollowers = [];
+          _filteredFollowing = [];
+          _isLoadingFollowers = false;
+          _isLoadingFollowing = false;
+        });
+      }
+      return;
+    }
+
     final token = AuthService().token ?? '';
     
     // 1. Load Following
     final followingRes = await ApiService().getFollowing(token: token, username: widget.username);
-    if (followingRes.success && followingRes.data?['following'] != null) {
-      final list = followingRes.data!['following'] as List;
+    if (followingRes.statusCode == 403 || followingRes.data?['blocked'] == true) {
+      if (mounted) {
+        setState(() {
+          _isTargetBlocked = true;
+          _followers = [];
+          _following = [];
+          _filteredFollowers = [];
+          _filteredFollowing = [];
+          _isLoadingFollowing = false;
+          _isLoadingFollowers = false;
+        });
+      }
+      return;
+    } else if (followingRes.success && followingRes.data?['following'] != null) {
+      final list = (followingRes.data!['following'] as List)
+          .where((u) => !AuthService().isUserBlockedSync(u is Map ? u['username']?.toString() : null))
+          .toList();
       if (mounted) {
         setState(() {
           _following = list;
@@ -92,8 +144,23 @@ class _FollowListScreenState extends State<FollowListScreen> with SingleTickerPr
 
     // 2. Load Followers
     final followersRes = await ApiService().getFollowers(token: token, username: widget.username);
-    if (followersRes.success && followersRes.data?['followers'] != null) {
-      final list = followersRes.data!['followers'] as List;
+    if (followersRes.statusCode == 403 || followersRes.data?['blocked'] == true) {
+      if (mounted) {
+        setState(() {
+          _isTargetBlocked = true;
+          _followers = [];
+          _following = [];
+          _filteredFollowers = [];
+          _filteredFollowing = [];
+          _isLoadingFollowers = false;
+          _isLoadingFollowing = false;
+        });
+      }
+      return;
+    } else if (followersRes.success && followersRes.data?['followers'] != null) {
+      final list = (followersRes.data!['followers'] as List)
+          .where((u) => !AuthService().isUserBlockedSync(u is Map ? u['username']?.toString() : null))
+          .toList();
       if (mounted) {
         setState(() {
           _followers = list;
@@ -107,18 +174,29 @@ class _FollowListScreenState extends State<FollowListScreen> with SingleTickerPr
           }
         });
       }
-    } else {
+    } else if (!_isTargetBlocked) {
       _loadLeaderboardFallback(isFollowingList: false);
     }
   }
 
   Future<void> _loadLeaderboardFallback({required bool isFollowingList}) async {
-    final res = await ApiService().getLeaderboard();
+    if (_isTargetBlocked || AuthService().isUserBlockedSync(widget.username)) {
+      if (mounted) {
+        setState(() {
+          _isLoadingFollowing = false;
+          _isLoadingFollowers = false;
+        });
+      }
+      return;
+    }
+    final res = await ApiService().getLeaderboard(token: AuthService().token);
     if (res.success && mounted) {
       final list = res.data?['rankings'] as List? ?? [];
       final filteredList = list.where((user) {
         final uName = user['username']?.toString() ?? '';
-        return uName.isNotEmpty && uName != widget.username;
+        return uName.isNotEmpty &&
+            uName != widget.username &&
+            !AuthService().isUserBlockedSync(uName);
       }).toList();
 
       setState(() {

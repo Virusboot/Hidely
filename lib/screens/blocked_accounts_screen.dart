@@ -17,6 +17,22 @@ class _BlockedAccountsScreenState extends State<BlockedAccountsScreen> {
   @override
   void initState() {
     super.initState();
+    AuthService().blockedUsersNotifier.addListener(_onBlockedUsersChanged);
+    _loadBlockedUsers().then((_) {
+      if (!AuthService().isGuest) {
+        AuthService().syncBlockedUsersFromServer();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    AuthService().blockedUsersNotifier.removeListener(_onBlockedUsersChanged);
+    super.dispose();
+  }
+
+  void _onBlockedUsersChanged() {
+    if (!mounted) return;
     _loadBlockedUsers();
   }
 

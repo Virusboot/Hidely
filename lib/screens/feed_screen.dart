@@ -11,6 +11,7 @@ import 'package:hidely_new/screens/map_discovery_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/api_service.dart';
+import 'package:hidely_new/services/notification_polling_service.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:hidely_new/widgets/post_options_bottom_sheet.dart';
 import 'package:hidely_new/widgets/skeleton_loader.dart';
@@ -36,22 +37,35 @@ class _FeedScreenState extends State<FeedScreen> {
   bool _isLoading = true;
   List<dynamic> _feedPosts = [];
   int _unreadNotificationCount = 0;
+  Set<String> _knownBlockedUsers = <String>{};
 
   @override
   void initState() {
     super.initState();
     FeedScreen.activeState = this;
+    _knownBlockedUsers = Set<String>.from(AuthService().blockedUsersNotifier.value);
+    AuthService().blockedUsersNotifier.addListener(_onBlockedUsersChanged);
+    _unreadNotificationCount =
+        NotificationPollingService().unreadCountNotifier.value;
+    NotificationPollingService()
+        .unreadCountNotifier
+        .addListener(_onUnreadCountChanged);
 
     final initialCached = AuthService().cachedFeed ?? FeedScreen._cachedFeedPosts;
     if (initialCached != null && initialCached.isNotEmpty) {
-      _feedPosts = List.from(initialCached);
+      _feedPosts = initialCached
+          .where((p) => !AuthService().isPostFromBlockedUser(p))
+          .toList();
       _isLoading = false;
     } else {
       _isLoading = true;
       AuthService().loadCachedFeed().then((diskFeed) {
-        if (mounted && _feedPosts.isEmpty && diskFeed.isNotEmpty) {
+        final visibleDiskFeed = diskFeed
+            .where((p) => !AuthService().isPostFromBlockedUser(p))
+            .toList();
+        if (mounted && _feedPosts.isEmpty && visibleDiskFeed.isNotEmpty) {
           setState(() {
-            _feedPosts = List.from(diskFeed);
+            _feedPosts = visibleDiskFeed;
             _isLoading = false;
           });
         }
@@ -60,6 +74,22 @@ class _FeedScreenState extends State<FeedScreen> {
 
     _loadFeed(showLoading: _feedPosts.isEmpty);
     _loadUnreadCount();
+  }
+
+  void _onBlockedUsersChanged() {
+    if (!mounted) return;
+    final nextBlocked = AuthService().blockedUsersNotifier.value;
+    final bool unblockedSomeone = _knownBlockedUsers.difference(nextBlocked).isNotEmpty;
+    _knownBlockedUsers = Set<String>.from(nextBlocked);
+
+    setState(() {
+      _feedPosts = _feedPosts
+          .where((p) => !AuthService().isPostFromBlockedUser(p))
+          .toList();
+    });
+    if (unblockedSomeone) {
+      _loadFeed(showLoading: false);
+    }
   }
 
   void _performOptimisticLike(Map<String, dynamic> post) {
@@ -136,20 +166,42 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
+  void _onUnreadCountChanged() {
+    if (!mounted) return;
+    final nextCount = NotificationPollingService().unreadCountNotifier.value;
+    if (_unreadNotificationCount != nextCount) {
+      setState(() {
+        _unreadNotificationCount = nextCount;
+      });
+    }
+  }
+
   Future<void> _loadUnreadCount() async {
-    if (AuthService().isGuest) return;
+    if (AuthService().isGuest) {
+      if (mounted && _unreadNotificationCount != 0) {
+        setState(() {
+          _unreadNotificationCount = 0;
+        });
+      }
+      return;
+    }
     final token = AuthService().token ?? '';
     if (token.isEmpty) return;
     final result = await ApiService().getUnreadNotificationCount(token: token);
     if (mounted && result.success) {
+      final count = result.data?['unread_count'] is int
+          ? result.data!['unread_count'] as int
+          : int.tryParse(result.data?['unread_count']?.toString() ?? '0') ?? 0;
+      NotificationPollingService().unreadCountNotifier.value = count;
       setState(() {
-        _unreadNotificationCount = result.data?['unread_count'] ?? 0;
+        _unreadNotificationCount = count;
       });
     }
   }
 
   void reload() {
     _loadFeed();
+    _loadUnreadCount();
   }
 
   void removePostLocally(int postId) {
@@ -170,6 +222,10 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   void dispose() {
+    AuthService().blockedUsersNotifier.removeListener(_onBlockedUsersChanged);
+    NotificationPollingService()
+        .unreadCountNotifier
+        .removeListener(_onUnreadCountChanged);
     if (FeedScreen.activeState == this) {
       FeedScreen.activeState = null;
     }
@@ -197,11 +253,21 @@ class _FeedScreenState extends State<FeedScreen> {
     }
 
     final mixedFeed = _mixFeedAlgorithm(serverFeed, []);
-    final cleanFeed = mixedFeed.where((p) => !AuthService().isPostDeletedLocally(p['id'])).toList();
+    final cleanFeed = mixedFeed
+        .where((p) =>
+            !AuthService().isPostDeletedLocally(p['id']) &&
+            !AuthService().isPostFromBlockedUser(p))
+        .toList();
 
     if (cleanFeed.isNotEmpty) {
       FeedScreen._cachedFeedPosts = cleanFeed;
       AuthService().saveCachedFeed(cleanFeed);
+      setState(() {
+        _feedPosts = cleanFeed;
+        _isLoading = false;
+      });
+    } else if (result.success) {
+      FeedScreen._cachedFeedPosts = cleanFeed;
       setState(() {
         _feedPosts = cleanFeed;
         _isLoading = false;
@@ -371,7 +437,12 @@ class _FeedScreenState extends State<FeedScreen> {
                           itemBuilder: (context, index) => const SkeletonFeedCard(),
                         )
                       : RefreshIndicator(
-                          onRefresh: _loadFeed,
+                          onRefresh: () async {
+                            await Future.wait([
+                              _loadFeed(),
+                              _loadUnreadCount(),
+                            ]);
+                          },
                           color: const Color(0xff2B1564),
                           child: ListView.builder(
                             cacheExtent: 1500.0,
@@ -1056,14 +1127,19 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
       setState(() => _isLoading = false);
       return;
     }
-    final result = await ApiService().getComments(postId: widget.postId!);
+    final result = await ApiService().getComments(postId: widget.postId!, token: AuthService().token);
     if (mounted) {
       setState(() {
         _isLoading = false;
         if (result.success) {
           final list = result.data?['comments'] as List? ?? [];
           _comments.clear();
-          _comments.addAll(list.map((c) => Map<String, dynamic>.from(c)));
+          _comments.addAll(
+            list
+                .whereType<Map>()
+                .map((c) => Map<String, dynamic>.from(c))
+                .where((c) => !AuthService().isUserBlockedSync((c['username'] ?? c['user'])?.toString())),
+          );
         }
       });
     }
@@ -1487,7 +1563,10 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
           if (c is Map && c['target_user'] != null) {
             final target = c['target_user'];
             final uId = target['id'];
-            if (uId != null && !loadedUsers.any((existing) => existing['id'] == uId)) {
+            final targetUname = target['username']?.toString();
+            if (uId != null &&
+                !AuthService().isUserBlockedSync(targetUname) &&
+                !loadedUsers.any((existing) => existing['id'] == uId)) {
               loadedUsers.add({
                 'id': uId,
                 'name': target['name'] ?? target['username'] ?? 'User',
@@ -1508,7 +1587,10 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
         for (var u in list) {
           if (u is Map) {
             final uId = u['id'];
-            if (uId != null && !loadedUsers.any((existing) => existing['id'] == uId)) {
+            final uName = u['username']?.toString();
+            if (uId != null &&
+                !AuthService().isUserBlockedSync(uName) &&
+                !loadedUsers.any((existing) => existing['id'] == uId)) {
               loadedUsers.add({
                 'id': uId,
                 'name': u['name'] ?? u['username'] ?? 'User',
@@ -1529,7 +1611,10 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
         for (var u in list) {
           if (u is Map) {
             final uId = u['id'];
-            if (uId != null && !loadedUsers.any((existing) => existing['id'] == uId)) {
+            final uName = u['username']?.toString();
+            if (uId != null &&
+                !AuthService().isUserBlockedSync(uName) &&
+                !loadedUsers.any((existing) => existing['id'] == uId)) {
               loadedUsers.add({
                 'id': uId,
                 'name': u['name'] ?? u['username'] ?? 'User',

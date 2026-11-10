@@ -19,12 +19,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
   late TabController _tabController;
   bool _isLoading = true;
   String _selectedPeriod = 'all_time';
+  List<Map<String, dynamic>> _rawLeaderboard = [];
   List<LeaderboardUser> _users = [];
   LeaderboardUser? _currentUserRank;
+  Set<String> _knownBlockedUsers = <String>{};
 
   @override
   void initState() {
     super.initState();
+    _knownBlockedUsers = Set<String>.from(AuthService().blockedUsersNotifier.value);
+    AuthService().blockedUsersNotifier.addListener(_onBlockedUsersChanged);
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
@@ -41,42 +45,69 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
 
   @override
   void dispose() {
+    AuthService().blockedUsersNotifier.removeListener(_onBlockedUsersChanged);
     _tabController.dispose();
     super.dispose();
   }
 
+  void _onBlockedUsersChanged() {
+    if (!mounted) return;
+    final nextBlocked = AuthService().blockedUsersNotifier.value;
+    final bool unblockedSomeone = _knownBlockedUsers.difference(nextBlocked).isNotEmpty;
+    _knownBlockedUsers = Set<String>.from(nextBlocked);
+
+    _applyLeaderboardFilter();
+    if (unblockedSomeone) {
+      _loadLeaderboardData();
+    }
+  }
+
+  void _applyLeaderboardFilter() {
+    final visibleRaw = _rawLeaderboard
+        .where((u) => !AuthService().isUserBlockedSync(u['username']?.toString()))
+        .toList();
+    final parsedUsers = visibleRaw.asMap().entries.map((entry) {
+      return LeaderboardUser.fromJson(entry.value, entry.key + 1);
+    }).toList();
+
+    final myId = int.tryParse(AuthService().userId);
+    LeaderboardUser? myRank;
+    if (myId != null) {
+      myRank = parsedUsers.firstWhere(
+        (u) => u.id == myId,
+        orElse: () => LeaderboardUser(
+          rank: parsedUsers.length + 1,
+          id: myId,
+          name: AuthService().userName,
+          username: AuthService().userUsername,
+          profilePicture: AuthService().userProfilePicture,
+          points: 0,
+          level: 1,
+          levelName: 'New Explorer',
+        ),
+      );
+    }
+
+    setState(() {
+      _users = parsedUsers;
+      _currentUserRank = myRank;
+      _isLoading = false;
+    });
+  }
+
   Future<void> _loadLeaderboardData() async {
-    final result = await ApiService().getLeaderboard(period: _selectedPeriod);
+    final result = await ApiService().getLeaderboard(
+      period: _selectedPeriod,
+      token: AuthService().token,
+    );
     if (mounted) {
       if (result.success) {
         final rawList = result.data?['leaderboard'] as List? ?? [];
-        final parsedUsers = rawList.asMap().entries.map((entry) {
-          return LeaderboardUser.fromJson(entry.value as Map<String, dynamic>, entry.key + 1);
-        }).toList();
-
-        final myId = int.tryParse(AuthService().userId);
-        LeaderboardUser? myRank;
-        if (myId != null) {
-          myRank = parsedUsers.firstWhere(
-            (u) => u.id == myId,
-            orElse: () => LeaderboardUser(
-              rank: parsedUsers.length + 1,
-              id: myId,
-              name: AuthService().userName,
-              username: AuthService().userUsername,
-              profilePicture: AuthService().userProfilePicture,
-              points: 0,
-              level: 1,
-              levelName: 'New Explorer',
-            ),
-          );
-        }
-
-        setState(() {
-          _users = parsedUsers;
-          _currentUserRank = myRank;
-          _isLoading = false;
-        });
+        _rawLeaderboard = rawList
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        _applyLeaderboardFilter();
       } else {
         setState(() {
           _isLoading = false;

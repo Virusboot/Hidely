@@ -39,8 +39,11 @@ class _SinglePostViewScreenState extends State<SinglePostViewScreen> {
   void initState() {
     super.initState();
     SinglePostViewScreen.activeState = this;
+    AuthService().blockedUsersNotifier.addListener(_onBlockedUsersChanged);
     _posts = List<dynamic>.from(widget.posts)
-        .where((p) => !AuthService().isPostDeletedLocally(p['id']))
+        .where((p) =>
+            !AuthService().isPostDeletedLocally(p['id']) &&
+            !AuthService().isPostFromBlockedUser(p))
         .toList();
 
     for (int i = 0; i < _posts.length; i++) {
@@ -113,11 +116,24 @@ class _SinglePostViewScreenState extends State<SinglePostViewScreen> {
 
   @override
   void dispose() {
+    AuthService().blockedUsersNotifier.removeListener(_onBlockedUsersChanged);
     if (SinglePostViewScreen.activeState == this) {
       SinglePostViewScreen.activeState = null;
     }
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onBlockedUsersChanged() {
+    if (!mounted) return;
+    setState(() {
+      _posts.removeWhere((p) => AuthService().isPostFromBlockedUser(p));
+    });
+    if (_posts.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).pop();
+      });
+    }
   }
 
   void removePostLocally(int postId) {

@@ -24,12 +24,31 @@ class _ReelsScreenState extends State<ReelsScreen> {
   final PageController _pageController = PageController();
   List<dynamic> _videoReels = [];
   bool _isLoading = true;
+  Set<String> _knownBlockedUsers = <String>{};
 
   @override
   void initState() {
     super.initState();
     ReelsScreen.activeState = this;
+    _knownBlockedUsers = Set<String>.from(AuthService().blockedUsersNotifier.value);
+    AuthService().blockedUsersNotifier.addListener(_onBlockedUsersChanged);
     _fetchReels();
+  }
+
+  void _onBlockedUsersChanged() {
+    if (!mounted) return;
+    final nextBlocked = AuthService().blockedUsersNotifier.value;
+    final bool unblockedSomeone = _knownBlockedUsers.difference(nextBlocked).isNotEmpty;
+    _knownBlockedUsers = Set<String>.from(nextBlocked);
+
+    setState(() {
+      _videoReels = _videoReels
+          .where((post) => !AuthService().isPostFromBlockedUser(post))
+          .toList();
+    });
+    if (unblockedSomeone) {
+      _fetchReels();
+    }
   }
 
   Future<void> _fetchReels() async {
@@ -49,6 +68,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
           final allPosts = result.data?['feed'] ?? result.data?['posts'] ?? [];
           _videoReels = allPosts.where((post) {
             if (AuthService().isPostDeletedLocally(post['id'])) return false;
+            if (AuthService().isPostFromBlockedUser(post)) return false;
             final imageUrl = post["image_url"]?.toString().toLowerCase() ?? "";
             return imageUrl.contains('.mp4') ||
                 imageUrl.contains('.mov') ||
@@ -66,6 +86,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
 
   @override
   void dispose() {
+    AuthService().blockedUsersNotifier.removeListener(_onBlockedUsersChanged);
     if (ReelsScreen.activeState == this) {
       ReelsScreen.activeState = null;
     }

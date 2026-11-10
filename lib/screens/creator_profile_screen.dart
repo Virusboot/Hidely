@@ -37,11 +37,17 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
   bool _isLoading = true;
   bool _isFollowing = false;
   bool _isBlocked = false;
+  bool _isBlockedByTarget = false;
   Map<String, dynamic>? _creatorData;
   List<dynamic> _creatorPosts = [];
   String _followers = "0";
   String _followings = "0";
   String _postsCount = "0";
+
+  String get _cleanTargetUsername {
+    final raw = (_creatorData?["username"] ?? widget.username).toString().trim();
+    return raw.replaceFirst(RegExp(r'^@+'), '');
+  }
 
   // Bio parsing helper getters
   String get _bioText => _creatorData?["bio"] ?? widget.bio;
@@ -92,18 +98,62 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
     super.initState();
     AppRoutes.syncWebUrl('/profile/${widget.username}');
     _tabController = TabController(length: 2, vsync: this);
+    AuthService().blockedUsersNotifier.addListener(_onBlockedUsersChanged);
     _loadCreatorProfile();
   }
 
   @override
   void dispose() {
+    AuthService().blockedUsersNotifier.removeListener(_onBlockedUsersChanged);
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _onBlockedUsersChanged() {
+    if (!mounted) return;
+    final blockedNow = AuthService().isUserBlockedSync(widget.username) ||
+        (_creatorData?['username'] != null &&
+            AuthService().isUserBlockedSync(_creatorData!['username'].toString()));
+    if (blockedNow) {
+      setState(() {
+        _isBlocked = true;
+        _isFollowing = false;
+        _creatorData = null;
+        _creatorPosts = [];
+        _followers = "0";
+        _followings = "0";
+        _postsCount = "0";
+        _isLoading = false;
+      });
+    } else if (_isBlocked) {
+      setState(() {
+        _isBlocked = false;
+        _isLoading = true;
+      });
+      _loadCreatorProfile();
+    }
   }
 
   Future<void> _loadCreatorProfile() async {
     final token = AuthService().token;
     final blocked = await AuthService().isUserBlocked(widget.username);
+    if (blocked) {
+      if (mounted) {
+        setState(() {
+          _isBlocked = true;
+          _isBlockedByTarget = false;
+          _isFollowing = false;
+          _creatorData = null;
+          _creatorPosts = [];
+          _followers = "0";
+          _followings = "0";
+          _postsCount = "0";
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
     final result = await ApiService().getCreatorProfile(
       username: widget.username,
       token: token,
@@ -111,6 +161,22 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
     if (mounted) {
       if (result.success) {
         final creator = result.data?['creator'];
+        final resolvedUsername = creator?['username']?.toString() ?? widget.username;
+        if (AuthService().isUserBlockedSync(resolvedUsername)) {
+          setState(() {
+            _isBlocked = true;
+            _isBlockedByTarget = false;
+            _isFollowing = false;
+            _creatorData = null;
+            _creatorPosts = [];
+            _followers = "0";
+            _followings = "0";
+            _postsCount = "0";
+            _isLoading = false;
+          });
+          return;
+        }
+
         List posts = result.data?['posts'] as List? ?? [];
         
         if (posts.isEmpty && creator != null && creator['id'] != null) {
@@ -128,6 +194,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
           pCount = posts.length;
         }
 
+        if (!mounted) return;
         setState(() {
           _creatorData = creator;
           _creatorPosts = posts;
@@ -135,16 +202,38 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
           _followings = "${creator?['followings_count'] ?? 0}";
           _postsCount = "$pCount";
           _isFollowing = creator?['is_following'] ?? false;
-          _isBlocked = blocked;
+          _isBlocked = false;
+          _isBlockedByTarget = false;
           _isLoading = false;
         });
       } else {
-        if (widget.username == 'hidely_official' || widget.username == 'hidely') {
+        final bool blockedByServer = result.statusCode == 403 ||
+            result.data?['blocked'] == true ||
+            result.data?['blocked_by_me'] == true ||
+            result.data?['blocked_me'] == true;
+        if (blockedByServer) {
+          setState(() {
+            _isBlocked = result.data?['blocked_by_me'] == true || blocked;
+            _isBlockedByTarget = result.data?['blocked_me'] == true;
+            _isFollowing = false;
+            _creatorData = null;
+            _creatorPosts = [];
+            _followers = "0";
+            _followings = "0";
+            _postsCount = "0";
+            _isLoading = false;
+          });
+          return;
+        }
+
+        final cleanLower = widget.username.trim().replaceFirst(RegExp(r'^@+'), '').toLowerCase();
+        if (!blocked && (cleanLower == 'hidely_official' || cleanLower == 'hidely')) {
           final adminPostsResult = await ApiService().getUserPosts(userId: '1', token: token);
           List adminPosts = [];
           if (adminPostsResult.success) {
             adminPosts = adminPostsResult.data?['posts'] as List? ?? [];
           }
+          if (!mounted) return;
           setState(() {
             _creatorData = {
               'id': '1',
@@ -163,12 +252,14 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
             _postsCount = "${adminPosts.length}";
             _isFollowing = false;
             _isBlocked = false;
+            _isBlockedByTarget = false;
             _isLoading = false;
           });
           return;
         }
         setState(() {
           _isBlocked = blocked;
+          _isBlockedByTarget = false;
           _isLoading = false;
         });
       }
@@ -180,6 +271,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
       showLoginRequiredSheet(context, reason: 'follow a creator');
       return;
     }
+    if (_isBlocked || _isBlockedByTarget) return;
     final creatorId = _creatorData?['id']?.toString();
     if (creatorId == null) return;
     
@@ -298,29 +390,34 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                           ],
                         ),
                         Text(
-                          (_creatorData?["username"] ?? widget.username).toString().contains(' ')
-                              ? (_creatorData?["username"] ?? widget.username)
-                              : ((_creatorData?["username"] ?? widget.username).toString().startsWith('@')
+                          (_isBlockedByTarget && !_isBlocked)
+                              ? "Profile Unavailable"
+                              : ((_creatorData?["username"] ?? widget.username).toString().contains(' ')
                                   ? (_creatorData?["username"] ?? widget.username)
-                                  : "@${_creatorData?["username"] ?? widget.username}"),
+                                  : ((_creatorData?["username"] ?? widget.username).toString().startsWith('@')
+                                      ? (_creatorData?["username"] ?? widget.username)
+                                      : "@${_creatorData?["username"] ?? widget.username}")),
                           style: const TextStyle(
                             color: Color(0xff1C0D5A),
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                           ),
                         ),
-                        GestureDetector(
-                          onTap: () => _showOptionsSheet(context),
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
+                        if (_isBlockedByTarget && !_isBlocked)
+                          const SizedBox(width: 44)
+                        else
+                          GestureDetector(
+                            onTap: () => _showOptionsSheet(context),
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.more_vert, color: Color(0xff1C0D5A), size: 22),
                             ),
-                            child: const Icon(Icons.more_vert, color: Color(0xff1C0D5A), size: 22),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -330,6 +427,109 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                       child: Center(
                         child: CircularProgressIndicator(
                           color: Color(0xff1C0D5A),
+                        ),
+                      ),
+                    )
+                  else if (_isBlocked || _isBlockedByTarget)
+                    Expanded(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 72,
+                                height: 72,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.9),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xff1C0D5A).withOpacity(0.08),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  _isBlocked ? Icons.block_rounded : Icons.person_off_rounded,
+                                  size: 36,
+                                  color: const Color(0xff1C0D5A),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _isBlocked
+                                    ? "You blocked @$_cleanTargetUsername"
+                                    : "Profile Unavailable",
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xff1C0D5A),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _isBlocked
+                                    ? "Their profile, bio, and posts are hidden."
+                                    : "This profile is currently unavailable.",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: const Color(0xff1C0D5A).withOpacity(0.65),
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  ElevatedButton(
+                                    onPressed: _handleBack,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xff1C0D5A),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 22,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      "Go Back",
+                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  if (_isBlocked) ...[
+                                    const SizedBox(width: 12),
+                                    OutlinedButton(
+                                      onPressed: _toggleBlock,
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(0xff1C0D5A),
+                                        side: const BorderSide(color: Color(0xff1C0D5A)),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 22,
+                                          vertical: 12,
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        "Unblock",
+                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     )
@@ -638,6 +838,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                                         }
                                          final ChatItem directChat = ChatItem(
                                            id: 'dm_${widget.username}',
+                                           targetUsername: _cleanTargetUsername,
                                            name: widget.username,
                                            avatar: widget.avatarPath.isNotEmpty ? widget.avatarPath : 'assets/icons/Profile.png',
                                            lastMessage: 'Tap to send a secure private message...',
@@ -728,28 +929,47 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
       showLoginRequiredSheet(context, reason: 'block a creator');
       return;
     }
-    final username = widget.username;
+    final targetHandle = _cleanTargetUsername.isNotEmpty
+        ? _cleanTargetUsername
+        : widget.username.trim().replaceFirst(RegExp(r'^@+'), '');
+    final widgetHandle = widget.username.trim().replaceFirst(RegExp(r'^@+'), '');
     if (_isBlocked) {
-      await AuthService().unblockUser(username);
-      if (mounted) {
-        setState(() => _isBlocked = false);
+      setState(() {
+        _isLoading = true;
+        _isBlocked = false;
+        _isBlockedByTarget = false;
+      });
+      await AuthService().unblockUser(targetHandle);
+      if (widgetHandle.isNotEmpty &&
+          widgetHandle.toLowerCase() != targetHandle.toLowerCase()) {
+        await AuthService().unblockUser(widgetHandle);
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('@$username unblocked successfully.'),
+          content: Text('@$targetHandle unblocked successfully.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
+      await _loadCreatorProfile();
     } else {
-      await AuthService().blockUser(username);
+      await AuthService().blockUser(targetHandle);
       if (mounted) {
-        setState(() => _isBlocked = true);
+        setState(() {
+          _isBlocked = true;
+          _isFollowing = false;
+          _creatorData = null;
+          _creatorPosts = [];
+          _followers = "0";
+          _followings = "0";
+          _postsCount = "0";
+          _isLoading = false;
+        });
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('@$username blocked successfully.'),
+          content: Text('@$targetHandle blocked. Their profile is now hidden.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -760,11 +980,10 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-        ),
+      builder: (context) => Material(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        clipBehavior: Clip.antiAlias,
         child: SafeArea(
           top: false,
           child: Column(

@@ -30,6 +30,7 @@ class TripItineraryData {
 class ChatItem {
   final String id;
   final String? targetUserId;
+  final String? targetUsername;
   final String name;
   final String avatar;
   String lastMessage;
@@ -48,6 +49,7 @@ class ChatItem {
   ChatItem({
     required this.id,
     this.targetUserId,
+    this.targetUsername,
     required this.name,
     required this.avatar,
     required this.lastMessage,
@@ -113,13 +115,39 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   StreamSubscription? _presenceSub;
   StreamSubscription? _globalMsgSub;
   Timer? _searchDebounce;
+  Set<String> _knownBlockedUsers = <String>{};
 
   @override
   void initState() {
     super.initState();
     GroupChatScreen.activeState = this;
+    _knownBlockedUsers = Set<String>.from(AuthService().blockedUsersNotifier.value);
+    AuthService().blockedUsersNotifier.addListener(_onBlockedUsersChanged);
     _initChatService();
     _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onBlockedUsersChanged() {
+    if (!mounted) return;
+    final nextBlocked = AuthService().blockedUsersNotifier.value;
+    final bool unblockedSomeone = _knownBlockedUsers.difference(nextBlocked).isNotEmpty;
+    _knownBlockedUsers = Set<String>.from(nextBlocked);
+
+    if (_activeChat != null &&
+        !_activeChat!.isGroup &&
+        (AuthService().isUserBlockedSync(_activeChat!.targetUsername) ||
+            AuthService().isUserBlockedSync(_activeChat!.name))) {
+      _closeChat();
+    } else {
+      setState(() {
+        _searchResultsUsers = _searchResultsUsers
+            .where((u) => !AuthService().isUserBlockedSync(u is Map ? u['username']?.toString() : null))
+            .toList();
+      });
+    }
+    if (unblockedSomeone) {
+      _loadConversations();
+    }
   }
 
   void _initChatService() {
@@ -180,6 +208,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         }
 
         final targetId = otherParticipant?['id']?.toString();
+        final targetUsername = otherParticipant?['username']?.toString();
         final name = isGroup
             ? (conv['name'] ?? 'Group Trip')
             : (otherParticipant?['name'] ?? otherParticipant?['username'] ?? 'User');
@@ -199,6 +228,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         loadedChats.add(ChatItem(
           id: convId,
           targetUserId: targetId,
+          targetUsername: targetUsername,
           name: name,
           avatar: avatar,
           lastMessage: lastMsgText,
@@ -235,12 +265,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     _searchDebounce = Timer(const Duration(milliseconds: 300), () async {
       if (!mounted) return;
       setState(() => _isSearchingUsers = true);
-      final res = await ApiService().searchUsers(query: query);
+      final res = await ApiService().searchUsers(query: query, token: AuthService().token);
       if (mounted) {
         setState(() {
           _isSearchingUsers = false;
           if (res.success && res.data != null && res.data!['users'] != null) {
-            _searchResultsUsers = res.data!['users'];
+            _searchResultsUsers = (res.data!['users'] as List)
+                .where((u) => !AuthService().isUserBlockedSync(u is Map ? u['username']?.toString() : null))
+                .toList();
           } else {
             _searchResultsUsers = [];
           }
@@ -263,6 +295,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   void openDirectChat(ChatItem chat) {
+    if (!chat.isGroup &&
+        (AuthService().isUserBlockedSync(chat.targetUsername) ||
+            AuthService().isUserBlockedSync(chat.name))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unblock this user to send a message.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     clearSearch();
     final exists = _allChats.any((c) => c.id == chat.id);
     if (!exists) {
@@ -308,6 +351,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   @override
   void dispose() {
+    AuthService().blockedUsersNotifier.removeListener(_onBlockedUsersChanged);
     if (GroupChatScreen.activeState == this) {
       GroupChatScreen.activeState = null;
     }
@@ -373,11 +417,18 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 onChanged: (val) async {
                   if (val.trim().length >= 2) {
                     setModalState(() => isLoading = true);
-                    final res = await ApiService().searchUsers(query: val.trim());
+                    final res = await ApiService().searchUsers(
+                      query: val.trim(),
+                      token: AuthService().token,
+                    );
                     setModalState(() {
                       isLoading = false;
                       if (res.success && res.data != null && res.data!['users'] != null) {
-                        usersList = res.data!['users'];
+                        usersList = (res.data!['users'] as List)
+                            .where((u) => !AuthService().isUserBlockedSync(u is Map ? u['username']?.toString() : null))
+                            .toList();
+                      } else {
+                        usersList = [];
                       }
                     });
                   }
@@ -419,6 +470,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                                       final convId = res.data!['conversationId'].toString();
                                       final newDirectChat = ChatItem(
                                         id: convId,
+                                        targetUserId: u['id']?.toString(),
+                                        targetUsername: u['username']?.toString(),
                                         name: u['name'] ?? u['username'] ?? 'User',
                                         avatar: u['profile_picture'] ?? 'assets/images/user1.jpg',
                                         lastMessage: 'Tap to send a message...',
@@ -427,6 +480,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                                         isGroup: false,
                                       );
                                       openDirectChat(newDirectChat);
+                                    } else if (mounted && res.message.isNotEmpty) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(res.message),
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
                                     }
                                   }
                                 },
@@ -803,6 +863,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         ),
         child: _buildChatListSection(
           items: _allChats.where((t) {
+            if (!t.isGroup &&
+                (AuthService().isUserBlockedSync(t.targetUsername) ||
+                    AuthService().isUserBlockedSync(t.name))) {
+              return false;
+            }
             final matchesQuery = t.name.toLowerCase().contains(query) ||
                 (t.destination ?? '').toLowerCase().contains(query) ||
                 t.lastMessage.toLowerCase().contains(query);
@@ -881,6 +946,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       final uId = u['id']?.toString();
       final name = u['name']?.toString().toLowerCase();
       final username = u['username']?.toString().toLowerCase();
+
+      if (AuthService().isUserBlockedSync(username)) {
+        return false;
+      }
 
       final alreadyInChats = _allChats.any((chat) {
         if (chat.targetUserId != null && uId != null && chat.targetUserId == uId) {
@@ -972,6 +1041,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     final newDirectChat = ChatItem(
                       id: convId,
                       targetUserId: u['id']?.toString(),
+                      targetUsername: u['username']?.toString(),
                       name: u['name'] ?? u['username'] ?? 'User',
                       avatar: u['profile_picture'] ?? 'assets/images/user1.jpg',
                       lastMessage: 'Tap to send a message...',
@@ -981,6 +1051,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       isOnline: isOnline,
                     );
                     openDirectChat(newDirectChat);
+                  } else if (mounted && res.message.isNotEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(res.message),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
                   }
                 }
               },

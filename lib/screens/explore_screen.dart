@@ -305,10 +305,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
   bool _isPersonalizationLoaded = false;
 
   final FocusNode _searchFocusNode = FocusNode();
+  Set<String> _knownBlockedUsers = <String>{};
 
   @override
   void initState() {
     super.initState();
+    _knownBlockedUsers = Set<String>.from(AuthService().blockedUsersNotifier.value);
+    AuthService().blockedUsersNotifier.addListener(_onBlockedUsersChanged);
     _searchFocusNode.addListener(() {
       if (mounted) setState(() {});
     });
@@ -322,6 +325,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
 
     _fetchExplorePosts();
+  }
+
+  void _onBlockedUsersChanged() {
+    if (!mounted) return;
+    final nextBlocked = AuthService().blockedUsersNotifier.value;
+    final bool unblockedSomeone = _knownBlockedUsers.difference(nextBlocked).isNotEmpty;
+    _knownBlockedUsers = Set<String>.from(nextBlocked);
+
+    setState(() {
+      _searchResultsUsers = _searchResultsUsers
+          .where((u) => !AuthService().isUserBlockedSync(u is Map ? u['username']?.toString() : null))
+          .toList();
+      _applyLocalFiltersAndSorting();
+    });
+    if (unblockedSomeone) {
+      _fetchExplorePosts();
+    }
   }
 
   Future<void> _loadCachedPostsFromDisk() async {
@@ -357,6 +377,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   void dispose() {
+    AuthService().blockedUsersNotifier.removeListener(_onBlockedUsersChanged);
     _searchController.dispose();
     _searchFocusNode.dispose();
     _categoryScrollController.dispose();
@@ -481,7 +502,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   void _applyLocalFiltersAndSorting() {
-    List<dynamic> posts = List.from(_allPosts);
+    List<dynamic> posts = _allPosts
+        .where((p) => !AuthService().isPostFromBlockedUser(p))
+        .toList();
 
     // Apply local multi-filters BEFORE sorting
     if (!_selectedCategories.contains("All") && _selectedCategories.isNotEmpty) {
@@ -539,6 +562,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     // Never show an empty explore if the user hasn't typed an active search
     if (posts.isEmpty && _searchQuery.trim().isEmpty && _selectedCities.contains("All")) {
       posts = _defaultCuratedExplorePosts.where((p) {
+        if (AuthService().isPostFromBlockedUser(p)) return false;
         if (_selectedCategories.contains("All") || _selectedCategories.isEmpty) return true;
         return _selectedCategories.any((cat) => AppCategories.matches(p, cat));
       }).toList();
@@ -576,9 +600,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     List<dynamic> users = [];
     if (queryAtFetch.isNotEmpty) {
-      final userRes = await ApiService().searchUsers(query: queryAtFetch);
+      final userRes = await ApiService().searchUsers(query: queryAtFetch, token: token);
       if (userRes.success) {
-        users = userRes.data?['users'] as List? ?? [];
+        users = (userRes.data?['users'] as List? ?? [])
+            .where((u) => !AuthService().isUserBlockedSync(u is Map ? u['username']?.toString() : null))
+            .toList();
       }
     }
 

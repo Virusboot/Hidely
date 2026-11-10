@@ -13,13 +13,17 @@ class ApiResult {
   final String message;
   final Map<String, dynamic>? data;
   final String? error;
+  final int? statusCode;
 
   ApiResult({
     required this.success,
     required this.message,
     this.data,
     this.error,
+    this.statusCode,
   });
+
+  bool get isUnauthorized => statusCode == 401;
 }
 
 class ApiService {
@@ -27,8 +31,14 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  final http.Client _client = http.Client();
+  http.Client _client = http.Client();
   http.Client get client => _client;
+
+  @visibleForTesting
+  void resetClientForTest([http.Client? newClient]) {
+    _client.close();
+    _client = newClient ?? http.Client();
+  }
 
   static String get defaultBaseUrl => AppEnv.apiBaseUrl;
 
@@ -37,6 +47,19 @@ class ApiService {
   String get baseUrl => _resolvedBaseUrl;
 
   final Map<String, String> _localEmailOtps = {};
+
+  Map<String, dynamic> _decodeJsonMap(String rawBody) {
+    try {
+      final decoded = jsonDecode(rawBody);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+    } catch (_) {}
+    return <String, dynamic>{};
+  }
 
   Future<void> init() async {
     await autoDiscoverBaseUrl();
@@ -533,21 +556,23 @@ class ApiService {
         headers: {
           'Authorization': 'Bearer $token',
         },
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 20));
 
-      final body = jsonDecode(response.body);
+      final body = _decodeJsonMap(response.body);
 
       if (response.statusCode == 200) {
         return ApiResult(
           success: true,
           message: 'Profile loaded.',
           data: body,
+          statusCode: response.statusCode,
         );
       } else {
         return ApiResult(
           success: false,
-          message: body['error'] ?? 'Profile fetch failed.',
-          error: body['error'],
+          message: body['error']?.toString() ?? 'Profile fetch failed (HTTP ${response.statusCode}).',
+          error: body['error']?.toString() ?? 'HTTP ${response.statusCode}',
+          statusCode: response.statusCode,
         );
       }
     } catch (e) {
@@ -959,16 +984,28 @@ class ApiService {
   }
 
   /// Get comments for a post
-  Future<ApiResult> getComments({required int postId}) async {
+  Future<ApiResult> getComments({required int postId, String? token}) async {
     try {
+      final effectiveToken = (token != null && token.isNotEmpty) ? token : AuthService().token;
+      final headers = <String, String>{};
+      if (effectiveToken != null && effectiveToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $effectiveToken';
+      }
       final response = await _client.get(
         Uri.parse('$baseUrl/api/posts/$postId/comments'),
+        headers: headers,
       ).timeout(const Duration(seconds: 15));
-      final body = jsonDecode(response.body);
+      final body = _decodeJsonMap(response.body);
       if (response.statusCode == 200) {
-        return ApiResult(success: true, message: 'Comments loaded.', data: body);
+        return ApiResult(success: true, message: 'Comments loaded.', data: body, statusCode: response.statusCode);
       } else {
-        return ApiResult(success: false, message: body['error'] ?? 'Failed to load comments.', error: body['error']);
+        return ApiResult(
+          success: false,
+          message: body['error']?.toString() ?? 'Failed to load comments.',
+          error: body['error']?.toString(),
+          data: body,
+          statusCode: response.statusCode,
+        );
       }
     } catch (e) {
       return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
@@ -1040,20 +1077,124 @@ class ApiService {
   /// Get specific creator details by username
   Future<ApiResult> getCreatorProfile({required String username, String? token}) async {
     try {
+      final cleanUsername = username.trim().replaceFirst(RegExp(r'^@+'), '');
       final headers = <String, String>{};
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       }
       final response = await _client.get(
-        Uri.parse('$baseUrl/api/users/profile/$username'),
+        Uri.parse('$baseUrl/api/users/profile/${Uri.encodeComponent(cleanUsername)}'),
         headers: headers,
       ).timeout(const Duration(seconds: 15));
-      final body = jsonDecode(response.body);
+      final body = _decodeJsonMap(response.body);
       if (response.statusCode == 200) {
-        return ApiResult(success: true, message: 'Creator profile loaded.', data: body);
+        return ApiResult(
+          success: true,
+          message: 'Creator profile loaded.',
+          data: body,
+          statusCode: response.statusCode,
+        );
       } else {
-        return ApiResult(success: false, message: body['error'] ?? 'Failed to load creator profile.', error: body['error']);
+        return ApiResult(
+          success: false,
+          message: body['error']?.toString() ?? 'Failed to load creator profile.',
+          error: body['error']?.toString(),
+          data: body,
+          statusCode: response.statusCode,
+        );
       }
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
+  /// Get list of blocked users from backend
+  Future<ApiResult> getBlockedUsers({required String token}) async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/users/blocked'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 15));
+      final body = _decodeJsonMap(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(
+          success: true,
+          message: 'Blocked users loaded.',
+          data: body,
+          statusCode: response.statusCode,
+        );
+      }
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Failed to load blocked users.',
+        error: body['error']?.toString(),
+        data: body,
+        statusCode: response.statusCode,
+      );
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
+  /// Block a user by username or ID
+  Future<ApiResult> blockUser({required String token, required String identifier}) async {
+    try {
+      final cleanId = identifier.trim().replaceFirst(RegExp(r'^@+'), '');
+      final response = await _client.post(
+        Uri.parse('$baseUrl/api/users/block/${Uri.encodeComponent(cleanId)}'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 15));
+      final body = _decodeJsonMap(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(
+          success: true,
+          message: body['message']?.toString() ?? 'User blocked successfully.',
+          data: body,
+          statusCode: response.statusCode,
+        );
+      }
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Failed to block user.',
+        error: body['error']?.toString(),
+        data: body,
+        statusCode: response.statusCode,
+      );
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
+  /// Unblock a user by username or ID
+  Future<ApiResult> unblockUser({required String token, required String identifier}) async {
+    try {
+      final cleanId = identifier.trim().replaceFirst(RegExp(r'^@+'), '');
+      final response = await _client.delete(
+        Uri.parse('$baseUrl/api/users/block/${Uri.encodeComponent(cleanId)}'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 15));
+      final body = _decodeJsonMap(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(
+          success: true,
+          message: body['message']?.toString() ?? 'User unblocked successfully.',
+          data: body,
+          statusCode: response.statusCode,
+        );
+      }
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Failed to unblock user.',
+        error: body['error']?.toString(),
+        data: body,
+        statusCode: response.statusCode,
+      );
     } catch (e) {
       return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
     }
@@ -1082,8 +1223,9 @@ class ApiService {
   /// Get followed creators list
   Future<ApiResult> getFollowing({required String token, String? username}) async {
     try {
-      final url = (username != null && username.isNotEmpty)
-          ? '$baseUrl/api/users/following/$username'
+      final cleanUsername = username?.trim().replaceFirst(RegExp(r'^@+'), '');
+      final url = (cleanUsername != null && cleanUsername.isNotEmpty)
+          ? '$baseUrl/api/users/following/${Uri.encodeComponent(cleanUsername)}'
           : '$baseUrl/api/users/following';
       final response = await _client.get(
         Uri.parse(url),
@@ -1091,11 +1233,22 @@ class ApiService {
           'Authorization': 'Bearer $token',
         },
       ).timeout(const Duration(seconds: 15));
-      final body = jsonDecode(response.body);
+      final body = _decodeJsonMap(response.body);
       if (response.statusCode == 200) {
-        return ApiResult(success: true, message: 'Following list loaded.', data: body);
+        return ApiResult(
+          success: true,
+          message: 'Following list loaded.',
+          data: body,
+          statusCode: response.statusCode,
+        );
       } else {
-        return ApiResult(success: false, message: body['error'] ?? 'Failed to load following list.', error: body['error']);
+        return ApiResult(
+          success: false,
+          message: body['error']?.toString() ?? 'Failed to load following list.',
+          error: body['error']?.toString(),
+          data: body,
+          statusCode: response.statusCode,
+        );
       }
     } catch (e) {
       return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
@@ -1105,8 +1258,9 @@ class ApiService {
   /// Get followers list
   Future<ApiResult> getFollowers({required String token, String? username}) async {
     try {
-      final url = (username != null && username.isNotEmpty)
-          ? '$baseUrl/api/users/followers/$username'
+      final cleanUsername = username?.trim().replaceFirst(RegExp(r'^@+'), '');
+      final url = (cleanUsername != null && cleanUsername.isNotEmpty)
+          ? '$baseUrl/api/users/followers/${Uri.encodeComponent(cleanUsername)}'
           : '$baseUrl/api/users/followers';
       final response = await _client.get(
         Uri.parse(url),
@@ -1114,11 +1268,22 @@ class ApiService {
           'Authorization': 'Bearer $token',
         },
       ).timeout(const Duration(seconds: 15));
-      final body = jsonDecode(response.body);
+      final body = _decodeJsonMap(response.body);
       if (response.statusCode == 200) {
-        return ApiResult(success: true, message: 'Followers list loaded.', data: body);
+        return ApiResult(
+          success: true,
+          message: 'Followers list loaded.',
+          data: body,
+          statusCode: response.statusCode,
+        );
       } else {
-        return ApiResult(success: false, message: body['error'] ?? 'Failed to load followers list.', error: body['error']);
+        return ApiResult(
+          success: false,
+          message: body['error']?.toString() ?? 'Failed to load followers list.',
+          error: body['error']?.toString(),
+          data: body,
+          statusCode: response.statusCode,
+        );
       }
     } catch (e) {
       return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
@@ -1133,14 +1298,27 @@ class ApiService {
         headers: {
           'Authorization': 'Bearer $token',
         },
-      ).timeout(const Duration(seconds: 15));
-      final body = jsonDecode(response.body);
+      ).timeout(const Duration(seconds: 25));
+      final body = _decodeJsonMap(response.body);
       if (response.statusCode == 200) {
-        return ApiResult(success: true, message: 'Notifications loaded.', data: body);
+        return ApiResult(
+          success: true,
+          message: 'Notifications loaded.',
+          data: body,
+          statusCode: response.statusCode,
+        );
       } else {
-        return ApiResult(success: false, message: body['error'] ?? 'Failed to load notifications.', error: body['error']);
+        final errMsg = body['error']?.toString() ?? 'Failed to load notifications (HTTP ${response.statusCode}).';
+        debugPrint('[ApiService] getNotifications HTTP ${response.statusCode}: $errMsg');
+        return ApiResult(
+          success: false,
+          message: errMsg,
+          error: errMsg,
+          statusCode: response.statusCode,
+        );
       }
     } catch (e) {
+      debugPrint('[ApiService] getNotifications exception: $e');
       return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
     }
   }
@@ -1154,11 +1332,21 @@ class ApiService {
           'Authorization': 'Bearer $token',
         },
       ).timeout(const Duration(seconds: 15));
-      final body = jsonDecode(response.body);
+      final body = _decodeJsonMap(response.body);
       if (response.statusCode == 200) {
-        return ApiResult(success: true, message: 'Notification marked as read.', data: body);
+        return ApiResult(
+          success: true,
+          message: 'Notification marked as read.',
+          data: body,
+          statusCode: response.statusCode,
+        );
       } else {
-        return ApiResult(success: false, message: body['error'] ?? 'Failed to mark notification read.', error: body['error']);
+        return ApiResult(
+          success: false,
+          message: body['error']?.toString() ?? 'Failed to mark notification read.',
+          error: body['error']?.toString(),
+          statusCode: response.statusCode,
+        );
       }
     } catch (e) {
       return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
@@ -1174,11 +1362,21 @@ class ApiService {
           'Authorization': 'Bearer $token',
         },
       ).timeout(const Duration(seconds: 15));
-      final body = jsonDecode(response.body);
+      final body = _decodeJsonMap(response.body);
       if (response.statusCode == 200) {
-        return ApiResult(success: true, message: 'Notifications marked as read.', data: body);
+        return ApiResult(
+          success: true,
+          message: 'Notifications marked as read.',
+          data: body,
+          statusCode: response.statusCode,
+        );
       } else {
-        return ApiResult(success: false, message: body['error'] ?? 'Failed to mark read.', error: body['error']);
+        return ApiResult(
+          success: false,
+          message: body['error']?.toString() ?? 'Failed to mark read.',
+          error: body['error']?.toString(),
+          statusCode: response.statusCode,
+        );
       }
     } catch (e) {
       return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
@@ -1193,14 +1391,27 @@ class ApiService {
         headers: {
           'Authorization': 'Bearer $token',
         },
-      ).timeout(const Duration(seconds: 15));
-      final body = jsonDecode(response.body);
+      ).timeout(const Duration(seconds: 25));
+      final body = _decodeJsonMap(response.body);
       if (response.statusCode == 200) {
-        return ApiResult(success: true, message: 'Unread count loaded.', data: body);
+        return ApiResult(
+          success: true,
+          message: 'Unread count loaded.',
+          data: body,
+          statusCode: response.statusCode,
+        );
       } else {
-        return ApiResult(success: false, message: body['error'] ?? 'Failed to load unread count.', error: body['error']);
+        final errMsg = body['error']?.toString() ?? 'Failed to load unread count (HTTP ${response.statusCode}).';
+        debugPrint('[ApiService] getUnreadNotificationCount HTTP ${response.statusCode}: $errMsg');
+        return ApiResult(
+          success: false,
+          message: errMsg,
+          error: errMsg,
+          statusCode: response.statusCode,
+        );
       }
     } catch (e) {
+      debugPrint('[ApiService] getUnreadNotificationCount exception: $e');
       return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
     }
   }
@@ -1283,24 +1494,32 @@ class ApiService {
   }
 
   /// Get leaderboard rankings (period: weekly, monthly, all_time)
-  Future<ApiResult> getLeaderboard({String period = 'all_time'}) async {
+  Future<ApiResult> getLeaderboard({String period = 'all_time', String? token}) async {
     try {
+      final effectiveToken = (token != null && token.isNotEmpty) ? token : AuthService().token;
+      final headers = <String, String>{};
+      if (effectiveToken != null && effectiveToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $effectiveToken';
+      }
       final response = await _client.get(
         Uri.parse('$baseUrl/api/gamification/leaderboard?period=$period'),
+        headers: headers,
       ).timeout(const Duration(seconds: 15));
-      final body = jsonDecode(response.body);
+      final body = _decodeJsonMap(response.body);
 
       if (response.statusCode == 200) {
         return ApiResult(
           success: true,
           message: 'Leaderboard loaded successfully.',
           data: body,
+          statusCode: response.statusCode,
         );
       } else {
         return ApiResult(
           success: false,
-          message: body['error'] ?? 'Failed to load leaderboard.',
-          error: body['error'],
+          message: body['error']?.toString() ?? 'Failed to load leaderboard.',
+          error: body['error']?.toString(),
+          statusCode: response.statusCode,
         );
       }
     } catch (e) {
@@ -1422,23 +1641,30 @@ class ApiService {
   }
 
   /// Search users by username or name
-  Future<ApiResult> searchUsers({required String query}) async {
+  Future<ApiResult> searchUsers({required String query, String? token}) async {
     try {
+      final effectiveToken = (token != null && token.isNotEmpty) ? token : AuthService().token;
+      final headers = <String, String>{};
+      if (effectiveToken != null && effectiveToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $effectiveToken';
+      }
       final uri = Uri.parse('$baseUrl/api/users/search').replace(queryParameters: {'q': query});
-      final response = await _client.get(uri).timeout(const Duration(seconds: 15));
-      final body = jsonDecode(response.body);
+      final response = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 15));
+      final body = _decodeJsonMap(response.body);
 
       if (response.statusCode == 200) {
         return ApiResult(
           success: true,
           message: 'Users fetched successfully.',
           data: body,
+          statusCode: response.statusCode,
         );
       } else {
         return ApiResult(
           success: false,
-          message: body['error'] ?? 'Failed to search users.',
-          error: body['error'],
+          message: body['error']?.toString() ?? 'Failed to search users.',
+          error: body['error']?.toString(),
+          statusCode: response.statusCode,
         );
       }
     } catch (e) {

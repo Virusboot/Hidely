@@ -43,6 +43,13 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
     super.dispose();
   }
 
+  String get _authorUsername {
+    return (widget.post['author_username'] ?? widget.post['username'] ?? '')
+        .toString()
+        .trim()
+        .replaceFirst(RegExp(r'^@+'), '');
+  }
+
   bool get _isMyPost {
     final String currentUsername = AuthService().userUsername;
     final String currentUserId = AuthService().userId;
@@ -200,6 +207,31 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
         targetType: 'Post',
         targetName: widget.post['caption']?.toString() ?? 'Post',
         onSubmitSuccess: () {},
+      ),
+    );
+  }
+
+  Future<void> _blockUser() async {
+    final target = _authorUsername;
+    if (target.isEmpty) {
+      Navigator.pop(context);
+      return;
+    }
+    if (AuthService().isGuest) {
+      Navigator.pop(context);
+      showLoginRequiredSheet(context, reason: 'block this user');
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.pop(context);
+    await AuthService().blockUser(target);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text("@$target blocked. Their profile and posts are hidden."),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xff1C0D5A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -414,7 +446,7 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
             const SizedBox(height: 12),
           ],
 
-          // Group 3 Card: About account, Report
+          // Group 3 Card: About account, Block, Report
           _buildGroupCard(
             children: [
               _buildGroupTile(
@@ -423,6 +455,15 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
                 onTap: _aboutAccount,
               ),
               if (!_isMyPost) ...[
+                if (_authorUsername.isNotEmpty && _authorUsername.toLowerCase() != 'user') ...[
+                  const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  _buildGroupTile(
+                    icon: Icons.block_rounded,
+                    title: "Block @$_authorUsername",
+                    isDestructive: true,
+                    onTap: _blockUser,
+                  ),
+                ],
                 const Divider(height: 1, color: Color(0xFFE2E8F0)),
                 _buildGroupTile(
                   icon: Icons.error_outline_rounded,

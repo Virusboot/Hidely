@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/services.dart';
 import 'package:hidely_new/config/responsive_breakpoints.dart';
 import 'package:hidely_new/screens/feed_screen.dart';
 import 'package:hidely_new/screens/map_discovery_screen.dart';
@@ -44,6 +43,9 @@ class MainWrapperState extends State<MainWrapper> {
     activeState = this;
     _currentIndex = widget.initialIndex;
     currentTabNotifier.value = _currentIndex;
+    if (!AuthService().isGuest) {
+      AuthService().syncBlockedUsersFromServer();
+    }
     if (kIsWeb) {
       final path = AppRoutes.pathForTab(_currentIndex);
       AppRoutes.syncWebUrl(path);
