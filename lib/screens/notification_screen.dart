@@ -436,6 +436,7 @@ class _NotificationScreenState extends State<NotificationScreen>
     switch (type) {
       case 'like':
       case 'new_like':
+      case 'post_liked':
         return (Icons.favorite_rounded, const Color(0xFFE91E63));
       case 'comment':
       case 'new_comment':
@@ -490,6 +491,7 @@ class _NotificationScreenState extends State<NotificationScreen>
     switch (type) {
       case 'like':
       case 'new_like':
+      case 'post_liked':
         return 'liked your post.';
       case 'comment':
       case 'new_comment':
@@ -555,8 +557,9 @@ class _NotificationScreenState extends State<NotificationScreen>
 
   void _openPost(dynamic postId, String? postImg) {
     if (postId == null) return;
-    final postData = {
-      'id': postId,
+    final dynamic normalizedId = int.tryParse(postId.toString()) ?? postId;
+    final Map<String, dynamic> postData = {
+      'id': normalizedId,
       if (postImg != null && postImg.isNotEmpty) 'image_url': postImg,
     };
 
@@ -637,19 +640,27 @@ class _NotificationScreenState extends State<NotificationScreen>
                         ),
                       ),
                       const SizedBox(width: 14),
-                      const Text(
-                        'Notifications',
-                        style: TextStyle(
-                          color: Color(0xff1C0D5A),
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.4,
+                      const Expanded(
+                        child: Text(
+                          'Notifications',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Color(0xff1C0D5A),
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.4,
+                          ),
                         ),
                       ),
-                      const Spacer(),
                       if (_notifications.any(
                           NotificationPollingService.isUnreadNotification))
                         TextButton.icon(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
                           onPressed: _markAllAsRead,
                           icon: const Icon(Icons.done_all_rounded, size: 16, color: Color(0xff2B1564)),
                           label: const Text(
@@ -942,8 +953,10 @@ class _NotificationScreenState extends State<NotificationScreen>
     final bool isVerified = notification['actor_is_verified'] == true ||
         notification['actor_is_verified'] == 1 ||
         notification['actor_is_verified'] == 'true';
-    final postImg = notification['post_image_url']?.toString();
-    final postId = notification['post_id'] ?? notification['target_id'];
+    final postImg = (notification['post_image_url'] ?? notification['image_url'])?.toString();
+    final postId = notification['post_id'] ??
+        notification['postId'] ??
+        notification['target_id'];
     final bool isRead = !NotificationPollingService.isUnreadNotification(notification);
     final timeAgo = notification['created_at'] != null
         ? _formatTime(notification['created_at'].toString())
@@ -981,6 +994,7 @@ class _NotificationScreenState extends State<NotificationScreen>
           );
         } else if (postId != null &&
             (type == 'like' ||
+                type == 'post_liked' ||
                 type == 'comment' ||
                 type == 'comment_like' ||
                 type == 'new_like' ||
@@ -988,6 +1002,7 @@ class _NotificationScreenState extends State<NotificationScreen>
                 type == 'new_post' ||
                 type == 'tag' ||
                 type == 'mention' ||
+                type == 'place_discovered' ||
                 type == 'official_hidely_post' ||
                 (postImg != null && postImg.isNotEmpty))) {
           _openPost(postId, postImg);

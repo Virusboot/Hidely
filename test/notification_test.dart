@@ -7,9 +7,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/screens/notification_screen.dart';
+import 'package:hidely_new/screens/single_post_view_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/notification_polling_service.dart';
+import 'package:hidely_new/widgets/post_options_bottom_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _MockResponseConfig {
@@ -558,6 +560,348 @@ void main() {
     expect(find.text('Mountain hiker'), findsOneWidget);
     expect(find.text('You blocked @alice'), findsNothing);
     expect(AuthService().isUserBlockedSync('alice'), isFalse);
+
+    NotificationPollingService().stopPolling();
+  });
+
+  testWidgets('Tapping a like notification hydrates live post details and supports like, bookmark, and comments', (tester) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    bool postIsLiked = false;
+    int postLikesCount = 7;
+    bool postIsBookmarked = false;
+    final List<Map<String, dynamic>> serverComments = [
+      {
+        'id': 1,
+        'text': 'nice view!',
+        'username': 'ankit_sharma',
+        'name': 'Ankit Sharma',
+        'created_at': '2026-11-10T10:00:00.000Z',
+      },
+    ];
+    final List<String> httpCalls = <String>[];
+
+    SharedPreferences.setMockInitialValues({
+      'auth_token': 'valid-jwt',
+      'auth_user': jsonEncode({'id': 24, 'username': 'realharsh', 'name': 'Harsh'}),
+    });
+
+    installFakeHttp((method, uri) {
+      httpCalls.add('$method ${uri.path}');
+      if (uri.path == '/api/notifications') {
+        return _MockResponseConfig(
+          200,
+          jsonEncode({
+            'notifications': [
+              {
+                'id': 200,
+                'type': 'like',
+                'actor_id': 9,
+                'actor_name': 'Ankit Sharma',
+                'actor_username': 'ankit_sharma',
+                'post_id': '101',
+                'post_image_url': 'assets/images/explore_1.png',
+                'text': 'liked your AR capture.',
+                'is_read': false,
+                'created_at': DateTime.now().toIso8601String(),
+              },
+            ],
+            'unread_count': 1,
+          }),
+        );
+      }
+      if (uri.path == '/api/users/following') {
+        return const _MockResponseConfig(200, '{"following":[]}');
+      }
+      if (uri.path == '/api/posts/101' && method == 'GET') {
+        return _MockResponseConfig(
+          200,
+          jsonEncode({
+            'post': {
+              'id': 101,
+              'title': 'Nainital Lake',
+              'location': 'Nainital, Uttarakhand, India',
+              'caption': 'Boat evening at Nainital lake',
+              'image_url': 'assets/images/explore_1.png',
+              'likes_count': postLikesCount,
+              'comments_count': serverComments.length,
+              'shares_count': 2,
+              'is_liked': postIsLiked,
+              'is_bookmarked': postIsBookmarked,
+              'author_id': 24,
+              'author_username': 'realharsh',
+              'author_name': 'Harsh',
+              'author_profile_picture': '',
+            },
+          }),
+        );
+      }
+      if (uri.path == '/api/posts/101/like' && method == 'POST') {
+        postIsLiked = !postIsLiked;
+        postLikesCount += postIsLiked ? 1 : -1;
+        return _MockResponseConfig(
+          200,
+          jsonEncode({
+            'message': postIsLiked ? 'Post liked.' : 'Post unliked.',
+            'is_liked': postIsLiked,
+            'likes_count': postLikesCount,
+          }),
+        );
+      }
+      if (uri.path == '/api/posts/101/bookmark' && method == 'POST') {
+        postIsBookmarked = !postIsBookmarked;
+        return _MockResponseConfig(
+          200,
+          jsonEncode({
+            'message': postIsBookmarked ? 'Post bookmarked.' : 'Bookmark removed.',
+            'is_bookmarked': postIsBookmarked,
+          }),
+        );
+      }
+      if (uri.path == '/api/posts/101/comments' && method == 'GET') {
+        return _MockResponseConfig(
+          200,
+          jsonEncode({'comments': serverComments}),
+        );
+      }
+      if (uri.path == '/api/posts/101/comment' && method == 'POST') {
+        final created = {
+          'id': 2,
+          'text': 'Awesome lake photo!',
+          'username': 'realharsh',
+          'name': 'Harsh',
+          'created_at': DateTime.now().toIso8601String(),
+        };
+        serverComments.add(created);
+        return _MockResponseConfig(
+          201,
+          jsonEncode({
+            'message': 'Comment added.',
+            'comment': created,
+          }),
+        );
+      }
+      return const _MockResponseConfig(200, '{}');
+    });
+
+    await AuthService().init();
+    await tester.pumpWidget(const MaterialApp(home: NotificationScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText().contains('Ankit Sharma')), findsOneWidget);
+
+    // Tap notification tile -> navigates to SinglePostViewScreen and hydrates post 101
+    await tester.tap(find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText().contains('Ankit Sharma')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SinglePostViewScreen), findsOneWidget);
+    expect(httpCalls.contains('GET /api/posts/101'), isTrue);
+
+    // Hydrated live post data renders accurately (not 0 likes / Unknown)
+    expect(find.text('7'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('Unknown'), findsNothing);
+    expect(find.text('Uttarakhand'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText().contains('Boat evening at Nainital lake')),
+      findsOneWidget,
+    );
+
+    // Tap like button -> increments from 7 to 8 and calls POST /api/posts/101/like
+    await tester.ensureVisible(find.byKey(const ValueKey('single_post_like_0')));
+    await tester.tap(find.byKey(const ValueKey('single_post_like_0')));
+    await tester.pumpAndSettle();
+    expect(httpCalls.contains('POST /api/posts/101/like'), isTrue);
+    expect(find.text('8'), findsOneWidget);
+    expect(find.byIcon(Icons.favorite), findsOneWidget);
+
+    // Double tap on post image -> unlikes back to 7
+    await tester.ensureVisible(find.byType(InteractiveViewer));
+    await tester.tap(find.byType(InteractiveViewer));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.byType(InteractiveViewer));
+    await tester.pumpAndSettle();
+    expect(find.text('7'), findsOneWidget);
+
+    // Tap bookmark -> switches icon to filled Icons.bookmark
+    await tester.ensureVisible(find.byKey(const ValueKey('single_post_bookmark_0')));
+    expect(find.byIcon(Icons.bookmark_border_rounded), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('single_post_bookmark_0')));
+    await tester.pumpAndSettle();
+    expect(httpCalls.contains('POST /api/posts/101/bookmark'), isTrue);
+    expect(find.byIcon(Icons.bookmark), findsOneWidget);
+
+    // Open comments, add a comment, and verify comment count updates from 1 to 2
+    await tester.ensureVisible(find.byKey(const ValueKey('single_post_comment_0')));
+    await tester.tap(find.byKey(const ValueKey('single_post_comment_0')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is RichText && w.text.toPlainText().contains('nice view!'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.enterText(find.byType(TextField), 'Awesome lake photo!');
+    await tester.pump();
+    await tester.tap(find.text('Post'));
+    await tester.pumpAndSettle();
+    expect(httpCalls.contains('POST /api/posts/101/comment'), isTrue);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is RichText && w.text.toPlainText().contains('Awesome lake photo!'),
+      ),
+      findsOneWidget,
+    );
+
+    // Close comment sheet and confirm hydrated count stays at 2
+    Navigator.of(tester.element(find.text('Comments'))).pop();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('single_post_comment_0')));
+    final commentRowText = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const ValueKey('single_post_comment_0')),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(commentRowText.data, '2');
+
+    NotificationPollingService().stopPolling();
+  });
+
+  testWidgets('SinglePostViewScreen rolls back like with SnackBar on server error and shows Unavailable on 404', (tester) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    SharedPreferences.setMockInitialValues({
+      'auth_token': 'valid-jwt',
+      'auth_user': jsonEncode({'id': 24, 'username': 'realharsh', 'name': 'Harsh'}),
+    });
+
+    installFakeHttp((method, uri) {
+      if (uri.path == '/api/posts/202' && method == 'GET') {
+        return _MockResponseConfig(
+          200,
+          jsonEncode({
+            'post': {
+              'id': '202',
+              'location': 'Manali, India',
+              'caption': 'Snowy pass',
+              'image_url': 'assets/images/explore_2.png',
+              'likes_count': 4,
+              'comments_count': 0,
+              'shares_count': 0,
+              'is_liked': false,
+              'is_bookmarked': false,
+              'author_id': 88,
+              'author_username': 'mountain_nomad',
+            },
+          }),
+        );
+      }
+      if (uri.path == '/api/posts/202/like' && method == 'POST') {
+        return const _MockResponseConfig(500, '{"error":"Database failure"}');
+      }
+      if (uri.path == '/api/posts/404' && method == 'GET') {
+        return const _MockResponseConfig(404, '{"error":"Post not found."}');
+      }
+      return const _MockResponseConfig(200, '{}');
+    });
+
+    await AuthService().init();
+
+    // Case 1: 500 error on toggleLike rolls back count from 5 -> 4 and shows SnackBar
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SinglePostViewScreen(
+          key: ValueKey('post_202'),
+          posts: [
+            {'id': '202', 'image_url': 'assets/images/explore_2.png'},
+          ],
+          initialIndex: 0,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('4'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('single_post_like_0')));
+    await tester.tap(find.byKey(const ValueKey('single_post_like_0')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('4'), findsOneWidget);
+    expect(find.text('Database failure'), findsOneWidget);
+
+    // Case 2: 404 stub post shows Post Unavailable state cleanly instead of fake 0 / Unknown
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SinglePostViewScreen(
+          key: ValueKey('post_404'),
+          posts: [
+            {'id': 404},
+          ],
+          initialIndex: 0,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Post Unavailable'), findsOneWidget);
+    expect(find.text('This post has been deleted or is no longer available.'), findsOneWidget);
+    expect(find.text('Go Back'), findsOneWidget);
+
+    NotificationPollingService().stopPolling();
+  });
+
+  testWidgets('PostOptionsBottomSheet Save toggles and persists is_bookmarked state', (tester) async {
+    bool serverSaved = false;
+    final Map<String, dynamic> post = {
+      'id': 303,
+      'author_id': 99,
+      'author_username': 'travel_pal',
+      'is_bookmarked': false,
+    };
+
+    SharedPreferences.setMockInitialValues({
+      'auth_token': 'valid-jwt',
+      'auth_user': jsonEncode({'id': 24, 'username': 'realharsh', 'name': 'Harsh'}),
+    });
+
+    installFakeHttp((method, uri) {
+      if (uri.path == '/api/posts/303/bookmark' && method == 'POST') {
+        serverSaved = !serverSaved;
+        return _MockResponseConfig(
+          200,
+          jsonEncode({'is_bookmarked': serverSaved}),
+        );
+      }
+      return const _MockResponseConfig(200, '{}');
+    });
+
+    await AuthService().init();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PostOptionsBottomSheet(post: post),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Save'), findsOneWidget);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(serverSaved, isTrue);
+    expect(post['is_bookmarked'], isTrue);
+    expect(post['is_saved'], isTrue);
+    expect(find.text('Saved'), findsOneWidget);
 
     NotificationPollingService().stopPolling();
   });

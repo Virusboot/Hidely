@@ -31,7 +31,10 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
   @override
   void initState() {
     super.initState();
-    _isSaved = widget.post['is_saved'] == true || widget.post['isSaved'] == true;
+    _isSaved = widget.post['is_bookmarked'] == true ||
+        widget.post['isBookmarked'] == true ||
+        widget.post['is_saved'] == true ||
+        widget.post['isSaved'] == true;
     _isFollowing = widget.post['is_following'] == true ||
         widget.post['isFollowing'] == true ||
         widget.post['author_is_following'] == true;
@@ -99,19 +102,30 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
   }
 
   void _toggleSave() {
+    if (AuthService().isGuest) {
+      Navigator.pop(context);
+      showLoginRequiredSheet(context, reason: 'save this post');
+      return;
+    }
+
+    final bool prevSaved = _isSaved;
+    final bool nextSaved = !prevSaved;
     setState(() {
-      _isSaved = !_isSaved;
-      widget.post['is_saved'] = _isSaved;
-      widget.post['isSaved'] = _isSaved;
+      _isSaved = nextSaved;
+      widget.post['is_bookmarked'] = nextSaved;
+      widget.post['isBookmarked'] = nextSaved;
+      widget.post['is_saved'] = nextSaved;
+      widget.post['isSaved'] = nextSaved;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            Icon(_isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded, color: Colors.white, size: 20),
+            Icon(nextSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded, color: Colors.white, size: 20),
             const SizedBox(width: 10),
-            Text(_isSaved ? "Saved to your bookmarks!" : "Removed from bookmarks."),
+            Text(nextSaved ? "Saved to your bookmarks!" : "Removed from bookmarks."),
           ],
         ),
         behavior: SnackBarBehavior.floating,
@@ -121,6 +135,34 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
         duration: const Duration(seconds: 2),
       ),
     );
+
+    final rawId = widget.post['id'];
+    final int? parsedPostId = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
+    if (parsedPostId != null) {
+      final token = AuthService().token ?? '';
+      ApiService().toggleBookmarkPost(token: token, postId: parsedPostId).then((res) {
+        if (!mounted) return;
+        if (res.success) {
+          final bool serverSaved = res.data?['is_bookmarked'] == true ||
+              (res.data?['is_bookmarked'] == null && nextSaved);
+          setState(() {
+            _isSaved = serverSaved;
+            widget.post['is_bookmarked'] = serverSaved;
+            widget.post['isBookmarked'] = serverSaved;
+            widget.post['is_saved'] = serverSaved;
+            widget.post['isSaved'] = serverSaved;
+          });
+        } else {
+          setState(() {
+            _isSaved = prevSaved;
+            widget.post['is_bookmarked'] = prevSaved;
+            widget.post['isBookmarked'] = prevSaved;
+            widget.post['is_saved'] = prevSaved;
+            widget.post['isSaved'] = prevSaved;
+          });
+        }
+      });
+    }
   }
 
   void _downloadToGallery() {

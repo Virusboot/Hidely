@@ -496,12 +496,14 @@ class NotificationPollingService with WidgetsBindingObserver {
 
       if ((type == 'like' ||
               type == 'new_like' ||
+              type == 'post_liked' ||
               type == 'comment' ||
               type == 'new_comment' ||
               type == 'comment_like' ||
               type == 'new_post' ||
               type == 'tag' ||
               type == 'mention' ||
+              type == 'place_discovered' ||
               type == 'official_hidely_post') &&
           postIdInt != null) {
         showDialog(

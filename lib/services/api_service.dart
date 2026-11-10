@@ -703,21 +703,24 @@ class ApiService {
         headers: {
           'Authorization': 'Bearer $token',
         },
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 25));
 
-      final body = jsonDecode(response.body);
+      final body = _decodeJsonMap(response.body);
 
       if (response.statusCode == 200) {
         return ApiResult(
           success: true,
-          message: body['message'] ?? 'Like toggled.',
+          message: body['message']?.toString() ?? 'Like toggled.',
           data: body,
+          statusCode: response.statusCode,
         );
       } else {
         return ApiResult(
           success: false,
-          message: body['error'] ?? 'Like action failed.',
-          error: body['error'],
+          message: body['error']?.toString() ?? 'Like action failed (HTTP ${response.statusCode}).',
+          error: body['error']?.toString() ?? 'HTTP ${response.statusCode}',
+          data: body,
+          statusCode: response.statusCode,
         );
       }
     } catch (e) {
@@ -930,21 +933,24 @@ class ApiService {
         headers: {
           'Authorization': 'Bearer $token',
         },
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 25));
 
-      final body = jsonDecode(response.body);
+      final body = _decodeJsonMap(response.body);
 
       if (response.statusCode == 200) {
         return ApiResult(
           success: true,
-          message: body['message'] ?? 'Bookmark toggled.',
+          message: body['message']?.toString() ?? 'Bookmark toggled.',
           data: body,
+          statusCode: response.statusCode,
         );
       } else {
         return ApiResult(
           success: false,
-          message: body['error'] ?? 'Bookmark action failed.',
-          error: body['error'],
+          message: body['error']?.toString() ?? 'Bookmark action failed (HTTP ${response.statusCode}).',
+          error: body['error']?.toString() ?? 'HTTP ${response.statusCode}',
+          data: body,
+          statusCode: response.statusCode,
         );
       }
     } catch (e) {
@@ -1403,12 +1409,23 @@ class ApiService {
         headers: {
           'Authorization': 'Bearer $token',
         },
-      ).timeout(const Duration(seconds: 15));
-      final body = jsonDecode(response.body);
+      ).timeout(const Duration(seconds: 25));
+      final body = _decodeJsonMap(response.body);
       if (response.statusCode == 200) {
-        return ApiResult(success: true, message: 'Follow state toggled.', data: body);
+        return ApiResult(
+          success: true,
+          message: 'Follow state toggled.',
+          data: body,
+          statusCode: response.statusCode,
+        );
       } else {
-        return ApiResult(success: false, message: body['error'] ?? 'Failed to toggle follow.', error: body['error']);
+        return ApiResult(
+          success: false,
+          message: body['error']?.toString() ?? 'Failed to toggle follow (HTTP ${response.statusCode}).',
+          error: body['error']?.toString(),
+          data: body,
+          statusCode: response.statusCode,
+        );
       }
     } catch (e) {
       return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
@@ -1614,19 +1631,33 @@ class ApiService {
   /// Get a single post by ID
   Future<ApiResult> getPostById({required int postId, String? token}) async {
     try {
+      final effectiveToken = (token != null && token.isNotEmpty)
+          ? token
+          : (token == null ? AuthService().token : null);
       final headers = <String, String>{};
-      if (token != null && token.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $token';
+      if (effectiveToken != null && effectiveToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $effectiveToken';
       }
       final response = await _client.get(
         Uri.parse('$baseUrl/api/posts/$postId'),
         headers: headers,
-      ).timeout(const Duration(seconds: 15));
-      final body = jsonDecode(response.body);
+      ).timeout(const Duration(seconds: 25));
+      final body = _decodeJsonMap(response.body);
       if (response.statusCode == 200) {
-        return ApiResult(success: true, message: 'Post loaded.', data: body);
+        return ApiResult(
+          success: true,
+          message: 'Post loaded.',
+          data: body,
+          statusCode: response.statusCode,
+        );
       } else {
-        return ApiResult(success: false, message: body['error'] ?? 'Failed to load post.', error: body['error']);
+        return ApiResult(
+          success: false,
+          message: body['error']?.toString() ?? 'Failed to load post (HTTP ${response.statusCode}).',
+          error: body['error']?.toString() ?? 'HTTP ${response.statusCode}',
+          data: body,
+          statusCode: response.statusCode,
+        );
       }
     } catch (e) {
       return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());

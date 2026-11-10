@@ -101,7 +101,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
     HapticFeedback.lightImpact();
     final bool currentLiked = post["is_liked"] == true || post["isLiked"] == true;
-    final int currentCount = (post["likes_count"] ?? post["likes"] ?? 0) as int;
+    final int currentCount = int.tryParse('${post["likes_count"] ?? post["likes"] ?? 0}') ?? 0;
     final int nextCount = currentLiked ? (currentCount > 0 ? currentCount - 1 : 0) : currentCount + 1;
 
     setState(() {
@@ -112,9 +112,10 @@ class _FeedScreenState extends State<FeedScreen> {
     });
 
     final id = post["id"];
-    if (id is int) {
+    final int? parsedId = id is int ? id : int.tryParse(id?.toString() ?? '');
+    if (parsedId != null) {
       final token = AuthService().token ?? '';
-      ApiService().toggleLikePost(token: token, postId: id).then((result) {
+      ApiService().toggleLikePost(token: token, postId: parsedId).then((result) {
         if (result.success && mounted) {
           setState(() {
             post["is_liked"] = result.data?["is_liked"] ?? !currentLiked;
@@ -129,6 +130,18 @@ class _FeedScreenState extends State<FeedScreen> {
             post["likes_count"] = currentCount;
             post["likes"] = currentCount;
           });
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                result.isUnauthorized
+                    ? 'Session expired. Please log in again.'
+                    : (result.message.isNotEmpty ? result.message : 'Failed to update like.'),
+              ),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
         }
       });
     }
@@ -141,26 +154,38 @@ class _FeedScreenState extends State<FeedScreen> {
     }
 
     HapticFeedback.lightImpact();
-    final bool currentSaved = post["is_bookmarked"] == true || post["isBookmarked"] == true;
+    final bool currentSaved = post["is_bookmarked"] == true ||
+        post["isBookmarked"] == true ||
+        post["is_saved"] == true ||
+        post["isSaved"] == true;
 
     setState(() {
       post["is_bookmarked"] = !currentSaved;
       post["isBookmarked"] = !currentSaved;
+      post["is_saved"] = !currentSaved;
+      post["isSaved"] = !currentSaved;
     });
 
     final id = post["id"];
-    if (id is int) {
+    final int? parsedId = id is int ? id : int.tryParse(id?.toString() ?? '');
+    if (parsedId != null) {
       final token = AuthService().token ?? '';
-      ApiService().toggleBookmarkPost(token: token, postId: id).then((result) {
+      ApiService().toggleBookmarkPost(token: token, postId: parsedId).then((result) {
         if (result.success && mounted) {
+          final bool saved = result.data?["is_bookmarked"] == true ||
+              (result.data?["is_bookmarked"] == null && !currentSaved);
           setState(() {
-            post["is_bookmarked"] = result.data?["is_bookmarked"] ?? !currentSaved;
-            post["isBookmarked"] = result.data?["is_bookmarked"] ?? !currentSaved;
+            post["is_bookmarked"] = saved;
+            post["isBookmarked"] = saved;
+            post["is_saved"] = saved;
+            post["isSaved"] = saved;
           });
         } else if (!result.success && mounted) {
           setState(() {
             post["is_bookmarked"] = currentSaved;
             post["isBookmarked"] = currentSaved;
+            post["is_saved"] = currentSaved;
+            post["isSaved"] = currentSaved;
           });
         }
       });
@@ -208,6 +233,21 @@ class _FeedScreenState extends State<FeedScreen> {
   void removePostLocally(int postId) {
     setState(() {
       _feedPosts.removeWhere((p) => p['id'] == postId || p['id']?.toString() == postId.toString());
+    });
+  }
+
+  void syncPostLocally(Map<String, dynamic> updatedPost) {
+    final targetId = updatedPost['id']?.toString();
+    if (targetId == null || targetId.isEmpty || !mounted) return;
+    setState(() {
+      for (int i = 0; i < _feedPosts.length; i++) {
+        final item = _feedPosts[i];
+        if (item is Map && item['id']?.toString() == targetId) {
+          final merged = Map<String, dynamic>.from(item);
+          merged.addAll(updatedPost);
+          _feedPosts[i] = merged;
+        }
+      }
     });
   }
 
@@ -995,7 +1035,11 @@ class _FeedScreenState extends State<FeedScreen> {
                     showLoginRequiredSheet(context, reason: 'comment on a post');
                     return;
                   }
-                  _openCommentSheet(context, postId: id is int ? id : null, post: post);
+                  _openCommentSheet(
+                    context,
+                    postId: id is int ? id : int.tryParse(id?.toString() ?? ''),
+                    post: post,
+                  );
                 },
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1057,7 +1101,14 @@ class _FeedScreenState extends State<FeedScreen> {
         postId: postId,
         onCommentAdded: () {
           setState(() {
-            post["comments_count"] = (post["comments_count"] ?? 0) + 1;
+            final currentComments = int.tryParse('${post["comments_count"] ?? 0}') ?? 0;
+            post["comments_count"] = currentComments + 1;
+          });
+        },
+        onCommentDeleted: () {
+          setState(() {
+            final currentComments = int.tryParse('${post["comments_count"] ?? 0}') ?? 0;
+            post["comments_count"] = currentComments > 0 ? currentComments - 1 : 0;
           });
         },
       ),
@@ -1083,7 +1134,13 @@ class _FeedScreenState extends State<FeedScreen> {
 class CommentSheetWidget extends StatefulWidget {
   final int? postId;
   final VoidCallback? onCommentAdded;
-  const CommentSheetWidget({super.key, this.postId, this.onCommentAdded});
+  final VoidCallback? onCommentDeleted;
+  const CommentSheetWidget({
+    super.key,
+    this.postId,
+    this.onCommentAdded,
+    this.onCommentDeleted,
+  });
 
   @override
   State<CommentSheetWidget> createState() => _CommentSheetWidgetState();
@@ -1323,7 +1380,7 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
         setState(() {
           _comments.removeAt(index);
         });
-        widget.onCommentAdded?.call();
+        widget.onCommentDeleted?.call();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Comment deleted."),
