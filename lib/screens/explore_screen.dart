@@ -749,20 +749,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                       color: isSelected ? const Color(0xff2B1564) : const Color(0xffF1F5F9),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(AppCategories.getEmoji(cat), style: const TextStyle(fontSize: 13)),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          cat,
-                                          style: TextStyle(
-                                            color: isSelected ? Colors.white : const Color(0xff1C0D5A).withOpacity(0.7),
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
+                                    child: Text(
+                                      cat,
+                                      style: TextStyle(
+                                        color: isSelected ? Colors.white : const Color(0xff1C0D5A).withOpacity(0.7),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                 );
@@ -1402,17 +1395,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildQuickCategorySelector() {
-    // Construct tabs shown below the Search Bar:
+    // Construct text-only tabs shown below the Search Bar:
     // 1. "All" tab (active only when neither category nor city filters are set)
-    // 2. Active City filter tabs (e.g. 📍 Nainital x)
+    // 2. Active City filter tabs
     // 3. Category tabs (selected categories pinned first when applied from Filter Sheet or multi-selected)
     final List<Map<String, String>> tabItems = [
-      {'type': 'all', 'value': 'All', 'label': 'All', 'emoji': AppCategories.getEmoji('All')},
+      {'type': 'all', 'value': 'All', 'label': 'All'},
     ];
 
     for (final city in _selectedCities) {
       if (city != "All") {
-        tabItems.add({'type': 'city', 'value': city, 'label': city, 'emoji': '📍'});
+        tabItems.add({'type': 'city', 'value': city, 'label': city});
       }
     }
 
@@ -1421,17 +1414,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     if (bringSelectedCatsFirst && activeCats.isNotEmpty) {
       for (final cat in activeCats) {
-        tabItems.add({'type': 'category', 'value': cat, 'label': cat, 'emoji': AppCategories.getEmoji(cat)});
+        tabItems.add({'type': 'category', 'value': cat, 'label': cat});
       }
       for (final cat in _categories) {
         if (cat != "All" && !activeCats.contains(cat)) {
-          tabItems.add({'type': 'category', 'value': cat, 'label': cat, 'emoji': AppCategories.getEmoji(cat)});
+          tabItems.add({'type': 'category', 'value': cat, 'label': cat});
         }
       }
     } else {
       for (final cat in _categories) {
         if (cat != "All") {
-          tabItems.add({'type': 'category', 'value': cat, 'label': cat, 'emoji': AppCategories.getEmoji(cat)});
+          tabItems.add({'type': 'category', 'value': cat, 'label': cat});
         }
       }
     }
@@ -1450,15 +1443,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
           final String type = item['type']!;
           final String value = item['value']!;
           final String label = item['label']!;
-          final String emoji = item['emoji']!;
 
           final bool isSelected = type == 'all'
               ? !_hasActiveFilters
               : type == 'city'
                   ? true
                   : _selectedCategories.contains(value);
-
-          final bool showRemoveIcon = isSelected && type != 'all';
 
           return Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -1511,12 +1501,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: EdgeInsets.only(
-                  left: 14,
-                  right: showRemoveIcon ? 10 : 14,
-                  top: 6,
-                  bottom: 6,
-                ),
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 decoration: BoxDecoration(
                   gradient: isSelected
                       ? const LinearGradient(
@@ -1545,31 +1531,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           )
                         ],
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(emoji, style: const TextStyle(fontSize: 13)),
-                    const SizedBox(width: 6),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xFF1C0D5A),
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    if (showRemoveIcon) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.25),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.close_rounded, size: 12, color: Colors.white),
-                      ),
-                    ],
-                  ],
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : const Color(0xFF1C0D5A),
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ),
