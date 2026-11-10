@@ -27,8 +27,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   List<String> _selectedCategories = ["All"]; 
 
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _categoryScrollController = ScrollController();
   String _searchQuery = "";
-  bool _isSearchFieldHidden = false;
+  bool _pinSelectedCategoriesToFront = false;
 
   bool get _hasActiveFilters {
     final hasCategory = _selectedCategories.isNotEmpty && !_selectedCategories.contains("All");
@@ -36,22 +37,19 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return hasCategory || hasCity;
   }
 
-  List<Map<String, String>> get _activeFilterTags {
-    final List<Map<String, String>> tags = [];
+  int get _activeFilterCount {
+    int count = 0;
     for (final cat in _selectedCategories) {
-      if (cat != "All") {
-        tags.add({'type': 'category', 'value': cat, 'label': '${AppCategories.getEmoji(cat)} $cat'});
-      }
+      if (cat != "All") count++;
     }
     for (final city in _selectedCities) {
-      if (city != "All") {
-        tags.add({'type': 'city', 'value': city, 'label': '📍 $city'});
-      }
+      if (city != "All") count++;
     }
-    return tags;
+    return count;
   }
 
   void _removeFilterTag(String type, String value) {
+    final bool hadSearch = _searchQuery.isNotEmpty;
     setState(() {
       if (type == 'category') {
         _selectedCategories.remove(value);
@@ -61,20 +59,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
         if (_selectedCities.isEmpty) _selectedCities = ["All"];
       }
 
-      if (!_hasActiveFilters) {
-        _isSearchFieldHidden = false;
+      if (_selectedCategories.contains("All")) {
+        _pinSelectedCategoriesToFront = false;
+      }
+
+      if (hadSearch) {
+        _searchController.clear();
+        _searchQuery = "";
+        _searchResultsUsers = [];
+        if (_cachedExplorePosts.isNotEmpty) {
+          _allPosts = List.from(_cachedExplorePosts);
+        }
       }
       _applyLocalFiltersAndSorting();
     });
-  }
-
-  void _clearAllFilters() {
-    setState(() {
-      _selectedCategories = ["All"];
-      _selectedCities = ["All"];
-      _isSearchFieldHidden = false;
-      _applyLocalFiltersAndSorting();
-    });
+    if (hadSearch) {
+      _fetchExplorePosts();
+    }
   }
 
   List<String> _selectedCities = ["All"];
@@ -358,6 +359,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _categoryScrollController.dispose();
     _debounceTimer?.cancel();
     super.dispose();
   }
@@ -489,8 +491,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
     if (!_selectedCities.contains("All") && _selectedCities.isNotEmpty) {
       posts = posts.where((p) {
-        final loc = (p['location'] ?? '').toString();
-        return _selectedCities.any((city) => loc.contains(city));
+        final loc = (p['location'] ?? '').toString().toLowerCase();
+        return _selectedCities.any((city) => loc.contains(city.toLowerCase()));
       }).toList();
     }
 
@@ -562,31 +564,37 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
 
     final token = AuthService().token;
+    final String queryAtFetch = _searchQuery.trim();
 
     final result = await ApiService().getExplorePosts(
       category: null, // Fetch all to allow local multi-filtering
       city: null, // Fetch all to allow local multi-filtering
-      search: _searchQuery.isNotEmpty ? _searchQuery : null,
+      search: queryAtFetch.isNotEmpty ? queryAtFetch : null,
       sortBy: null,
       token: token,
     );
 
     List<dynamic> users = [];
-    if (_searchQuery.trim().isNotEmpty) {
-      final userRes = await ApiService().searchUsers(query: _searchQuery.trim());
+    if (queryAtFetch.isNotEmpty) {
+      final userRes = await ApiService().searchUsers(query: queryAtFetch);
       if (userRes.success) {
         users = userRes.data?['users'] as List? ?? [];
       }
     }
 
     if (mounted) {
+      // Ignore stale response if search query changed while fetching
+      if (_searchQuery.trim() != queryAtFetch) return;
+
       setState(() {
         _isLoading = false;
         _searchResultsUsers = users;
 
         if (result.success) {
           final serverPosts = result.data?['posts'] as List? ?? [];
-          if (serverPosts.isNotEmpty) {
+          if (queryAtFetch.isNotEmpty) {
+            _allPosts = serverPosts;
+          } else if (serverPosts.isNotEmpty) {
             _allPosts = serverPosts;
             _cachedExplorePosts = serverPosts;
             SharedPreferences.getInstance().then((prefs) {
@@ -595,20 +603,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
           }
         }
 
-        // If server failed or was empty and _allPosts is still empty, seed with curated fallback
-        if (_allPosts.isEmpty) {
+        // If server failed or was empty and _allPosts is still empty (and not actively searching), seed with curated fallback
+        if (_allPosts.isEmpty && queryAtFetch.isEmpty) {
           _allPosts = List.from(_defaultCuratedExplorePosts);
         }
 
         _applyLocalFiltersAndSorting();
       });
     }
-  }
-
-  void _filterPosts() {
-    setState(() {
-      _applyLocalFiltersAndSorting();
-    });
   }
 
   void _showFilterSheet(BuildContext context) {
@@ -861,25 +863,34 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         ),
                         onPressed: () {
                           final hasActiveCategory = localCategories.isNotEmpty && !localCategories.contains("All");
-                          final hasActiveCity = localCities.isNotEmpty && !localCities.contains("All");
-                          final hasFilters = hasActiveCategory || hasActiveCity;
 
                           setState(() {
                             _selectedCategories = List.from(localCategories);
                             _selectedCities = List.from(localCities);
+                            _pinSelectedCategoriesToFront = hasActiveCategory;
 
-                            if (hasFilters) {
-                              // Clear search field & hide it when filter tags are used
-                              _searchController.clear();
-                              _searchQuery = "";
-                              _isSearchFieldHidden = true;
-                            } else {
-                              _isSearchFieldHidden = false;
+                            // Clear search bar text & results when applying filters
+                            _searchController.clear();
+                            _searchQuery = "";
+                            _searchResultsUsers = [];
+                            if (_cachedExplorePosts.isNotEmpty) {
+                              _allPosts = List.from(_cachedExplorePosts);
                             }
+                            _applyLocalFiltersAndSorting();
                           });
                           FocusScope.of(context).unfocus();
                           _fetchExplorePosts(showLoading: true);
                           Navigator.pop(context);
+
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (_categoryScrollController.hasClients) {
+                              _categoryScrollController.animateTo(
+                                0.0,
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeOutCubic,
+                              );
+                            }
+                          });
                         },
                         child: const Text(
                           "Apply Filters",
@@ -925,15 +936,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
             children: [
               const SizedBox(height: 12),
 
-              // --- 1. SEARCH BAR OR ACTIVE FILTERS BAR ---
+              // --- 1. SEARCH BAR & FILTER BUTTON ---
               Padding(
                 padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 6.0, bottom: 6.0),
-                child: _isSearchFieldHidden && _hasActiveFilters
-                    ? _buildActiveFiltersHeader()
-                    : _buildSearchBarRow(),
+                child: _buildSearchBarRow(),
               ),
 
-              // --- Quick Category Horizontal Pill Bar ---
+              // --- Quick Category & Filter Tags Horizontal Tabs Bar ---
               _buildQuickCategorySelector(),
 
               // --- Instagram-Style Professional Search Results List ---
@@ -963,8 +972,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                     setState(() {
                                       _searchController.clear();
                                       _searchQuery = "";
+                                      _searchResultsUsers = [];
                                       _selectedCategories = ["All"];
                                       _selectedCities = ["All"];
+                                      _pinSelectedCategoriesToFront = false;
+                                      if (_cachedExplorePosts.isNotEmpty) {
+                                        _allPosts = List.from(_cachedExplorePosts);
+                                      }
                                       _applyLocalFiltersAndSorting();
                                     });
                                     _fetchExplorePosts(showLoading: true);
@@ -1254,6 +1268,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
               onChanged: (val) {
                 setState(() {
                   _searchQuery = val;
+                  if (val.trim().isEmpty) {
+                    _searchResultsUsers = [];
+                    if (_cachedExplorePosts.isNotEmpty) {
+                      _allPosts = List.from(_cachedExplorePosts);
+                    }
+                    _applyLocalFiltersAndSorting();
+                  }
                 });
                 if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
                 _debounceTimer = Timer(const Duration(milliseconds: 500), () {
@@ -1296,6 +1317,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           _searchController.clear();
                           setState(() {
                             _searchQuery = "";
+                            _searchResultsUsers = [];
+                            if (_cachedExplorePosts.isNotEmpty) {
+                              _allPosts = List.from(_cachedExplorePosts);
+                            }
+                            _applyLocalFiltersAndSorting();
                           });
                           _fetchExplorePosts();
                         },
@@ -1359,7 +1385,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: Text(
-                      '${_activeFilterTags.length}',
+                      '$_activeFilterCount',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 9.5,
@@ -1375,203 +1401,122 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  Widget _buildActiveFiltersHeader() {
-    final activeTags = _activeFilterTags;
-
-    return Row(
-      children: [
-        // 1. Container showing Active Filter Tags with Search Icon to re-open search
-        Expanded(
-          child: Container(
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                // Tap Search Icon to re-open/show search field
-                Tooltip(
-                  message: "Search",
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () {
-                      setState(() {
-                        _isSearchFieldHidden = false;
-                      });
-                      Future.delayed(const Duration(milliseconds: 100), () {
-                        if (mounted) _searchFocusNode.requestFocus();
-                      });
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                      child: Icon(Icons.search, color: Color(0xff1C0D5A), size: 20),
-                    ),
-                  ),
-                ),
-                // Horizontal scroll of active filter chips
-                Expanded(
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(vertical: 7),
-                    itemCount: activeTags.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 6),
-                    itemBuilder: (context, index) {
-                      final tag = activeTags[index];
-                      return Container(
-                        padding: const EdgeInsets.only(left: 10, right: 6),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF2B1564), Color(0xFF5D3EBC)],
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              tag['label']!,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => _removeFilterTag(tag['type']!, tag['value']!),
-                              child: Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.25),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.close_rounded, size: 12, color: Colors.white),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                // "Clear" text button
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _clearAllFilters,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Text(
-                      "Clear",
-                      style: TextStyle(
-                        color: Colors.red.shade400,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-
-        // 2. Filter Button with Active Filter Count Badge
-        GestureDetector(
-          onTap: () => _showFilterSheet(context),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xff2B1564),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xff2B1564).withOpacity(0.25),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.tune_rounded, color: Colors.white, size: 22),
-              ),
-              Positioned(
-                top: -3,
-                right: -3,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFEF4444),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Text(
-                    '${activeTags.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildQuickCategorySelector() {
+    // Construct tabs shown below the Search Bar:
+    // 1. "All" tab (active only when neither category nor city filters are set)
+    // 2. Active City filter tabs (e.g. 📍 Nainital x)
+    // 3. Category tabs (selected categories pinned first when applied from Filter Sheet or multi-selected)
+    final List<Map<String, String>> tabItems = [
+      {'type': 'all', 'value': 'All', 'label': 'All', 'emoji': AppCategories.getEmoji('All')},
+    ];
+
+    for (final city in _selectedCities) {
+      if (city != "All") {
+        tabItems.add({'type': 'city', 'value': city, 'label': city, 'emoji': '📍'});
+      }
+    }
+
+    final List<String> activeCats = _selectedCategories.where((c) => c != "All").toList();
+    final bool bringSelectedCatsFirst = _pinSelectedCategoriesToFront || activeCats.length > 1;
+
+    if (bringSelectedCatsFirst && activeCats.isNotEmpty) {
+      for (final cat in activeCats) {
+        tabItems.add({'type': 'category', 'value': cat, 'label': cat, 'emoji': AppCategories.getEmoji(cat)});
+      }
+      for (final cat in _categories) {
+        if (cat != "All" && !activeCats.contains(cat)) {
+          tabItems.add({'type': 'category', 'value': cat, 'label': cat, 'emoji': AppCategories.getEmoji(cat)});
+        }
+      }
+    } else {
+      for (final cat in _categories) {
+        if (cat != "All") {
+          tabItems.add({'type': 'category', 'value': cat, 'label': cat, 'emoji': AppCategories.getEmoji(cat)});
+        }
+      }
+    }
+
     return Container(
       height: 40,
       margin: const EdgeInsets.only(top: 8, bottom: 6),
       child: ListView.builder(
+        controller: _categoryScrollController,
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _categories.length,
+        itemCount: tabItems.length,
         itemBuilder: (context, index) {
-          final cat = _categories[index];
-          final bool isSelected = _selectedCategories.contains(cat);
-          final emoji = AppCategories.getEmoji(cat);
+          final item = tabItems[index];
+          final String type = item['type']!;
+          final String value = item['value']!;
+          final String label = item['label']!;
+          final String emoji = item['emoji']!;
+
+          final bool isSelected = type == 'all'
+              ? !_hasActiveFilters
+              : type == 'city'
+                  ? true
+                  : _selectedCategories.contains(value);
+
+          final bool showRemoveIcon = isSelected && type != 'all';
 
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: GestureDetector(
               onTap: () {
-                setState(() {
-                  if (cat == "All") {
+                if (type == 'all') {
+                  final bool hadSearch = _searchQuery.isNotEmpty;
+                  setState(() {
                     _selectedCategories = ["All"];
+                    _selectedCities = ["All"];
+                    _pinSelectedCategoriesToFront = false;
+                    if (hadSearch) {
+                      _searchController.clear();
+                      _searchQuery = "";
+                      _searchResultsUsers = [];
+                      if (_cachedExplorePosts.isNotEmpty) {
+                        _allPosts = List.from(_cachedExplorePosts);
+                      }
+                    }
+                    _applyLocalFiltersAndSorting();
+                  });
+                  if (hadSearch) {
+                    _fetchExplorePosts();
+                  }
+                } else if (type == 'city') {
+                  _removeFilterTag('city', value);
+                } else {
+                  if (isSelected) {
+                    _removeFilterTag('category', value);
                   } else {
-                    if (isSelected && _selectedCategories.length == 1) {
-                      _selectedCategories = ["All"];
-                    } else {
-                      _selectedCategories = [cat];
+                    final bool hadSearch = _searchQuery.isNotEmpty;
+                    setState(() {
+                      _selectedCategories = [value];
+                      _pinSelectedCategoriesToFront = false;
+                      if (hadSearch) {
+                        _searchController.clear();
+                        _searchQuery = "";
+                        _searchResultsUsers = [];
+                        if (_cachedExplorePosts.isNotEmpty) {
+                          _allPosts = List.from(_cachedExplorePosts);
+                        }
+                      }
+                      _applyLocalFiltersAndSorting();
+                    });
+                    if (hadSearch) {
+                      _fetchExplorePosts();
                     }
                   }
-                  if (_searchQuery.isNotEmpty) {
-                    _searchController.clear();
-                    _searchQuery = "";
-                  }
-                  _applyLocalFiltersAndSorting();
-                });
+                }
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: EdgeInsets.only(
+                  left: 14,
+                  right: showRemoveIcon ? 10 : 14,
+                  top: 6,
+                  bottom: 6,
+                ),
                 decoration: BoxDecoration(
                   gradient: isSelected
                       ? const LinearGradient(
@@ -1606,13 +1551,24 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     Text(emoji, style: const TextStyle(fontSize: 13)),
                     const SizedBox(width: 6),
                     Text(
-                      cat,
+                      label,
                       style: TextStyle(
                         color: isSelected ? Colors.white : const Color(0xFF1C0D5A),
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                         fontSize: 13,
                       ),
                     ),
+                    if (showRemoveIcon) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.25),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded, size: 12, color: Colors.white),
+                      ),
+                    ],
                   ],
                 ),
               ),
