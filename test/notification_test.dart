@@ -292,6 +292,15 @@ void main() {
 
     expect(find.text('Sign In for Notifications'), findsOneWidget);
     expect(find.text('No Notifications Yet'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Image &&
+            w.image is AssetImage &&
+            (w.image as AssetImage).assetName == 'assets/images/back_icon.png',
+      ),
+      findsOneWidget,
+    );
     NotificationPollingService().stopPolling();
   });
 
