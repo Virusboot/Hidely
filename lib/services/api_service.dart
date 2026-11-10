@@ -751,6 +751,7 @@ class ApiService {
     String? country,
     double? aiConfidence,
     String? duplicateClusterId,
+    List<String>? taggedUsernames,
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/posts');
@@ -773,6 +774,9 @@ class ApiService {
       if (country != null) request.fields['country'] = country;
       if (aiConfidence != null) request.fields['ai_confidence'] = aiConfidence.toString();
       if (duplicateClusterId != null) request.fields['duplicate_cluster_id'] = duplicateClusterId;
+      if (taggedUsernames != null && taggedUsernames.isNotEmpty) {
+        request.fields['tagged_usernames'] = jsonEncode(taggedUsernames);
+      }
 
       if (images != null && images.isNotEmpty) {
         for (int i = 0; i < images.length; i++) {
@@ -855,19 +859,22 @@ class ApiService {
 
       final streamedResponse = await _client.send(request).timeout(const Duration(seconds: 45));
       final response = await http.Response.fromStream(streamedResponse);
-      final body = jsonDecode(response.body);
+      final body = _decodeJsonMap(response.body);
 
       if (response.statusCode == 201) {
         return ApiResult(
           success: true,
-          message: body['message'] ?? 'Post created.',
+          message: body['message']?.toString() ?? 'Post created.',
           data: body,
+          statusCode: response.statusCode,
         );
       } else {
         return ApiResult(
           success: false,
-          message: body['error'] ?? 'Post creation failed.',
-          error: body['error'],
+          message: body['error']?.toString() ?? 'Post creation failed.',
+          error: body['error']?.toString(),
+          data: body,
+          statusCode: response.statusCode,
         );
       }
     } catch (e) {
@@ -1023,11 +1030,22 @@ class ApiService {
         },
         body: jsonEncode({'text': text}),
       ).timeout(const Duration(seconds: 15));
-      final body = jsonDecode(response.body);
+      final body = _decodeJsonMap(response.body);
       if (response.statusCode == 201) {
-        return ApiResult(success: true, message: 'Comment posted.', data: body);
+        return ApiResult(
+          success: true,
+          message: 'Comment posted.',
+          data: body,
+          statusCode: response.statusCode,
+        );
       } else {
-        return ApiResult(success: false, message: body['error'] ?? 'Failed to post comment.', error: body['error']);
+        return ApiResult(
+          success: false,
+          message: body['error']?.toString() ?? 'Failed to post comment.',
+          error: body['error']?.toString(),
+          data: body,
+          statusCode: response.statusCode,
+        );
       }
     } catch (e) {
       return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
@@ -1191,6 +1209,183 @@ class ApiService {
       return ApiResult(
         success: false,
         message: body['error']?.toString() ?? 'Failed to unblock user.',
+        error: body['error']?.toString(),
+        data: body,
+        statusCode: response.statusCode,
+      );
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
+  /// Fetch current user's Tags & Mentions privacy settings
+  Future<ApiResult> getTagMentionSettings({required String token}) async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/users/privacy/tags-mentions'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 15));
+      final body = _decodeJsonMap(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(
+          success: true,
+          message: 'Tags and mentions settings loaded.',
+          data: body,
+          statusCode: response.statusCode,
+        );
+      }
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Failed to load tags & mentions settings.',
+        error: body['error']?.toString(),
+        data: body,
+        statusCode: response.statusCode,
+      );
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
+  /// Update current user's Tags & Mentions privacy settings
+  Future<ApiResult> updateTagMentionSettings({
+    required String token,
+    String? allowTagsFrom,
+    String? allowMentionsFrom,
+    bool? manuallyApproveTags,
+  }) async {
+    try {
+      final payload = <String, dynamic>{};
+      if (allowTagsFrom != null) payload['allow_tags_from'] = allowTagsFrom;
+      if (allowMentionsFrom != null) payload['allow_mentions_from'] = allowMentionsFrom;
+      if (manuallyApproveTags != null) payload['manually_approve_tags'] = manuallyApproveTags;
+
+      final response = await _client.put(
+        Uri.parse('$baseUrl/api/users/privacy/tags-mentions'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 15));
+      final body = _decodeJsonMap(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(
+          success: true,
+          message: body['message']?.toString() ?? 'Settings updated.',
+          data: body,
+          statusCode: response.statusCode,
+        );
+      }
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Failed to update settings.',
+        error: body['error']?.toString(),
+        data: body,
+        statusCode: response.statusCode,
+      );
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
+  /// Check whether target usernames allow tags or @mentions from the current user
+  Future<ApiResult> checkTagMentionEligibility({
+    required String token,
+    required List<String> usernames,
+    String mode = 'mention',
+  }) async {
+    try {
+      final response = await _client.post(
+        Uri.parse('$baseUrl/api/users/privacy/check-tags-mentions'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'usernames': usernames,
+          'mode': mode,
+        }),
+      ).timeout(const Duration(seconds: 15));
+      final body = _decodeJsonMap(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(
+          success: true,
+          message: 'Eligibility checked.',
+          data: body,
+          statusCode: response.statusCode,
+        );
+      }
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Failed to check eligibility.',
+        error: body['error']?.toString(),
+        data: body,
+        statusCode: response.statusCode,
+      );
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
+  /// Fetch posts where the authenticated user has been tagged
+  Future<ApiResult> getTaggedPosts({required String token}) async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/users/tags'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 15));
+      final body = _decodeJsonMap(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(
+          success: true,
+          message: 'Tagged posts loaded.',
+          data: body,
+          statusCode: response.statusCode,
+        );
+      }
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Failed to load tagged posts.',
+        error: body['error']?.toString(),
+        data: body,
+        statusCode: response.statusCode,
+      );
+    } catch (e) {
+      return ApiResult(success: false, message: 'Could not connect to server.', error: e.toString());
+    }
+  }
+
+  /// Approve or remove a post tag for the authenticated user
+  Future<ApiResult> respondToPostTag({
+    required String token,
+    required int postId,
+    required String action,
+  }) async {
+    try {
+      final response = await _client.patch(
+        Uri.parse('$baseUrl/api/users/tags/$postId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'action': action}),
+      ).timeout(const Duration(seconds: 15));
+      final body = _decodeJsonMap(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(
+          success: true,
+          message: body['message']?.toString() ?? 'Tag updated.',
+          data: body,
+          statusCode: response.statusCode,
+        );
+      }
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Failed to update tag.',
         error: body['error']?.toString(),
         data: body,
         statusCode: response.statusCode,

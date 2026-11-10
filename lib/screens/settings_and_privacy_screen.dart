@@ -12,6 +12,7 @@ import 'about_screen.dart';
 import 'add_account_screen.dart';
 import 'saved_trips_screen.dart';
 import 'hire_traveller_screen.dart';
+import 'tags_and_mentions_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -32,6 +33,14 @@ class _SettingsAndPrivacyScreenState
   void initState() {
     super.initState();
     _loadApiKey();
+    AuthService().tagMentionSettingsNotifier.addListener(_onPrivacySettingsChanged);
+    if (!AuthService().isGuest) {
+      AuthService().syncTagMentionSettingsFromServer();
+    }
+  }
+
+  void _onPrivacySettingsChanged() {
+    if (mounted) setState(() {});
   }
 
   void _loadApiKey() async {
@@ -60,6 +69,7 @@ class _SettingsAndPrivacyScreenState
 
   @override
   void dispose() {
+    AuthService().tagMentionSettingsNotifier.removeListener(_onPrivacySettingsChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -182,11 +192,27 @@ class _SettingsAndPrivacyScreenState
         'items': [
           {
             'title': 'Tags and Mentions',
-            'subtitle': 'Who can tag or mention you',
+            'subtitle': AuthService().isGuest
+                ? 'Who can tag or mention you'
+                : AuthService().tagMentionSummaryText,
             'icon': Icons.alternate_email_rounded,
             'iconBg': const Color(0xffE8EAF6),
             'iconColor': const Color(0xff3949AB),
-            'onTap': () => _showComingSoon('Tags & Mentions'),
+            'onTap': () {
+              if (AuthService().isGuest) {
+                showLoginRequiredSheet(
+                  context,
+                  reason: 'manage tags and mentions settings',
+                );
+                return;
+              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TagsAndMentionsScreen(),
+                ),
+              );
+            },
           },
         ],
       },

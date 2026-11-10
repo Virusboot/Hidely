@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:hidely_new/services/api_service.dart';
@@ -318,6 +319,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         locationAccuracyMeters: _capturedLocation?.accuracyMeters,
         locationSource: _capturedLocation?.source ?? (_location != "Add location (optional)" && _location != "Unknown Location" && _location.isNotEmpty ? 'manual' : null),
         locationCapturedAt: _capturedLocation?.capturedAt.toIso8601String(),
+        taggedUsernames: _taggedUsernames,
       );
 
       if (!mounted) return;
@@ -860,6 +862,8 @@ class _TagPeopleSheetState extends State<TagPeopleSheet> {
   List<dynamic> _filteredUsers = [];
   final List<String> _selectedUsernames = [];
   bool _isLoading = true;
+  bool _isSearching = false;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -870,21 +874,34 @@ class _TagPeopleSheetState extends State<TagPeopleSheet> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
+  bool _isEligibleUserRecord(dynamic user) {
+    if (user is! Map) return false;
+    final uname = (user['username'] ?? '').toString().trim();
+    if (uname.isEmpty) return false;
+    final currentUsername = AuthService().userUsername.trim();
+    if (currentUsername.isNotEmpty &&
+        uname.toLowerCase() == currentUsername.toLowerCase()) {
+      return false;
+    }
+    if (AuthService().isUserBlockedSync(uname)) {
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _fetchUsers() async {
-    final result = await ApiService().getLeaderboard();
+    final result = await ApiService().getLeaderboard(token: AuthService().token);
     if (!mounted) return;
 
     if (result.success) {
       final List<dynamic> users = result.data?['leaderboard'] ?? [];
-      final currentUsername = AuthService().userUsername;
-
       setState(() {
-        // Exclude current user from taggable list
-        _allUsers = users.where((u) => u['username'] != currentUsername).toList();
+        _allUsers = users.where(_isEligibleUserRecord).toList();
         _filteredUsers = _allUsers;
         _isLoading = false;
       });
@@ -897,31 +914,81 @@ class _TagPeopleSheetState extends State<TagPeopleSheet> {
 
   void _onSearchChanged(String query) {
     final cleanQuery = query.toLowerCase().trim();
+    _searchDebounce?.cancel();
+
     setState(() {
       if (cleanQuery.isEmpty) {
         _filteredUsers = _allUsers;
+        _isSearching = false;
       } else {
         _filteredUsers = _allUsers.where((u) {
           final username = (u['username'] ?? '').toString().toLowerCase();
           final name = (u['name'] ?? '').toString().toLowerCase();
           return username.contains(cleanQuery) || name.contains(cleanQuery);
         }).toList();
+        _isSearching = true;
       }
     });
+
+    if (cleanQuery.isEmpty) return;
+
+    _searchDebounce = Timer(const Duration(milliseconds: 280), () async {
+      final res = await ApiService().searchUsers(
+        query: cleanQuery,
+        token: AuthService().token,
+      );
+      if (!mounted) return;
+      if (_searchController.text.toLowerCase().trim() != cleanQuery) return;
+
+      final List<dynamic> remote =
+          (res.success ? (res.data?['users'] as List? ?? []) : const [])
+              .where(_isEligibleUserRecord)
+              .toList();
+
+      final Map<String, dynamic> byLowerUsername = <String, dynamic>{};
+      for (final u in _filteredUsers) {
+        final key = (u['username'] ?? '').toString().toLowerCase();
+        if (key.isNotEmpty) byLowerUsername[key] = u;
+      }
+      for (final u in remote) {
+        final key = (u['username'] ?? '').toString().toLowerCase();
+        if (key.isNotEmpty) byLowerUsername[key] = u;
+      }
+
+      setState(() {
+        _filteredUsers = byLowerUsername.values.toList();
+        _isSearching = false;
+      });
+    });
+  }
+
+  String? _restrictionReason(dynamic user) {
+    if (user is! Map) return null;
+    final bool canBeTagged = user['can_be_tagged'] != false;
+    final String policy = (user['allow_tags_from'] ?? 'everyone').toString();
+    if (canBeTagged && policy != 'no_one') return null;
+    if (policy == 'no_one') {
+      return 'Tags turned off';
+    }
+    if (policy == 'following') {
+      return 'Only people they follow can tag';
+    }
+    return 'Tags restricted';
   }
 
   @override
   Widget build(BuildContext context) {
     final double keyboardPadding = MediaQuery.of(context).viewInsets.bottom;
     
-    return Container(
+    return SizedBox(
       height: MediaQuery.of(context).size.height * 0.75 + keyboardPadding,
-      decoration: const BoxDecoration(
+      child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      padding: EdgeInsets.only(bottom: keyboardPadding),
-      child: Column(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: keyboardPadding),
+          child: Column(
         children: [
           // Header Drag Handle
           const SizedBox(height: 12),
@@ -994,6 +1061,16 @@ class _TagPeopleSheetState extends State<TagPeopleSheet> {
             ),
           ),
 
+          if (_isSearching)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.0),
+              child: LinearProgressIndicator(
+                minHeight: 2,
+                color: Color(0xff5D3EBC),
+                backgroundColor: Color(0xffEDE9FC),
+              ),
+            ),
+
           const SizedBox(height: 8),
 
           // Users List
@@ -1016,44 +1093,69 @@ class _TagPeopleSheetState extends State<TagPeopleSheet> {
                         physics: const BouncingScrollPhysics(),
                         itemBuilder: (context, index) {
                           final user = _filteredUsers[index];
-                          final username = user['username'] ?? '';
-                          final displayName = user['name'] ?? username;
+                          final username = (user['username'] ?? '').toString();
+                          final displayName = (user['name'] ?? username).toString();
                           final profilePic = user['profile_picture'];
-                          final bool isSelected = _selectedUsernames.contains(username);
+                          final String? restriction = _restrictionReason(user);
+                          final bool isTagRestricted = restriction != null;
+                          final bool isSelected = !isTagRestricted && _selectedUsernames.contains(username);
 
                           return ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                            leading: UserAvatar(
-                              avatarUrl: profilePic,
-                              displayName: displayName,
-                              radius: 20,
+                            leading: Opacity(
+                              opacity: isTagRestricted ? 0.5 : 1.0,
+                              child: UserAvatar(
+                                avatarUrl: profilePic,
+                                displayName: displayName,
+                                radius: 20,
+                              ),
                             ),
                             title: Text(
                               displayName,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: isTagRestricted ? Colors.black45 : Colors.black87,
+                              ),
                             ),
                             subtitle: Text(
-                              "@$username",
-                              style: const TextStyle(color: Colors.black38, fontSize: 13),
+                              isTagRestricted ? '@$username · $restriction' : '@$username',
+                              style: TextStyle(
+                                color: isTagRestricted ? Colors.deepOrange.shade400 : Colors.black38,
+                                fontSize: 12.5,
+                              ),
                             ),
-                            trailing: isSelected
-                                ? Container(
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xff2B1564),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    padding: const EdgeInsets.all(4),
-                                    child: const Icon(Icons.check, color: Colors.white, size: 16),
-                                  )
-                                : Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.black12, width: 1.5),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
+                            trailing: isTagRestricted
+                                ? const Icon(Icons.lock_outline_rounded, color: Colors.black26, size: 20)
+                                : isSelected
+                                    ? Container(
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xff2B1564),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        padding: const EdgeInsets.all(4),
+                                        child: const Icon(Icons.check, color: Colors.white, size: 16),
+                                      )
+                                    : Container(
+                                        width: 24,
+                                        height: 24,
+                                        decoration: BoxDecoration(
+                                          border: Border.all(color: Colors.black12, width: 1.5),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
                             onTap: () {
+                              if (isTagRestricted) {
+                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('@$username: $restriction'),
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                                return;
+                              }
                               setState(() {
                                 if (isSelected) {
                                   _selectedUsernames.remove(username);
@@ -1067,6 +1169,8 @@ class _TagPeopleSheetState extends State<TagPeopleSheet> {
                       ),
           ),
         ],
+          ),
+        ),
       ),
     );
   }

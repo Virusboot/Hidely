@@ -13,6 +13,7 @@ import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/notification_polling_service.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
+import 'package:hidely_new/widgets/mention_text.dart';
 import 'package:hidely_new/widgets/post_options_bottom_sheet.dart';
 import 'package:hidely_new/widgets/skeleton_loader.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -1038,21 +1039,9 @@ class _FeedScreenState extends State<FeedScreen> {
         ),
         Padding(
           padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 20.0),
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                    text: "$authorUsername  ",
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                        fontSize: 14)),
-                TextSpan(
-                    text: caption,
-                    style: const TextStyle(
-                        color: Colors.black54, fontSize: 13.5, height: 1.25)),
-              ],
-            ),
+          child: MentionText(
+            prefixUsername: authorUsername,
+            text: caption,
           ),
         ),
       ],
@@ -1104,13 +1093,20 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
   final _commentController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   String? _replyingToUser;
+  String? _commentError;
   bool _isPosting = false;
   bool _isLoading = true;
+
+  Timer? _mentionDebounce;
+  List<Map<String, dynamic>> _mentionSuggestions = <Map<String, dynamic>>[];
+  String? _activeMentionToken;
 
   final List<Map<String, dynamic>> _comments = [];
 
   @override
   void dispose() {
+    _mentionDebounce?.cancel();
+    _commentController.removeListener(_onCommentTextChanged);
     _commentController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -1119,7 +1115,99 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
   @override
   void initState() {
     super.initState();
+    _commentController.addListener(_onCommentTextChanged);
     _loadComments();
+  }
+
+  void _onCommentTextChanged() {
+    if (_commentError != null && mounted) {
+      setState(() => _commentError = null);
+    }
+
+    final text = _commentController.text;
+    final selection = _commentController.selection;
+    final cursor = selection.isValid ? selection.baseOffset : text.length;
+    final prefix = text.substring(0, cursor.clamp(0, text.length));
+
+    final match = RegExp(r'(?:^|\s)@([a-zA-Z0-9_.]{1,30})$').firstMatch(prefix);
+    if (match == null) {
+      if (_mentionSuggestions.isNotEmpty || _activeMentionToken != null) {
+        _mentionDebounce?.cancel();
+        if (mounted) {
+          setState(() {
+            _activeMentionToken = null;
+            _mentionSuggestions = <Map<String, dynamic>>[];
+          });
+        }
+      }
+      return;
+    }
+
+    final query = (match.group(1) ?? '').trim();
+    if (query.isEmpty) return;
+    _activeMentionToken = query;
+    _mentionDebounce?.cancel();
+    _mentionDebounce = Timer(const Duration(milliseconds: 220), () async {
+      final res = await ApiService().searchUsers(
+        query: query,
+        token: AuthService().token,
+      );
+      if (!mounted || _activeMentionToken != query) return;
+      if (res.success) {
+        final raw = res.data?['users'] as List? ?? [];
+        final currentUsername = AuthService().userUsername.toLowerCase();
+        setState(() {
+          _mentionSuggestions = raw
+              .whereType<Map>()
+              .map((u) => Map<String, dynamic>.from(u))
+              .where((u) {
+                final uname = (u['username'] ?? '').toString().toLowerCase();
+                return uname.isNotEmpty &&
+                    uname != currentUsername &&
+                    !AuthService().isUserBlockedSync(uname);
+              })
+              .take(6)
+              .toList();
+        });
+      }
+    });
+  }
+
+  void _insertMentionSuggestion(Map<String, dynamic> user) {
+    final username = (user['username'] ?? '').toString().trim();
+    if (username.isEmpty) return;
+
+    final bool canMention = user['can_be_mentioned'] != false &&
+        (user['allow_mentions_from'] ?? 'everyone') != 'no_one';
+    if (!canMention) {
+      final policy = (user['allow_mentions_from'] ?? '').toString();
+      setState(() {
+        _commentError = policy == 'following'
+            ? '@$username only allows @mentions from people they follow.'
+            : "@$username doesn't allow @mentions from anyone.";
+      });
+      return;
+    }
+
+    final text = _commentController.text;
+    final selection = _commentController.selection;
+    final cursor = selection.isValid ? selection.baseOffset : text.length;
+    final safeCursor = cursor.clamp(0, text.length);
+    final before = text.substring(0, safeCursor);
+    final after = text.substring(safeCursor);
+
+    final updatedBefore = before.replaceFirst(
+      RegExp(r'@[a-zA-Z0-9_.]{1,30}$'),
+      '@$username ',
+    );
+    _commentController.value = TextEditingValue(
+      text: '$updatedBefore$after',
+      selection: TextSelection.collapsed(offset: updatedBefore.length),
+    );
+    setState(() {
+      _activeMentionToken = null;
+      _mentionSuggestions = <Map<String, dynamic>>[];
+    });
   }
 
   Future<void> _loadComments() async {
@@ -1163,7 +1251,10 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
     if (text.isEmpty) return;
     if (widget.postId == null) return;
 
-    setState(() => _isPosting = true);
+    setState(() {
+      _isPosting = true;
+      _commentError = null;
+    });
 
     final token = AuthService().token ?? '';
     final result = await ApiService().addComment(
@@ -1183,6 +1274,13 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
           widget.onCommentAdded?.call();
           _commentController.clear();
           _replyingToUser = null;
+          _commentError = null;
+          _mentionSuggestions = <Map<String, dynamic>>[];
+          _activeMentionToken = null;
+        } else {
+          _commentError = result.message.isNotEmpty
+              ? result.message
+              : 'Failed to post comment.';
         }
       });
     }
@@ -1322,21 +1420,17 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text.rich(
-                                            TextSpan(
-                                              children: [
-                                                TextSpan(
-                                                    text: "$username ",
-                                                    style: const TextStyle(
-                                                        fontWeight: FontWeight.bold,
-                                                        color: Colors.black87,
-                                                        fontSize: 14)),
-                                                TextSpan(
-                                                    text: commentText,
-                                                    style: const TextStyle(
-                                                        color: Colors.black87,
-                                                        fontSize: 13.5)),
-                                              ],
+                                          MentionText(
+                                            prefixUsername: username.toString(),
+                                            text: commentText.toString(),
+                                            prefixStyle: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black87,
+                                              fontSize: 14,
+                                            ),
+                                            style: const TextStyle(
+                                              color: Colors.black87,
+                                              fontSize: 13.5,
                                             ),
                                           ),
                                           const SizedBox(height: 6),
@@ -1432,6 +1526,67 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
                         },
                         ),
             ),
+            if (_commentError != null)
+              Container(
+                width: double.infinity,
+                color: const Color(0xffFEF2F2),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded, size: 16, color: Colors.redAccent),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _commentError!,
+                        style: const TextStyle(
+                          color: Color(0xffB91C1C),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => setState(() => _commentError = null),
+                      child: const Icon(Icons.close, size: 16, color: Color(0xffB91C1C)),
+                    ),
+                  ],
+                ),
+              ),
+            if (_mentionSuggestions.isNotEmpty)
+              Container(
+                height: 54,
+                color: const Color(0xffF8FAFC),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _mentionSuggestions.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, idx) {
+                    final u = _mentionSuggestions[idx];
+                    final uname = (u['username'] ?? '').toString();
+                    final canMention = u['can_be_mentioned'] != false &&
+                        (u['allow_mentions_from'] ?? 'everyone') != 'no_one';
+                    return ActionChip(
+                      avatar: UserAvatar(
+                        avatarUrl: u['profile_picture']?.toString(),
+                        displayName: (u['name'] ?? uname).toString(),
+                        radius: 12,
+                      ),
+                      label: Text(
+                        canMention ? '@$uname' : '@$uname (Restricted)',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: canMention ? const Color(0xff1C0D5A) : Colors.black45,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      backgroundColor: canMention ? const Color(0xffEDE9FC) : const Color(0xffE2E8F0),
+                      side: BorderSide.none,
+                      onPressed: () => _insertMentionSuggestion(u),
+                    );
+                  },
+                ),
+              ),
             if (_replyingToUser != null)
               Container(
                 color: const Color(0xffF8FAFC),

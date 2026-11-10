@@ -4,6 +4,7 @@ import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/screens/login_screen.dart';
 import 'package:hidely_new/screens/main_wrapper.dart';
 import 'package:hidely_new/screens/single_post_view_screen.dart';
+import 'package:hidely_new/screens/tags_and_mentions_screen.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/notification_polling_service.dart';
@@ -447,6 +448,11 @@ class _NotificationScreenState extends State<NotificationScreen>
       case 'message':
       case 'new_message':
         return (Icons.chat_bubble_rounded, const Color(0xFF4F46E5));
+      case 'tag':
+      case 'tag_request':
+        return (Icons.local_offer_rounded, const Color(0xFF3949AB));
+      case 'mention':
+        return (Icons.alternate_email_rounded, const Color(0xFF5D3EBC));
       case 'new_post':
         return (Icons.photo_camera_rounded, const Color(0xFF00BCD4));
       case 'official_hidely_post':
@@ -496,6 +502,12 @@ class _NotificationScreenState extends State<NotificationScreen>
       case 'message':
       case 'new_message':
         return 'sent you a message.';
+      case 'tag':
+        return 'tagged you in a post.';
+      case 'tag_request':
+        return 'tagged you in a post. Tap to review.';
+      case 'mention':
+        return 'mentioned you.';
       case 'new_post':
         return 'shared a new post.';
       case 'official_hidely_post':
@@ -960,6 +972,13 @@ class _NotificationScreenState extends State<NotificationScreen>
         } else if (type == 'message' || type == 'new_message') {
           Navigator.of(context).popUntil((route) => route.isFirst);
           MainWrapperState.activeState?.setIndex(2);
+        } else if (type == 'tag_request') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const TagsAndMentionsScreen(),
+            ),
+          );
         } else if (postId != null &&
             (type == 'like' ||
                 type == 'comment' ||
@@ -967,6 +986,8 @@ class _NotificationScreenState extends State<NotificationScreen>
                 type == 'new_like' ||
                 type == 'new_comment' ||
                 type == 'new_post' ||
+                type == 'tag' ||
+                type == 'mention' ||
                 type == 'official_hidely_post' ||
                 (postImg != null && postImg.isNotEmpty))) {
           _openPost(postId, postImg);

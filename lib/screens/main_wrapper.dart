@@ -45,6 +45,7 @@ class MainWrapperState extends State<MainWrapper> {
     currentTabNotifier.value = _currentIndex;
     if (!AuthService().isGuest) {
       AuthService().syncBlockedUsersFromServer();
+      AuthService().syncTagMentionSettingsFromServer();
     }
     if (kIsWeb) {
       final path = AppRoutes.pathForTab(_currentIndex);

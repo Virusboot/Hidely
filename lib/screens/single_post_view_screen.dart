@@ -10,6 +10,7 @@ import 'package:hidely_new/widgets/post_options_bottom_sheet.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
+import 'package:hidely_new/widgets/mention_text.dart';
 import 'package:hidely_new/screens/main_wrapper.dart';
 import 'package:hidely_new/screens/map_discovery_screen.dart';
 class SinglePostViewScreen extends StatefulWidget {
@@ -615,13 +616,9 @@ class _SinglePostViewScreenState extends State<SinglePostViewScreen> {
                         // Caption
                         Padding(
                           padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 20.0),
-                          child: Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(text: "$authorUsername  ", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 14)),
-                                TextSpan(text: caption, style: const TextStyle(color: Colors.black54, fontSize: 13.5, height: 1.25)),
-                              ],
-                            ),
+                          child: MentionText(
+                            prefixUsername: authorUsername,
+                            text: caption,
                           ),
                         ),
                         const Divider(height: 1, thickness: 0.5, color: Colors.black12),

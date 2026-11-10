@@ -10,6 +10,7 @@ import 'package:hidely_new/main.dart';
 import 'package:hidely_new/screens/single_post_view_screen.dart';
 import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/screens/notification_screen.dart';
+import 'package:hidely_new/screens/tags_and_mentions_screen.dart';
 import 'package:hidely_new/screens/main_wrapper.dart';
 
 class NotificationPollingService with WidgetsBindingObserver {
@@ -25,6 +26,7 @@ class NotificationPollingService with WidgetsBindingObserver {
   DateTime? _pollStartedAt;
   bool _isAppBackgrounded = false;
   int _lastSeenId = 0;
+  int _pollEpoch = 0;
 
   final ValueNotifier<int> unreadCountNotifier = ValueNotifier<int>(0);
   final ValueNotifier<List<dynamic>> notificationsNotifier = ValueNotifier<List<dynamic>>(const []);
@@ -219,22 +221,29 @@ class NotificationPollingService with WidgetsBindingObserver {
     if (_pollingTimer != null && _pollingTimer!.isActive) return;
     debugPrint('[NotificationPollingService] Started polling every 15 seconds.');
 
+    final int epoch = ++_pollEpoch;
     _isPolling = false;
     _pollStartedAt = null;
     sessionExpiredNotifier.value = false;
 
     Future(() async {
+      if (epoch != _pollEpoch || !AuthService().isLoggedIn) return;
       await initialize();
+      if (epoch != _pollEpoch || !AuthService().isLoggedIn) return;
       final prefs = await SharedPreferences.getInstance();
+      if (epoch != _pollEpoch || !AuthService().isLoggedIn) return;
       _lastSeenId = prefs.getInt(_lastSeenIdKey) ?? 0;
       await loadCachedNotifications();
+      if (epoch != _pollEpoch || !AuthService().isLoggedIn) return;
       debugPrint(
         '[NotificationPollingService] Loaded last seen ID: $_lastSeenId for user: ${AuthService().userId}',
       );
 
       await _pollNotifications();
+      if (epoch != _pollEpoch || !AuthService().isLoggedIn) return;
       _pollingTimer?.cancel();
       _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+        if (epoch != _pollEpoch || !AuthService().isLoggedIn) return;
         _pollNotifications();
       });
     });
@@ -250,6 +259,7 @@ class NotificationPollingService with WidgetsBindingObserver {
   }
 
   void stopPolling() {
+    _pollEpoch++;
     _pollingTimer?.cancel();
     _pollingTimer = null;
     _isPolling = false;
@@ -401,6 +411,21 @@ class NotificationPollingService with WidgetsBindingObserver {
       body = (notif['text']?.toString().trim().isNotEmpty ?? false)
           ? notif['text'].toString()
           : '$actorName posted a new travel post.';
+    } else if (type == 'tag') {
+      title = 'Tagged You 🏷️';
+      body = (notif['text']?.toString().trim().isNotEmpty ?? false)
+          ? notif['text'].toString()
+          : '$actorName tagged you in a post.';
+    } else if (type == 'tag_request') {
+      title = 'Tag Approval Needed 🏷️';
+      body = (notif['text']?.toString().trim().isNotEmpty ?? false)
+          ? notif['text'].toString()
+          : '$actorName tagged you in a post. Tap to review.';
+    } else if (type == 'mention') {
+      title = 'New @Mention 💬';
+      body = (notif['text']?.toString().trim().isNotEmpty ?? false)
+          ? notif['text'].toString()
+          : '$actorName mentioned you.';
     } else if (type == 'official_hidely_post') {
       title = 'Official Hidely Spot 🌟';
       body = (notif['body'] ?? notif['text'] ?? 'Discover our newly featured secret location in India!')
@@ -461,12 +486,22 @@ class NotificationPollingService with WidgetsBindingObserver {
       final context = navigatorKey.currentContext;
       if (context == null) return;
 
+      if (type == 'tag_request') {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const TagsAndMentionsScreen()),
+        );
+        return;
+      }
+
       if ((type == 'like' ||
               type == 'new_like' ||
               type == 'comment' ||
               type == 'new_comment' ||
               type == 'comment_like' ||
               type == 'new_post' ||
+              type == 'tag' ||
+              type == 'mention' ||
               type == 'official_hidely_post') &&
           postIdInt != null) {
         showDialog(

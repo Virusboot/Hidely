@@ -6,6 +6,7 @@ import 'package:hidely_new/screens/feed_video_player.dart';
 import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/screens/user_profile_screen.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
+import 'package:hidely_new/widgets/mention_text.dart';
 import 'package:hidely_new/widgets/report_bottom_sheet.dart';
 import 'package:hidely_new/widgets/empty_state.dart';
 import 'package:hidely_new/screens/feed_screen.dart';
@@ -269,14 +270,20 @@ class _ReelsScreenState extends State<ReelsScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              Text(
-                caption,
+              MentionText(
+                text: caption,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 14,
                   height: 1.3,
+                ),
+                mentionStyle: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  height: 1.3,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 14),

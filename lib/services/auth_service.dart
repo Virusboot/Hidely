@@ -65,6 +65,54 @@ class AuthService {
       ValueNotifier<Set<String>>(<String>{});
   Set<String> _blockedUsernames = <String>{};
 
+  static const Map<String, dynamic> defaultTagMentionSettings = <String, dynamic>{
+    'allow_tags_from': 'everyone',
+    'allow_mentions_from': 'everyone',
+    'manually_approve_tags': false,
+  };
+
+  final ValueNotifier<Map<String, dynamic>> tagMentionSettingsNotifier =
+      ValueNotifier<Map<String, dynamic>>(
+    Map<String, dynamic>.from(defaultTagMentionSettings),
+  );
+
+  static String normalizeTagMentionPolicy(String? raw) {
+    final clean = (raw ?? '').trim().toLowerCase();
+    if (clean == 'following' || clean == 'people_you_follow') return 'following';
+    if (clean == 'no_one' || clean == 'noone' || clean == 'none') return 'no_one';
+    return 'everyone';
+  }
+
+  static String audiencePolicyLabel(String? policy) {
+    switch (normalizeTagMentionPolicy(policy)) {
+      case 'following':
+        return 'People you follow';
+      case 'no_one':
+        return 'No one';
+      case 'everyone':
+      default:
+        return 'Everyone';
+    }
+  }
+
+  String get allowTagsFrom =>
+      normalizeTagMentionPolicy(tagMentionSettingsNotifier.value['allow_tags_from']?.toString());
+
+  String get allowMentionsFrom =>
+      normalizeTagMentionPolicy(tagMentionSettingsNotifier.value['allow_mentions_from']?.toString());
+
+  bool get manuallyApproveTags =>
+      tagMentionSettingsNotifier.value['manually_approve_tags'] == true;
+
+  String get tagMentionSummaryText =>
+      'Tags: ${audiencePolicyLabel(allowTagsFrom)} · Mentions: ${audiencePolicyLabel(allowMentionsFrom)}';
+
+  String get _tagMentionSettingsKey =>
+      userId.isNotEmpty ? 'privacy_tags_mentions_$userId' : 'privacy_tags_mentions_guest';
+
+  String get _pendingTagMentionSyncKey =>
+      userId.isNotEmpty ? 'pending_privacy_tags_mentions_$userId' : 'pending_privacy_tags_mentions_guest';
+
   static String normalizeBlockedUsername(String? raw) {
     if (raw == null) return '';
     return raw.trim().replaceFirst(RegExp(r'^@+'), '').toLowerCase();
@@ -182,6 +230,34 @@ class AuthService {
     blockedUsersNotifier.value = Set<String>.unmodifiable(normalizedSet);
   }
 
+  Future<void> _loadTagMentionSettingsFromStorage([SharedPreferences? prefs]) async {
+    final sp = prefs ?? await SharedPreferences.getInstance();
+    final raw = sp.getString(_tagMentionSettingsKey);
+    if (raw == null || raw.isEmpty) {
+      tagMentionSettingsNotifier.value = Map<String, dynamic>.unmodifiable(
+        Map<String, dynamic>.from(defaultTagMentionSettings),
+      );
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        final normalized = <String, dynamic>{
+          'allow_tags_from': normalizeTagMentionPolicy(decoded['allow_tags_from']?.toString()),
+          'allow_mentions_from': normalizeTagMentionPolicy(decoded['allow_mentions_from']?.toString()),
+          'manually_approve_tags': decoded['manually_approve_tags'] == true,
+        };
+        tagMentionSettingsNotifier.value = Map<String, dynamic>.unmodifiable(normalized);
+        return;
+      }
+    } catch (_) {}
+
+    tagMentionSettingsNotifier.value = Map<String, dynamic>.unmodifiable(
+      Map<String, dynamic>.from(defaultTagMentionSettings),
+    );
+  }
+
   /// Initialize and load saved session from Secure Storage with legacy migration
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -229,6 +305,7 @@ class AuthService {
     }
 
     await _loadBlockedUsersFromStorage(prefs);
+    await _loadTagMentionSettingsFromStorage(prefs);
     await loadCachedFeed();
   }
 
@@ -265,6 +342,7 @@ class AuthService {
     } catch (_) {}
 
     await _loadBlockedUsersFromStorage(prefs);
+    await _loadTagMentionSettingsFromStorage(prefs);
     NotificationPollingService().restartPolling();
   }
 
@@ -278,6 +356,9 @@ class AuthService {
     _cachedFeed = null;
     _blockedUsernames = <String>{};
     blockedUsersNotifier.value = <String>{};
+    tagMentionSettingsNotifier.value = Map<String, dynamic>.unmodifiable(
+      Map<String, dynamic>.from(defaultTagMentionSettings),
+    );
 
     try {
       await _secureStorage.delete(key: 'auth_token').timeout(const Duration(seconds: 2));
@@ -344,6 +425,7 @@ class AuthService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('auth_user', jsonEncode(_user));
       await _loadBlockedUsersFromStorage(prefs);
+      await _loadTagMentionSettingsFromStorage(prefs);
       await loadCachedFeed();
       NotificationPollingService().restartPolling();
     }
@@ -520,5 +602,106 @@ class AuthService {
     if (_blockedUsernames.contains(clean)) return true;
     await _loadBlockedUsersFromStorage();
     return _blockedUsernames.contains(clean);
+  }
+
+  /// Sync Tags & Mentions privacy settings from backend (flushing any offline edits first)
+  Future<void> syncTagMentionSettingsFromServer() async {
+    final activeToken = _token;
+    if (!_isLoggedIn || activeToken == null || activeToken.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    if (tagMentionSettingsNotifier.value == defaultTagMentionSettings) {
+      await _loadTagMentionSettingsFromStorage(prefs);
+    }
+
+    final hasPendingSync = prefs.getBool(_pendingTagMentionSyncKey) == true;
+    if (hasPendingSync) {
+      final putRes = await ApiService().updateTagMentionSettings(
+        token: activeToken,
+        allowTagsFrom: allowTagsFrom,
+        allowMentionsFrom: allowMentionsFrom,
+        manuallyApproveTags: manuallyApproveTags,
+      );
+      if (putRes.success) {
+        await prefs.remove(_pendingTagMentionSyncKey);
+      }
+    }
+
+    final res = await ApiService().getTagMentionSettings(token: activeToken);
+    if (res.success && res.data != null && res.data!['settings'] is Map) {
+      final serverMap = Map<String, dynamic>.from(res.data!['settings'] as Map);
+      final normalized = <String, dynamic>{
+        'allow_tags_from': normalizeTagMentionPolicy(serverMap['allow_tags_from']?.toString()),
+        'allow_mentions_from': normalizeTagMentionPolicy(serverMap['allow_mentions_from']?.toString()),
+        'manually_approve_tags': serverMap['manually_approve_tags'] == true,
+      };
+      await prefs.setString(_tagMentionSettingsKey, jsonEncode(normalized));
+      tagMentionSettingsNotifier.value = Map<String, dynamic>.unmodifiable(normalized);
+    }
+  }
+
+  /// Update Tags & Mentions privacy settings locally immediately and sync to backend
+  Future<ApiResult> updateTagMentionSettings({
+    String? allowTagsFrom,
+    String? allowMentionsFrom,
+    bool? manuallyApproveTags,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final next = <String, dynamic>{
+      'allow_tags_from': allowTagsFrom != null
+          ? normalizeTagMentionPolicy(allowTagsFrom)
+          : this.allowTagsFrom,
+      'allow_mentions_from': allowMentionsFrom != null
+          ? normalizeTagMentionPolicy(allowMentionsFrom)
+          : this.allowMentionsFrom,
+      'manually_approve_tags': manuallyApproveTags ?? this.manuallyApproveTags,
+    };
+
+    await prefs.setString(_tagMentionSettingsKey, jsonEncode(next));
+    tagMentionSettingsNotifier.value = Map<String, dynamic>.unmodifiable(next);
+
+    final activeToken = _token;
+    if (activeToken == null || activeToken.isEmpty) {
+      return ApiResult(
+        success: true,
+        message: 'Saved locally.',
+        data: {'synced': false, 'settings': next},
+      );
+    }
+
+    final res = await ApiService().updateTagMentionSettings(
+      token: activeToken,
+      allowTagsFrom: next['allow_tags_from'] as String,
+      allowMentionsFrom: next['allow_mentions_from'] as String,
+      manuallyApproveTags: next['manually_approve_tags'] as bool,
+    );
+
+    if (res.success) {
+      await prefs.remove(_pendingTagMentionSyncKey);
+      if (res.data?['settings'] is Map) {
+        final serverMap = Map<String, dynamic>.from(res.data!['settings'] as Map);
+        final confirmed = <String, dynamic>{
+          'allow_tags_from': normalizeTagMentionPolicy(serverMap['allow_tags_from']?.toString()),
+          'allow_mentions_from': normalizeTagMentionPolicy(serverMap['allow_mentions_from']?.toString()),
+          'manually_approve_tags': serverMap['manually_approve_tags'] == true,
+        };
+        await prefs.setString(_tagMentionSettingsKey, jsonEncode(confirmed));
+        tagMentionSettingsNotifier.value = Map<String, dynamic>.unmodifiable(confirmed);
+      }
+      return ApiResult(
+        success: true,
+        message: res.message,
+        data: {'synced': true, 'settings': tagMentionSettingsNotifier.value},
+        statusCode: res.statusCode,
+      );
+    }
+
+    await prefs.setBool(_pendingTagMentionSyncKey, true);
+    return ApiResult(
+      success: true,
+      message: 'Saved on device. Will sync when server is ready.',
+      data: {'synced': false, 'settings': next},
+      statusCode: res.statusCode,
+    );
   }
 }
