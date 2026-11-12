@@ -257,6 +257,27 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                                 ),
                               ),
                             ),
+                            const SizedBox(height: 14),
+                            const Divider(color: Color(0xffE2E8F0)),
+                            const SizedBox(height: 10),
+                            const Text(
+                              "Grievance & Safety Officer (IT Rules 2021 / CSAE)",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Color(0xff1C0D5A),
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "grievance@hidely.app • Acknowledged within 24h, resolved within 15 days.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: const Color(0xff1C0D5A).withOpacity(0.7),
+                                fontSize: 12,
+                              ),
+                            ),
                           ],
                         ),
                       ),

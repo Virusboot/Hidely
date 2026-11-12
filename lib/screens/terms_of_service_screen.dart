@@ -96,7 +96,7 @@ class TermsOfServiceScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          "Last updated: July 16, 2026",
+                          "Last updated: November 2026",
                           style: TextStyle(
                             color: const Color(0xff1C0D5A).withOpacity(0.5),
                             fontSize: 14,
@@ -104,33 +104,33 @@ class TermsOfServiceScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 25),
-                        _buildSectionHeader("1. Acceptance of Terms"),
+                        _buildSectionHeader("1. Acceptance & 18+ Eligibility"),
                         _buildSectionBody(
-                          "Welcome to Hidely. By creating an account or using our mobile application, you agree to comply with and be bound by these Terms of Service. If you do not agree to these terms, you should not access or use our services.",
+                          "Welcome to Hidely. By creating an account or using Hidely, you confirm that you are at least 18 years old and agree to be bound by these Terms of Service and our Privacy Policy.",
                         ),
-                        _buildSectionHeader("2. User Accounts"),
+                        _buildSectionHeader("2. User Accounts & Security"),
                         _buildSectionBody(
-                          "To access certain features of Hidely, you must create an account. You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. You agree to provide accurate, current, and complete information during registration.",
+                          "You are responsible for safeguarding your account password and for all activities under your account. Changing or resetting your password automatically revokes older active login tokens.",
                         ),
-                        _buildSectionHeader("3. Privacy & Location Sharing"),
+                        _buildSectionHeader("3. Community Conduct & Zero-Tolerance Safety"),
                         _buildSectionBody(
-                          "Hidely is a location-contextual platform. Your privacy is paramount to us. Location sharing is only initiated with your active consent. Please read our Privacy Policy to understand how we collect, use, and share your information, including your location data.",
+                          "Hidely strictly prohibits unlawful, defamatory, harassing, hateful, explicit, fraudulent, or misleading content, as well as Child Sexual Abuse and Exploitation (CSAE) in any form. You can report content/users or block any account immediately in-app. Verified safety and CSAE reports are acted upon within 24 hours, including permanent content removal and account termination.",
                         ),
-                        _buildSectionHeader("4. Acceptable Conduct"),
+                        _buildSectionHeader("4. Points, Badges & Non-Monetary Features"),
                         _buildSectionBody(
-                          "You agree not to use the app to upload, post, or distribute any content that is unlawful, harmful, threatening, abusive, harassing, defamatory, vulgar, obscene, or invasive of another's privacy. Users found violating these rules may have their accounts suspended or terminated.",
+                          "Hidely Points (XP), daily streaks, ranks, and explorer badges are strictly gamified engagement indicators. They hold zero monetary, cash, wallet, or prepaid instrument value and cannot be exchanged, redeemed, sold, or converted into INR or any currency.",
                         ),
-                        _buildSectionHeader("5. Intellectual Property"),
+                        _buildSectionHeader("5. Local Explorers Directory (Preview)"),
                         _buildSectionBody(
-                          "All original content, designs, features, and functionality of Hidely are and will remain the exclusive property of Hidely and its licensors. You may not reproduce, copy, or redistribute any elements of the app without explicit written permission.",
+                          "The Local Explorers section is currently an informational feature preview only. Hidely does not collect booking fees, process payments, endorse guides, or act as a travel payment aggregator inside the app.",
                         ),
-                        _buildSectionHeader("6. Limitation of Liability"),
+                        _buildSectionHeader("6. Location Sharing & Intellectual Property"),
                         _buildSectionBody(
-                          "Hidely is provided on an 'as-is' and 'as-available' basis. In no event shall Hidely, its directors, employees, or partners be liable for any indirect, incidental, special, consequential, or punitive damages arising out of your access to or use of the app.",
+                          "Foreground location sharing is activated only with your permission. All original Hidely trademarks, UI designs, and software remain the exclusive property of Hidely and its licensors.",
                         ),
-                        _buildSectionHeader("7. Changes to Terms"),
+                        _buildSectionHeader("7. Grievance Redressal & Limitation of Liability"),
                         _buildSectionBody(
-                          "We reserve the right to modify or replace these Terms of Service at any time. We will notify you of any changes by updating the 'Last updated' date at the top of this page.",
+                          "Hidely is provided on an 'as-is' basis. These Terms are governed by the laws of India. For support contact support@hidely.app. For takedown, safety, or IT Rules 2021 / DPDP Act 2023 grievances, email grievance@hidely.app (24-hour acknowledgment; 15-day resolution).",
                         ),
                         const SizedBox(height: 40),
                       ],

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
@@ -52,6 +53,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   bool _isLoading = false;
   bool _isCheckingUsername = false;
   String? _selectedGender;
+  bool _isAdultAndConsentAgreed = false;
 
   late final TapGestureRecognizer _termsRecognizer = TapGestureRecognizer()
     ..onTap = () {
@@ -348,7 +350,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     });
 
     if (result.success) {
-      _devOtp = result.data?['dev_otp']?.toString();
+      final rawDevOtp = result.data?['dev_otp']?.toString();
+      _devOtp = kDebugMode ? rawDevOtp : null;
       _showCustomSnackBar(context, result.message, isError: false);
       _clearOtpFields();
       _startOtpTimer();
@@ -393,7 +396,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     });
 
     if (result.success) {
-      _devOtp = result.data?['dev_otp']?.toString();
+      final rawDevOtp = result.data?['dev_otp']?.toString();
+      _devOtp = kDebugMode ? rawDevOtp : null;
       _showCustomSnackBar(context, result.message, isError: false);
       _clearOtpFields();
       _startOtpTimer();
@@ -466,8 +470,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       _passwordFocusNode.requestFocus();
       return;
     }
-    if (password.length < 6) {
-      _showCustomSnackBar(context, "Password must be at least 6 characters", isError: true);
+    if (password.length < 8) {
+      _showCustomSnackBar(context, "Password must be at least 8 characters", isError: true);
       _passwordFocusNode.requestFocus();
       return;
     }
@@ -510,6 +514,15 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       return;
     }
 
+    if (!_isAdultAndConsentAgreed) {
+      _showCustomSnackBar(
+        context,
+        "Please confirm you are 18+ years old and agree to Hidely's Terms & Privacy Policy.",
+        isError: true,
+      );
+      return;
+    }
+
     final name = _nameController.text.trim();
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
@@ -526,6 +539,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       email: email,
       password: password,
       gender: _selectedGender,
+      ageConfirmed: _isAdultAndConsentAgreed,
+      termsAccepted: _isAdultAndConsentAgreed,
     )
         .then((result) async {
       if (!context.mounted) {
@@ -1019,7 +1034,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             ),
           ),
         ),
-        if (_devOtp != null) ...[
+        if (kDebugMode && _devOtp != null) ...[
           const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -1204,7 +1219,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         ),
         const SizedBox(height: 10),
         Text(
-          "Create a secure password with at least 6 characters and at least one special character.",
+          "Create a secure password with at least 8 characters and at least one special character.",
           style: TextStyle(
             color: const Color(0xff1C0D5A).withOpacity(0.65),
             fontSize: 15,
@@ -1254,7 +1269,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  "Must be 6-30 characters with 1 special symbol (e.g. !@#\$%^&*)",
+                  "Must be 8-30 characters with 1 special symbol (e.g. !@#\$%^&*)",
                   style: TextStyle(
                     color: const Color(0xff1C0D5A).withOpacity(0.55),
                     fontSize: 12,
@@ -1307,7 +1322,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         ),
         const SizedBox(height: 22),
 
-        // Paragraph 1: Contact info notice
+        // Paragraph 1: Age & optional permissions disclosure
         RichText(
           text: TextSpan(
             style: bodyTextStyle.copyWith(
@@ -1316,7 +1331,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             ),
             children: [
               const TextSpan(
-                text: "People who use our service may have uploaded your contact information to Hidely. ",
+                text: "You must be at least 18 years old to join Hidely. Location access is strictly optional and used only with your permission. ",
               ),
               TextSpan(
                 text: "Learn more",
@@ -1326,9 +1341,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
 
-        // Paragraph 2: By tapping I agree...
+        // Paragraph 2: By confirming & tapping I agree...
         RichText(
           text: TextSpan(
             style: bodyTextStyle.copyWith(
@@ -1336,7 +1351,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               fontFamily: bodyFontFamily,
             ),
             children: [
-              const TextSpan(text: "By tapping "),
+              const TextSpan(text: "By confirming below and tapping "),
               const TextSpan(
                 text: "I agree",
                 style: TextStyle(
@@ -1360,7 +1375,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               ),
               const TextSpan(text: " and "),
               TextSpan(
-                text: "Cookies Policy",
+                text: "Child Safety Standards",
                 style: linkTextStyle,
                 recognizer: _cookiesRecognizer,
               ),
@@ -1368,9 +1383,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
 
-        // Paragraph 3: Privacy Policy description
+        // Paragraph 3: Privacy Policy description (truthful Data Safety disclosure)
         RichText(
           text: TextSpan(
             style: bodyTextStyle.copyWith(
@@ -1386,14 +1401,50 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               ),
               const TextSpan(
                 text:
-                    " describes the ways that we can use the information we collect when you create a profile. For example, we use this information to provide, personalise and improve our products, including ads.",
+                    " explains how we process your profile and location data to operate discovery, messaging, and moderation features. We do not sell your data or serve behavioral third-party ads.",
               ),
             ],
           ),
         ),
-        const SizedBox(height: 38),
+        const SizedBox(height: 20),
 
-        // Instagram-style "I agree" Primary Action Button
+        // Mandatory 18+ Age & DPDP Data Consent Confirmation
+        Material(
+          color: Colors.white.withOpacity(0.78),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: _isAdultAndConsentAgreed
+                  ? const Color(0xff5D3EBC)
+                  : Colors.white.withOpacity(0.9),
+              width: 1.4,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: CheckboxListTile(
+            value: _isAdultAndConsentAgreed,
+            onChanged: (val) {
+              setState(() {
+                _isAdultAndConsentAgreed = val ?? false;
+              });
+            },
+            activeColor: const Color(0xff2B1564),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            controlAffinity: ListTileControlAffinity.leading,
+            title: const Text(
+              "I confirm I am at least 18 years old and consent to Hidely processing my personal data per the Privacy Policy & Terms.",
+              style: TextStyle(
+                color: Color(0xff1C0D5A),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Primary Action Button
         _buildActionButton(
           text: _isLoading ? "Please wait..." : "I agree",
           isLoading: _isLoading,

@@ -400,6 +400,41 @@ class _VoiceCallScreenState extends State<VoiceCallScreen> with SingleTickerProv
         ],
       );
 
+    if (!CallConfig.isConfigured) {
+      return Scaffold(
+        backgroundColor: const Color(0xff090D16),
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.call_end_rounded, color: Colors.white54, size: 48),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Voice Calling Unavailable',
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Calling keys are not configured in this build.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Go Back'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xff090D16),
       body: SafeArea(

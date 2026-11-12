@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:hidely_new/screens/main_wrapper.dart' show showLoginRequiredSheet;
+import 'package:hidely_new/services/api_service.dart';
+import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/widgets/custom_snackbar.dart';
 
 class ReportReason {
   final String title;
@@ -13,14 +17,18 @@ class ReportReason {
 }
 
 class ReportBottomSheet extends StatefulWidget {
-  final String targetType; // 'Post' or 'Profile'
+  final String targetType; // 'Post', 'Reel', 'Profile', or 'Comment'
   final String targetName; // e.g. post caption or username
+  final int? targetId;
+  final String? targetUsername;
   final VoidCallback onSubmitSuccess;
 
   const ReportBottomSheet({
     super.key,
     required this.targetType,
     required this.targetName,
+    this.targetId,
+    this.targetUsername,
     required this.onSubmitSuccess,
   });
 
@@ -51,6 +59,16 @@ class _ReportBottomSheetState extends State<ReportBottomSheet> {
       icon: Icons.gavel_rounded,
     ),
     ReportReason(
+      title: "Child Safety / CSAE",
+      description: "Zero tolerance: child sexual abuse, exploitation, or endangerment",
+      icon: Icons.shield_outlined,
+    ),
+    ReportReason(
+      title: "Inappropriate Content",
+      description: "Explicit nudity, graphic violence, illegal goods, or self-harm",
+      icon: Icons.visibility_off_outlined,
+    ),
+    ReportReason(
       title: "Wrong Location",
       description: "Inaccurate GPS coordinates, wrong pin, or false address",
       icon: Icons.wrong_location_rounded,
@@ -68,88 +86,150 @@ class _ReportBottomSheetState extends State<ReportBottomSheet> {
     super.dispose();
   }
 
-  void _submitReport() async {
+  Future<void> _submitReport() async {
+    final token = AuthService().token ?? '';
+    if (AuthService().isGuest || token.isEmpty) {
+      showLoginRequiredSheet(context, reason: 'submit a safety report');
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
     });
 
-    // Simulate API call delay
-    await Future.delayed(const Duration(milliseconds: 1200));
+    final reasonTitle = _selectedReason?.title ?? 'Other';
+    final result = await ApiService().submitReport(
+      token: token,
+      targetType: widget.targetType,
+      targetId: widget.targetId,
+      targetUsername: widget.targetUsername,
+      targetName: widget.targetName,
+      reason: reasonTitle,
+      details: _detailsController.text.trim(),
+    );
 
-    if (mounted) {
-      setState(() {
-        _isSubmitting = false;
-      });
-      Navigator.pop(context); // Close bottom sheet
-      
-      // Trigger success callback
-      widget.onSubmitSuccess();
+    if (!mounted) return;
 
-      // Show beautiful success dialog
-      showDialog(
-        context: context,
-        builder: (context) => Navigator.canPop(context) ? AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Color(0xffE6F7EE),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_circle_rounded,
-                  color: Color(0xff29A96A),
-                  size: 48,
-                ),
+    setState(() {
+      _isSubmitting = false;
+    });
+
+    if (!result.success) {
+      showHidelySnackBar(
+        context,
+        result.message.isNotEmpty
+            ? result.message
+            : 'Unable to submit report. Please check your connection and try again.',
+        isError: true,
+      );
+      return;
+    }
+
+    final navigator = Navigator.of(context, rootNavigator: false);
+    final hostContext = navigator.context;
+    final cleanUsername = (widget.targetUsername ?? '').replaceFirst(RegExp(r'^@+'), '').trim();
+    final isOwnAccount = cleanUsername.isNotEmpty &&
+        cleanUsername.toLowerCase() == AuthService().userUsername.toLowerCase();
+
+    Navigator.pop(context); // Close bottom sheet
+    widget.onSubmitSuccess();
+
+    if (!hostContext.mounted) return;
+
+    showDialog(
+      context: hostContext,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Color(0xffE6F7EE),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 20),
-              const Text(
-                "Report Submitted",
-                style: TextStyle(
-                  color: Color(0xff1C0D5A),
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              child: const Icon(
+                Icons.check_circle_rounded,
+                color: Color(0xff29A96A),
+                size: 48,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              "Report Submitted",
+              style: TextStyle(
+                color: Color(0xff1C0D5A),
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              reasonTitle.contains('Child Safety')
+                  ? "Thank you. Urgent Child Safety (CSAE) reports are prioritized for immediate review and takedown within 24 hours."
+                  : "Thank you for keeping Hidely safe! Our moderation team will review this ${widget.targetType.toLowerCase()} within 24 hours.",
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.black54,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 20),
+            if (cleanUsername.isNotEmpty && !isOwnAccount) ...[
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.block_rounded, size: 18, color: Colors.redAccent),
+                  label: Text(
+                    "Block @$cleanUsername",
+                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.redAccent),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    Navigator.pop(dialogCtx);
+                    await AuthService().blockUser(cleanUsername);
+                    if (hostContext.mounted) {
+                      showHidelySnackBar(
+                        hostContext,
+                        "@$cleanUsername blocked. Their posts and profile are now hidden.",
+                        isError: false,
+                      );
+                    }
+                  },
                 ),
               ),
               const SizedBox(height: 10),
-              Text(
-                "Thank you for keeping Hidely safe! Our moderation team will review this ${widget.targetType.toLowerCase()} within 24 hours.",
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.black54,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 46,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xff2B1564),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    "Dismiss",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
             ],
-          ),
-        ) : const SizedBox.shrink(),
-      );
-    }
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff2B1564),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text(
+                  "Dismiss",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -159,11 +239,10 @@ class _ReportBottomSheetState extends State<ReportBottomSheet> {
 
     return Wrap(
       children: [
-        Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
+        Material(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          clipBehavior: Clip.antiAlias,
           child: SafeArea(
             top: false,
             bottom: true,
@@ -248,10 +327,13 @@ class _ReportBottomSheetState extends State<ReportBottomSheet> {
 }
 
   Widget _buildReasonSelector() {
-    return Flexible(
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.56,
+      ),
       child: ListView.builder(
         shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
+        physics: const BouncingScrollPhysics(),
         itemCount: _reasons.length,
         itemBuilder: (context, index) {
           final reason = _reasons[index];

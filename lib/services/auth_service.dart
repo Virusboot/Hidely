@@ -351,6 +351,77 @@ class AuthService {
     NotificationPollingService().restartPolling();
   }
 
+  /// Update active JWT token after security rotation (e.g. password change)
+  Future<void> updateSessionToken(String newToken) async {
+    if (newToken.isEmpty || !_isLoggedIn) return;
+    _token = newToken;
+    try {
+      await _secureStorage
+          .write(key: 'auth_token', value: newToken)
+          .timeout(const Duration(seconds: 2));
+    } catch (_) {}
+
+    final sessions = await getSessions();
+    bool changed = false;
+    for (int i = 0; i < sessions.length; i++) {
+      final u = sessions[i]['user'];
+      if (u != null && _user != null && (u['id'] == _user!['id'] || u['username'] == _user!['username'])) {
+        sessions[i]['token'] = newToken;
+        changed = true;
+      }
+    }
+    if (changed) {
+      try {
+        await _secureStorage
+            .write(key: 'auth_sessions', value: jsonEncode(sessions))
+            .timeout(const Duration(seconds: 2));
+      } catch (_) {}
+    }
+  }
+
+  /// Permanently delete current user account on backend and purge local session data
+  Future<ApiResult> deleteAccount({required String password}) async {
+    final activeToken = _token;
+    if (!_isLoggedIn || activeToken == null || activeToken.isEmpty) {
+      return ApiResult(
+        success: false,
+        message: 'You must be signed in to delete your account.',
+      );
+    }
+
+    final res = await ApiService().deleteAccount(
+      token: activeToken,
+      password: password,
+    );
+
+    if (!res.success) {
+      return res;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_blockedUsersKey);
+    await prefs.remove(_pendingBlockOpsKey);
+    await prefs.remove(_tagMentionSettingsKey);
+    await prefs.remove(_pendingTagMentionSyncKey);
+    await prefs.remove(_userFeedCacheKey);
+
+    final sessions = await getSessions();
+    final activeId = _user?['id'];
+    final activeUsername = _user?['username'];
+    sessions.removeWhere((s) {
+      final u = s['user'];
+      return u != null && (u['id'] == activeId || u['username'] == activeUsername);
+    });
+    try {
+      await _secureStorage
+          .write(key: 'auth_sessions', value: jsonEncode(sessions))
+          .timeout(const Duration(seconds: 2));
+    } catch (_) {}
+
+    await logout();
+    return res;
+  }
+
   /// Clear the local authentication session securely
   Future<void> logout() async {
     final activeUserKey = _userFeedCacheKey;

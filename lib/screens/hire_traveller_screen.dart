@@ -353,19 +353,18 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                                 children: [
                                   Row(
                                     children: [
-                                      Text(
-                                        traveller['name'],
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF1C0D5A),
-                                          letterSpacing: -0.3,
+                                      Flexible(
+                                        child: Text(
+                                          traveller['name'],
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF1C0D5A),
+                                            letterSpacing: -0.3,
+                                          ),
                                         ),
                                       ),
-                                      if (traveller['isVerified'] == true) ...[
-                                        const SizedBox(width: 5),
-                                        const Icon(Icons.verified_rounded, color: Color(0xFF0284C7), size: 18),
-                                      ],
                                     ],
                                   ),
                                   const SizedBox(height: 4),
@@ -497,7 +496,7 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        // Price Rate Stat Card
+                        // Preview Status Stat Card
                         Expanded(
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
@@ -506,15 +505,15 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(color: const Color(0xFFE2E8F0)),
                             ),
-                            child: Column(
+                            child: const Column(
                               children: [
                                 Text(
-                                  '₹${traveller['pricePerDay']}',
-                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1C0D5A)),
+                                  'Preview',
+                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF4338CA)),
                                 ),
-                                const SizedBox(height: 2),
-                                const Text(
-                                  'Per Day',
+                                SizedBox(height: 2),
+                                Text(
+                                  'Coming Soon',
                                   style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                                 ),
                               ],
@@ -600,17 +599,17 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
 
                     const SizedBox(height: 18),
 
-                    // Verified Trust Banner
+                    // Preview Disclaimer Banner
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: const Color(0xFFEEF2FF),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: const Color(0xFFC7D2FE)),
                       ),
                       child: const Text(
-                        'Verified Explorer • 100% Direct Local Experience',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1C0D5A)),
+                        'Preview Directory • Bookings & in-app payments are not active yet.',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF312E81)),
                       ),
                     ),
 
@@ -619,7 +618,7 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                 ),
               ),
 
-              // Bottom Floating Action Bar with SafeArea padding fix (Full Width Book Button!)
+              // Bottom Floating Action Bar with SafeArea padding fix (Preview Only Notice)
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -641,17 +640,17 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                         onPressed: () {
                           Navigator.pop(ctx);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Hiring request sent to ${traveller['name']}!'),
-                              backgroundColor: const Color(0xFF1C0D5A),
+                            const SnackBar(
+                              content: Text('Local Explorer bookings are coming soon in a future update.'),
+                              backgroundColor: Color(0xFF1C0D5A),
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
                         },
-                        icon: const Icon(Icons.handshake_rounded, color: Colors.white, size: 18),
-                        label: Text(
-                          'Book Guide • ₹${traveller['pricePerDay']}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13.5),
+                        icon: const Icon(Icons.info_outline_rounded, color: Colors.white, size: 18),
+                        label: const Text(
+                          'Preview Only • Bookings Coming Soon',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13.5),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1C0D5A),
@@ -737,7 +736,7 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                     ),
                     const Expanded(
                       child: Text(
-                        "Hire a Traveller",
+                        "Local Explorers (Preview)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 18,
@@ -747,6 +746,29 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                       ),
                     ),
                     const SizedBox(width: 38), // Balance header width
+                  ],
+                ),
+              ),
+
+              // Preview Compliance Disclaimer Banner
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFC7D2FE)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF4338CA)),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Feature Preview: Sample explorer profiles shown for discovery. Paid bookings are coming soon.',
+                        style: TextStyle(fontSize: 11.5, color: Color(0xFF312E81), fontWeight: FontWeight.w500),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -808,7 +830,7 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                         minWidth: 40,
                         minHeight: 44,
                       ),
-                      hintText: 'Search city, guide or skill...',
+                      hintText: 'Search city, explorer or skill...',
                       hintStyle: const TextStyle(
                         fontSize: 13.5,
                         color: Color(0xFF94A3B8),
@@ -860,7 +882,7 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                             const Icon(Icons.explore_off_rounded, size: 40, color: Color(0xFF94A3B8)),
                             const SizedBox(height: 10),
                             Text(
-                              'No guides found for "$_selectedCity"',
+                              'No explorers found for "$_selectedCity"',
                               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
                             ),
                           ],
@@ -1030,10 +1052,6 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                                           ),
                                         ),
                                       ),
-                                      if (t['isVerified'] == true) ...[
-                                        const SizedBox(width: 4),
-                                        const Icon(Icons.verified_rounded, color: Color(0xFF0284C7), size: 15),
-                                      ],
                                     ],
                                   ),
                                   const SizedBox(height: 1),
@@ -1051,29 +1069,21 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Clean Price Tag
+                    // Preview Status Tag
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
+                        color: const Color(0xFFEEF2FF),
                         borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFC7D2FE)),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '₹${t['pricePerDay']}',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF059669),
-                            ),
-                          ),
-                          const Text(
-                            '/day',
-                            style: TextStyle(fontSize: 10, color: Color(0xFF047857), fontWeight: FontWeight.w500),
-                          ),
-                        ],
+                      child: const Text(
+                        'Preview',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF4338CA),
+                        ),
                       ),
                     ),
                   ],
@@ -1096,17 +1106,25 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                     ),
                     const Icon(Icons.location_on_rounded, color: Color(0xFF475569), size: 13),
                     const SizedBox(width: 2),
-                    Text(
-                      t['city'],
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                    Flexible(
+                      child: Text(
+                        t['city'],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                      ),
                     ),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 6),
                       child: Text('•', style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 11)),
                     ),
-                    Text(
-                      '${t['experienceYears']} yrs exp',
-                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                    Flexible(
+                      child: Text(
+                        '${t['experienceYears']} yrs exp',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                      ),
                     ),
                   ],
                 ),
@@ -1138,7 +1156,7 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
 
                 const SizedBox(height: 12),
 
-                // Full Width Primary CTA: View Profile & Hire
+                // Full Width Primary CTA: View Explorer Preview
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -1151,7 +1169,7 @@ class _HireTravellerScreenState extends State<HireTravellerScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     child: const Text(
-                      'View Profile & Hire',
+                      'View Explorer Preview',
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                     ),
                   ),

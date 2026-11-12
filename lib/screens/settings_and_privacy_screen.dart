@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'main_wrapper.dart';
 import 'edit_profile_screen.dart';
@@ -134,8 +136,8 @@ class _SettingsAndPrivacyScreenState
             ),
           },
           {
-            'title': 'Hire a Traveller',
-            'subtitle': 'Connect with verified local explorers & guides',
+            'title': 'Local Explorers (Preview)',
+            'subtitle': 'Sample explorer directory (Bookings Coming Soon)',
             'icon': Icons.travel_explore_rounded,
             'iconBg': const Color(0xffE6F7EE),
             'iconColor': const Color(0xff059669),
@@ -351,20 +353,112 @@ class _SettingsAndPrivacyScreenState
     ];
   }
 
-  void _handleDownloadMyData() {
-    _showSnack('Data export requested! We will email your archive link within 24 hours.');
+  Future<void> _handleDownloadMyData() async {
+    final token = AuthService().token ?? '';
+    if (AuthService().isGuest || token.isEmpty) {
+      showLoginRequiredSheet(
+        context,
+        reason: 'download a copy of your personal data',
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: Color(0xff2B1564)),
+      ),
+    );
+
+    final res = await ApiService().exportUserData(token: token);
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+
+    if (!res.success) {
+      _showSnack(res.message.isNotEmpty ? res.message : 'Unable to export account data.');
+      return;
+    }
+
+    final exportPayload = res.data?['data'] ?? res.data ?? {};
+    final prettyJson = const JsonEncoder.withIndent('  ').convert(exportPayload);
+
+    final postsCount = (exportPayload['posts'] as List?)?.length ?? 0;
+    final commentsCount = (exportPayload['comments'] as List?)?.length ?? 0;
+    final followersCount = (exportPayload['followers'] as List?)?.length ?? 0;
+    final followingCount = (exportPayload['following'] as List?)?.length ?? 0;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Your Hidely Data Archive',
+          style: TextStyle(color: Color(0xff1C0D5A), fontWeight: FontWeight.bold),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Generated per DPDP Act Sec. 11:\nPosts: $postsCount • Comments: $commentsCount • Followers: $followersCount • Following: $followingCount',
+                  style: const TextStyle(fontSize: 12.5, color: Colors.black87, height: 1.4),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 240),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xffE2E8F0)),
+                  ),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      prettyJson,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                        color: Color(0xff1E293B),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: prettyJson));
+              Navigator.pop(ctx);
+              _showSnack('Data archive JSON copied to clipboard.');
+            },
+            child: const Text('Copy JSON', style: TextStyle(color: Color(0xff2B1564), fontWeight: FontWeight.bold)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close', style: TextStyle(color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _handleContactSupport() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Contact Support', style: TextStyle(color: Color(0xff1C0D5A), fontWeight: FontWeight.bold)),
+        title: const Text('Support & Grievance Officer', style: TextStyle(color: Color(0xff1C0D5A), fontWeight: FontWeight.bold)),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Need help or found an issue? Our team is available 24/7.', style: TextStyle(fontSize: 13, color: Colors.black87)),
+            Text('Need help, content moderation support, or have a statutory data grievance?', style: TextStyle(fontSize: 13, color: Colors.black87)),
             SizedBox(height: 12),
             Row(
               children: [
@@ -372,6 +466,21 @@ class _SettingsAndPrivacyScreenState
                 SizedBox(width: 8),
                 Text('support@hidely.app', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xff2B1564))),
               ],
+            ),
+            SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(Icons.gavel_rounded, size: 18, color: Color(0xff2B1564)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text('grievance@hidely.app (Grievance & Child Safety Officer)', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xff2B1564), fontSize: 12.5)),
+                ),
+              ],
+            ),
+            SizedBox(height: 10),
+            Text(
+              'Grievances are acknowledged within 24 hours and resolved within 15 days (within 24 hours for urgent safety/CSAE takedowns).',
+              style: TextStyle(fontSize: 11.5, color: Colors.black54, height: 1.4),
             ),
           ],
         ),
@@ -386,63 +495,27 @@ class _SettingsAndPrivacyScreenState
   }
 
   void _handleDeleteAccount() {
+    if (AuthService().isGuest || (AuthService().token ?? '').isEmpty) {
+      showLoginRequiredSheet(
+        context,
+        reason: 'permanently delete an account',
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.5),
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        backgroundColor: Colors.white,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: Colors.red.shade50, shape: BoxShape.circle),
-                child: const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 36),
-              ),
-              const SizedBox(height: 16),
-              const Text('Delete Account?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A))),
-              const SizedBox(height: 8),
-              const Text(
-                'Are you sure you want to permanently delete your account? All your posts, saved places, and data will be erased immediately and cannot be recovered.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Colors.black54, height: 1.4),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                      child: const Text('Cancel', style: TextStyle(color: Color(0xff1C0D5A), fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        Navigator.pop(ctx);
-                        await AuthService().logout();
-                        if (mounted) {
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(builder: (_) => const MainWrapper(initialIndex: 0)),
-                            (route) => false,
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                      child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+      builder: (_) => _DeleteAccountDialog(
+        onDeleted: () {
+          if (!mounted) return;
+          _showSnack('Your account and personal data have been permanently deleted.');
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const MainWrapper(initialIndex: 0)),
+            (route) => false,
+          );
+        },
       ),
     );
   }
@@ -975,6 +1048,143 @@ class _SettingsAndPrivacyScreenState
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteAccountDialog extends StatefulWidget {
+  final VoidCallback onDeleted;
+  const _DeleteAccountDialog({required this.onDeleted});
+
+  @override
+  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
+  final TextEditingController _passwordController = TextEditingController();
+  bool _obscurePassword = true;
+  bool _isDeleting = false;
+  String? _errorMsg;
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirmDelete() async {
+    final password = _passwordController.text;
+    if (password.isEmpty) {
+      setState(() => _errorMsg = 'Please enter your current password.');
+      return;
+    }
+
+    setState(() {
+      _isDeleting = true;
+      _errorMsg = null;
+    });
+
+    final res = await AuthService().deleteAccount(password: password);
+
+    if (!mounted) return;
+
+    if (res.success) {
+      Navigator.pop(context);
+      widget.onDeleted();
+    } else {
+      setState(() {
+        _isDeleting = false;
+        _errorMsg = res.message.isNotEmpty
+            ? res.message
+            : 'Could not delete account. Please verify your password.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: Colors.red.shade50, shape: BoxShape.circle),
+                child: const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 36),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Permanently Delete Account?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A)),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'All your posts, photos, messages, saved places, and personal data will be permanently erased from our servers. You can also use our web deletion portal at ${ApiService().baseUrl}/delete-account.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12.5, color: Colors.black54, height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                enabled: !_isDeleting,
+                decoration: InputDecoration(
+                  labelText: 'Confirm Current Password',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  isDense: true,
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 20),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                ),
+              ),
+              if (_errorMsg != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _errorMsg!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ],
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _isDeleting ? null : () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      child: const Text('Cancel', style: TextStyle(color: Color(0xff1C0D5A), fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isDeleting ? null : _confirmDelete,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: _isDeleting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

@@ -168,8 +168,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           _showCustomSnackBar(context, "New password cannot be the same as your current password.", isError: true);
                         } else if (confirmPassword.isEmpty) {
                           _showCustomSnackBar(context, "Please confirm your new password.", isError: true);
-                        } else if (password.length < 6) {
-                          _showCustomSnackBar(context, "Password must be at least 6 characters long.", isError: true);
+                        } else if (password.length < 8) {
+                          _showCustomSnackBar(context, "Password must be at least 8 characters long.", isError: true);
                         } else if (!RegExp(r'[!@#$%^&*(),.?":{}|<>_\-+=\\/\[\]~`]').hasMatch(password)) {
                           _showCustomSnackBar(context, "Password must contain at least one special character (e.g. !@#\$%^&*).", isError: true);
                         } else if (password != confirmPassword) {
@@ -213,6 +213,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                 }
                               });
                             } else {
+                              final rotatedToken = result.data?['token']?.toString();
+                              if (rotatedToken != null && rotatedToken.isNotEmpty) {
+                                await AuthService().updateSessionToken(rotatedToken);
+                              }
                               _showCustomSnackBar(context, "Password changed successfully!", isError: false);
                               Future.delayed(const Duration(milliseconds: 1000), () {
                                 if (context.mounted) {

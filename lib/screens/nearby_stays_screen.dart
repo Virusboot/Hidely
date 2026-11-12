@@ -46,7 +46,7 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
       double lng = 0.0;
 
       if (widget.locationName != null && widget.locationName!.isNotEmpty) {
-        final geocodeUrl = kIsWeb
+        final geocodeUrl = (kIsWeb || apiKey.isEmpty)
             ? Uri.parse('${ApiService().baseUrl}/api/map/geocode?address=${Uri.encodeComponent(widget.locationName!)}')
             : Uri.parse(
                 'https://maps.googleapis.com/maps/api/geocode/json'
@@ -81,13 +81,13 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
         lng = pos.longitude;
       }
 
-      final restaurantUrl = kIsWeb
+      final restaurantUrl = (kIsWeb || apiKey.isEmpty)
           ? Uri.parse('${ApiService().baseUrl}/api/map/places/nearby?location=$lat,$lng&radius=20000&type=restaurant')
           : Uri.parse(
               'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
               '?location=$lat,$lng&radius=20000&type=restaurant&key=$apiKey'
             );
-      final hotelUrl = kIsWeb
+      final hotelUrl = (kIsWeb || apiKey.isEmpty)
           ? Uri.parse('${ApiService().baseUrl}/api/map/places/nearby?location=$lat,$lng&radius=20000&type=lodging')
           : Uri.parse(
               'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
@@ -124,9 +124,15 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
               if (photos != null && photos.isNotEmpty) {
                 for (var p in photos) {
                   final photoRef = p['photo_reference'];
-                  imagesList.add('https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=$photoRef&key=$apiKey');
+                  if (photoRef != null) {
+                    imagesList.add((kIsWeb || apiKey.isEmpty)
+                        ? '${ApiService().baseUrl}/api/map/photo?maxwidth=400&photo_reference=$photoRef'
+                        : 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=$photoRef&key=$apiKey');
+                  }
                 }
-                image = imagesList.first;
+                if (imagesList.isNotEmpty) {
+                  image = imagesList.first;
+                }
               }
 
               if (i == 0) {

@@ -437,6 +437,8 @@ class _ReelsScreenState extends State<ReelsScreen> {
                     backgroundColor: Colors.transparent,
                     builder: (_) => ReportBottomSheet(
                       targetType: 'Reel',
+                      targetId: id is int ? id : int.tryParse(id?.toString() ?? ''),
+                      targetUsername: authorUsername,
                       targetName: caption.isNotEmpty ? caption : 'Reel #$id',
                       onSubmitSuccess: () {},
                     ),

@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:hidely_new/screens/main_wrapper.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
@@ -26,7 +26,7 @@ class _PostSignupOnboardingScreenState
   bool _isUploadingAvatar = false;
   String _displayName = "";
   String _bio = "";
-  bool _contactsSynced = false;
+  bool _inviteShared = false;
 
   final ImagePicker _picker = ImagePicker();
 
@@ -242,24 +242,35 @@ class _PostSignupOnboardingScreenState
     }
   }
 
-  Future<void> _requestContactsAccess() async {
+  Future<void> _shareInviteWithFriends() async {
+    const inviteText =
+        'Join me on Hidely to discover hidden places and travel spots! https://hidely.app';
     try {
-      final status = await Permission.contacts.request();
-      if (!mounted) return;
-      setState(() {
-        _contactsSynced = true;
-      });
-      if (status.isGranted) {
-        showHidelySnackBar(context, "Contacts connected successfully!", isError: false);
-      } else {
-        showHidelySnackBar(context, "Contact access saved.", isError: false);
-      }
-      Future.delayed(const Duration(milliseconds: 400), () {
-        if (mounted) _goToNextPage();
-      });
-    } catch (e) {
-      _goToNextPage();
+      await SharePlus.instance.share(
+        ShareParams(
+          text: inviteText,
+          subject: 'Join me on Hidely',
+        ),
+      );
+    } catch (_) {
+      await Clipboard.setData(const ClipboardData(text: inviteText));
     }
+    if (!mounted) return;
+    setState(() {
+      _inviteShared = true;
+    });
+    showHidelySnackBar(context, "Invite link ready to share!", isError: false);
+  }
+
+  Future<void> _copyInviteLink() async {
+    await Clipboard.setData(
+      const ClipboardData(text: 'https://hidely.app'),
+    );
+    if (!mounted) return;
+    setState(() {
+      _inviteShared = true;
+    });
+    showHidelySnackBar(context, "Invite link copied!", isError: false);
   }
 
   // --- Sub-Screen 1: Edit Name (Matching Image 5) ---
@@ -739,7 +750,7 @@ class _PostSignupOnboardingScreenState
   // SCREEN 2: Sync Device Contacts (Image 2)
   // ==========================================
   Widget _buildSyncContactsStep() {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 28.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -790,7 +801,7 @@ class _PostSignupOnboardingScreenState
           ),
           const SizedBox(height: 24),
           const Text(
-            "Find friends faster by syncing device contacts",
+            "Invite friends to explore with you",
             style: TextStyle(
               color: Color(0xff1C0D5A),
               fontSize: 27,
@@ -801,14 +812,14 @@ class _PostSignupOnboardingScreenState
           ),
           const SizedBox(height: 12),
           Text(
-            "Contacts on this device will be periodically synced and stored securely on our servers so that we can help recommend people and things that are relevant to you.",
+            "Share your Hidely invite link using your device share sheet. Hidely never accesses, uploads, or stores your device contacts.",
             style: TextStyle(
               color: const Color(0xff1C0D5A).withOpacity(0.65),
               fontSize: 14.5,
               height: 1.45,
             ),
           ),
-          const Spacer(flex: 1),
+          const SizedBox(height: 18),
 
           // Graphic Illustration Card matching Instagram
           Container(
@@ -888,26 +899,26 @@ class _PostSignupOnboardingScreenState
 
                 // Card action buttons
                 _buildPillButton(
-                  text: "Select contacts",
+                  text: "Copy invite link",
                   isPrimary: false,
                   height: 48,
-                  onPressed: _requestContactsAccess,
+                  onPressed: _copyInviteLink,
                 ),
                 const SizedBox(height: 10),
                 _buildPillButton(
-                  text: _contactsSynced ? "Contacts Synced ✓" : "Allow full access",
+                  text: _inviteShared ? "Invite Shared ✓" : "Share invite link",
                   isPrimary: true,
                   height: 48,
-                  onPressed: _requestContactsAccess,
+                  onPressed: _shareInviteWithFriends,
                 ),
               ],
             ),
           ),
 
-          const Spacer(flex: 1),
+          const SizedBox(height: 18),
           Center(
             child: Text(
-              "You can remove stored contacts or turn off syncing at any time.",
+              "Privacy-first: your phone contacts stay private on your device.",
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: const Color(0xff1C0D5A).withOpacity(0.55),

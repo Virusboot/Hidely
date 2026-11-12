@@ -96,7 +96,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          "Last updated: July 16, 2026",
+                          "Last updated: November 2026",
                           style: TextStyle(
                             color: const Color(0xff1C0D5A).withOpacity(0.5),
                             fontSize: 14,
@@ -104,33 +104,35 @@ class PrivacyPolicyScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 25),
-                        _buildSectionHeader("1. Information We Collect"),
+                        _buildSectionHeader("1. Eligibility & Age Limit (18+)"),
                         _buildSectionBody(
-                          "We collect information that you provide to us directly when creating an account, such as your full name, email address, and account password. Additionally, since Hidely is location-contextual, we collect precise location data with your permission when the app is active.",
+                          "Hidely is strictly intended for individuals aged 18 years and older. By creating an account, you confirm that you are an adult aged 18+ under the Digital Personal Data Protection Act, 2023 (DPDP Act). We do not knowingly collect data from minors; any underage account will be suspended and permanently erased.",
                         ),
-                        _buildSectionHeader("2. How We Use Information"),
+                        _buildSectionHeader("2. Information We Collect"),
                         _buildSectionBody(
-                          "We use the collected information to provide, maintain, and improve the app's services, especially the nearby place discovery and contextual feed. We also use your information to secure your account, prevent fraud, and communicate updates or security alerts to you.",
+                          "We collect account information you directly provide (name, username, email address, hashed password, and optional bio or gender), content you share (posts, photos, reels, comments, and chat messages), and precise location data only when you grant foreground permission to explore nearby places or geo-tag posts. We do not collect device contacts or track your location in the background.",
                         ),
-                        _buildSectionHeader("3. Sharing of Information"),
+                        _buildSectionHeader("3. How We Use Information & Processors"),
                         _buildSectionBody(
-                          "We do not sell or rent your personal or location data to third parties. We may share information with trusted third-party service providers to help run the app (such as database hosting or authentication services), but only under strict data-protection agreements.",
+                          "Your information powers nearby place discovery, user-generated feeds, in-app messaging, moderation/safety enforcement, and OTP verification. We do not sell or rent personal data. Essential processing relies on trusted infrastructure providers (managed database hosting, interactive maps, Zego SDK for user-initiated audio/video calls, and email OTP delivery) under strict data-protection controls.",
                         ),
-                        _buildSectionHeader("4. Location Permissions & Settings"),
+                        _buildSectionHeader("4. Permissions & Device Controls"),
                         _buildSectionBody(
-                          "You can enable, modify, or disable location sharing at any time through your mobile device's system settings. Please note that disabling location services will significantly limit the features and functionality of Hidely.",
+                          "Location, Camera, Microphone, and Photo Library access are optional and requested just-in-time. Media EXIF coordinates are read only on user-selected uploads to accurately place your travel posts. You can revoke permissions anytime via your device settings.",
                         ),
-                        _buildSectionHeader("5. Data Security"),
+                        _buildSectionHeader("5. Child Safety & Zero-Tolerance Policy"),
                         _buildSectionBody(
-                          "We employ industry-standard technical and organizational security measures to protect your personal data from unauthorized access, loss, misuse, or alteration. However, no internet-based data transmission or storage can be guaranteed 100% secure.",
+                          "Hidely enforces zero tolerance against Child Sexual Abuse and Exploitation (CSAE) and harmful or unlawful content. Violating accounts are permanently terminated and reported where required by law. View our Child Safety Standards at /child-safety on our backend domain.",
                         ),
-                        _buildSectionHeader("6. Your Data Rights"),
+                        _buildSectionHeader("6. Your Data Rights (DPDP Act 2023)"),
                         _buildSectionBody(
-                          "Depending on your location, you may have specific legal rights regarding your personal data, including the right to request deletion of your account and personal data, or to obtain a copy of the information we store.",
+                          "You have the right to access, download a machine-readable copy of, correct, or permanently delete your personal data. Use 'Download My Data' or 'Delete Account' inside Settings & Privacy, or submit a web deletion request via /delete-account on our backend domain.",
                         ),
-                        _buildSectionHeader("7. Contact Us"),
+                        _buildSectionHeader("7. Grievance Officer & Contact (IT Rules 2021)"),
                         _buildSectionBody(
-                          "If you have any questions or feedback about this Privacy Policy, please contact us at support@hidelyapp.com.",
+                          "General support: support@hidely.app\n"
+                          "Grievance & Child Safety Officer: grievance@hidely.app\n"
+                          "Under India's IT Rules 2021 and DPDP Act 2023, privacy grievances and safety escalations are acknowledged within 24 hours and resolved within 15 days.",
                         ),
                         const SizedBox(height: 40),
                       ],

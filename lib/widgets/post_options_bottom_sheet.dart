@@ -240,6 +240,7 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
   }
 
   void _reportPost() {
+    final postId = int.tryParse(widget.post['id']?.toString() ?? '');
     Navigator.pop(context);
     showModalBottomSheet(
       context: context,
@@ -247,6 +248,8 @@ class _PostOptionsBottomSheetState extends State<PostOptionsBottomSheet> {
       backgroundColor: Colors.transparent,
       builder: (_) => ReportBottomSheet(
         targetType: 'Post',
+        targetId: postId,
+        targetUsername: _authorUsername,
         targetName: widget.post['caption']?.toString() ?? 'Post',
         onSubmitSuccess: () {},
       ),
@@ -624,6 +627,8 @@ class _ShareToChatBottomSheetState extends State<ShareToChatBottomSheet> {
   }
 
   void _reportPost() {
+    final postId = int.tryParse(widget.post?['id']?.toString() ?? '');
+    final targetUsername = (widget.post?['author_username'] ?? widget.post?['username'] ?? '').toString().trim();
     Navigator.pop(context);
     showModalBottomSheet(
       context: context,
@@ -631,6 +636,8 @@ class _ShareToChatBottomSheetState extends State<ShareToChatBottomSheet> {
       backgroundColor: Colors.transparent,
       builder: (_) => ReportBottomSheet(
         targetType: 'Post',
+        targetId: postId,
+        targetUsername: targetUsername.isNotEmpty ? targetUsername : null,
         targetName: widget.post?['caption']?.toString() ?? 'Post',
         onSubmitSuccess: () {},
       ),

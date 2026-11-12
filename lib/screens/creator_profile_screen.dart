@@ -1092,6 +1092,8 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                     backgroundColor: Colors.transparent,
                     builder: (_) => ReportBottomSheet(
                       targetType: 'Profile',
+                      targetId: int.tryParse(_creatorData?['id']?.toString() ?? ''),
+                      targetUsername: _cleanTargetUsername,
                       targetName: widget.username,
                       onSubmitSuccess: () {},
                     ),

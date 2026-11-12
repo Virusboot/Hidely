@@ -527,7 +527,7 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
               SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  "Earn points by exploring spots and sharing moments. Points boost your Leaderboard Rank & unlock exclusive explorer Badges!",
+                  "Earn points by exploring spots and sharing moments. Points boost your Leaderboard Rank & unlock explorer Badges. Points and badges have zero cash, wallet, or monetary value and are non-redeemable.",
                   style: TextStyle(
                     fontFamily: 'PublicSans',
                     fontSize: 12.5,

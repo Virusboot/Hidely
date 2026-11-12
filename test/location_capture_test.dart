@@ -434,7 +434,8 @@ void main() {
 
     test('reverseGeocodeDetailed skips Google Plus Codes and extracts real landmark & city', () async {
       LocationCaptureService().httpClientOverride = MockClient((request) async {
-        if (request.url.host.contains('maps.googleapis.com')) {
+        if (request.url.host.contains('maps.googleapis.com') ||
+            request.url.path.contains('/api/map/reverse-geocode')) {
           return http.Response(
             jsonEncode({
               'status': 'OK',

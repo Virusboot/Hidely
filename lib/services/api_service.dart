@@ -46,8 +46,6 @@ class ApiService {
 
   String get baseUrl => _resolvedBaseUrl;
 
-  final Map<String, String> _localEmailOtps = {};
-
   Map<String, dynamic> _decodeJsonMap(String rawBody) {
     try {
       final decoded = jsonDecode(rawBody);
@@ -106,6 +104,8 @@ class ApiService {
     required String email,
     required String password,
     String? gender,
+    bool ageConfirmed = true,
+    bool termsAccepted = true,
   }) async {
     try {
       final response = await _client.post(
@@ -117,10 +117,12 @@ class ApiService {
           'email': email,
           'password': password,
           if (gender != null && gender.isNotEmpty) 'gender': gender,
+          'age_confirmed': ageConfirmed,
+          'terms_accepted': termsAccepted,
         }),
       ).timeout(const Duration(seconds: 90));
 
-      final body = jsonDecode(response.body);
+      final body = _decodeJsonMap(response.body);
 
       if (response.statusCode == 201) {
         return ApiResult(
@@ -149,50 +151,37 @@ class ApiService {
   Future<ApiResult> checkEmailAvailable({required String email}) async {
     final cleanEmail = email.toLowerCase().trim();
 
-    // 1. Try dedicated check-availability endpoint first
     try {
       final response = await _client.post(
         Uri.parse('$baseUrl/api/auth/check-availability'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': cleanEmail}),
-      ).timeout(const Duration(seconds: 6));
+      ).timeout(const Duration(seconds: 8));
 
+      final body = _decodeJsonMap(response.body);
       if (response.statusCode == 200) {
-        return ApiResult(success: true, message: 'Email available');
-      } else if (response.statusCode == 400) {
-        final body = jsonDecode(response.body);
+        return ApiResult(success: true, message: 'Email available', statusCode: response.statusCode);
+      } else if (response.statusCode == 400 || response.statusCode == 429) {
         return ApiResult(
           success: false,
-          message: body['error'] ?? 'An account already exists with this email.',
-          error: body['error'],
+          message: body['error']?.toString() ?? 'An account already exists with this email.',
+          error: body['error']?.toString(),
+          statusCode: response.statusCode,
         );
       }
-    } catch (_) {}
-
-    // 2. Resilient Fallback: Use live backend forgot-password endpoint
-    // If account exists -> returns 200 (OTP generated for existing user)
-    // If account does NOT exist -> returns 404 ("No account found with this email.")
-    try {
-      final response = await _client.post(
-        Uri.parse('$baseUrl/api/auth/forgot-password'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': cleanEmail}),
-      ).timeout(const Duration(seconds: 6));
-
-      if (response.statusCode == 200) {
-        return ApiResult(
-          success: false,
-          message: 'An account already exists with this email.',
-          error: 'An account already exists with this email.',
-        );
-      } else if (response.statusCode == 404) {
-        return ApiResult(success: true, message: 'Email available');
-      }
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Could not verify email availability.',
+        statusCode: response.statusCode,
+      );
     } catch (e) {
-      debugPrint('[ApiService] checkEmailAvailable fallback error: $e');
+      debugPrint('[ApiService] checkEmailAvailable error: $e');
+      return ApiResult(
+        success: false,
+        message: 'Could not verify email availability. Please check your connection.',
+        error: e.toString(),
+      );
     }
-
-    return ApiResult(success: true, message: 'Email available');
   }
 
   /// Check if a username is already taken before proceeding
@@ -244,7 +233,7 @@ class ApiService {
     return ApiResult(success: true, message: 'Username available');
   }
 
-  /// Send email verification OTP during sign up
+  /// Send email verification OTP during sign up (fails closed without local fallback)
   Future<ApiResult> sendEmailOtp({required String email}) async {
     final cleanEmail = email.toLowerCase().trim();
     try {
@@ -252,40 +241,34 @@ class ApiService {
         Uri.parse('$baseUrl/api/auth/send-email-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': cleanEmail}),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 12));
 
+      final body = _decodeJsonMap(response.body);
       if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
         return ApiResult(
           success: true,
-          message: body['message'] ?? 'Verification code sent.',
+          message: body['message']?.toString() ?? 'Verification code sent.',
           data: body,
-        );
-      } else if (response.statusCode == 400) {
-        final body = jsonDecode(response.body);
-        return ApiResult(
-          success: false,
-          message: body['error'] ?? 'Failed to send verification code.',
-          error: body['error'],
+          statusCode: response.statusCode,
         );
       }
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Failed to send verification code. Please try again.',
+        error: body['error']?.toString(),
+        statusCode: response.statusCode,
+      );
     } catch (e) {
       debugPrint('[ApiService] sendEmailOtp server error: $e');
+      return ApiResult(
+        success: false,
+        message: 'Could not send verification email. Please check your internet connection.',
+        error: e.toString(),
+      );
     }
-
-    // Fallback: Generate local 4-digit code so signup is never blocked
-    final code = (1000 + (DateTime.now().millisecondsSinceEpoch % 9000)).toString();
-    _localEmailOtps[cleanEmail] = code;
-
-    debugPrint('[ApiService] Verification code for $cleanEmail: $code');
-    return ApiResult(
-      success: true,
-      message: 'Verification code sent! (Your code is: $code)',
-      data: {'dev_otp': code, 'message': 'Code: $code'},
-    );
   }
 
-  /// Verify email OTP during sign up
+  /// Verify email OTP during sign up (server-enforced, no hardcoded/local OTP bypass)
   Future<ApiResult> verifyEmailOtp({
     required String email,
     required String otp,
@@ -301,45 +284,31 @@ class ApiService {
           'email': cleanEmail,
           'otp': cleanOtp,
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 12));
 
+      final body = _decodeJsonMap(response.body);
       if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
         return ApiResult(
           success: true,
-          message: body['message'] ?? 'Email verified successfully.',
+          message: body['message']?.toString() ?? 'Email verified successfully.',
           data: body,
-        );
-      } else if (response.statusCode == 400) {
-        final body = jsonDecode(response.body);
-        return ApiResult(
-          success: false,
-          message: body['error'] ?? 'Invalid verification code.',
-          error: body['error'],
+          statusCode: response.statusCode,
         );
       }
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Invalid verification code. Please check and try again.',
+        error: body['error']?.toString() ?? 'Invalid OTP',
+        statusCode: response.statusCode,
+      );
     } catch (e) {
       debugPrint('[ApiService] verifyEmailOtp server error: $e');
-    }
-
-    final localCode = _localEmailOtps[cleanEmail];
-    if (localCode != null && localCode == cleanOtp) {
       return ApiResult(
-        success: true,
-        message: 'Email verified successfully!',
-      );
-    } else if (cleanOtp == '1234') {
-      return ApiResult(
-        success: true,
-        message: 'Email verified successfully!',
+        success: false,
+        message: 'Could not verify code. Please check your connection and try again.',
+        error: e.toString(),
       );
     }
-
-    return ApiResult(
-      success: false,
-      message: 'Invalid verification code. Please check and try again.',
-      error: 'Invalid OTP',
-    );
   }
 
   /// Verify OTP code
@@ -1991,7 +1960,17 @@ class ApiService {
       if (longitude != null) request.fields['longitude'] = longitude.toString();
 
       if (mediaFile != null && !kIsWeb) {
-        request.files.add(await http.MultipartFile.fromPath('media', mediaFile.path));
+        final ext = mediaFile.path.contains('.') ? mediaFile.path.split('.').last.toLowerCase() : 'jpg';
+        final isVideo = ['mp4', 'mov', 'avi', 'mkv', 'mpeg'].contains(ext);
+        final mediaType = isVideo ? 'video' : 'image';
+        final subType = isVideo ? ext : (ext == 'jpg' ? 'jpeg' : ext);
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'media',
+            mediaFile.path,
+            contentType: MediaType(mediaType, subType),
+          ),
+        );
       }
 
       final streamedRes = await _client.send(request).timeout(const Duration(seconds: 45));
@@ -2038,10 +2017,145 @@ class ApiService {
     try {
       final uri = Uri.parse('$baseUrl/api/chat/conversations/$conversationId/read');
       final response = await _client.patch(uri, headers: {'Authorization': 'Bearer $token'}).timeout(const Duration(seconds: 15));
-      final body = jsonDecode(response.body);
+      final body = _decodeJsonMap(response.body);
       return ApiResult(success: response.statusCode == 200, message: 'Conversation read.', data: body);
     } catch (e) {
       return ApiResult(success: false, message: 'Connection error.', error: e.toString());
+    }
+  }
+
+  /// Permanently delete user account & personal data on backend
+  Future<ApiResult> deleteAccount({
+    required String token,
+    required String password,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/users/account');
+      final response = await _client
+          .delete(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'password': password}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final body = _decodeJsonMap(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(
+          success: true,
+          message: body['message']?.toString() ?? 'Account permanently deleted.',
+          data: body,
+          statusCode: response.statusCode,
+        );
+      }
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Failed to delete account.',
+        error: body['error']?.toString(),
+        data: body,
+        statusCode: response.statusCode,
+      );
+    } catch (e) {
+      return ApiResult(
+        success: false,
+        message: 'Could not connect to server to delete account.',
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Request DPDP personal data export JSON bundle
+  Future<ApiResult> exportUserData({required String token}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/users/data-export');
+      final response = await _client
+          .get(
+            uri,
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final body = _decodeJsonMap(response.body);
+      if (response.statusCode == 200) {
+        return ApiResult(
+          success: true,
+          message: 'Personal data export ready.',
+          data: body,
+          statusCode: response.statusCode,
+        );
+      }
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Failed to export personal data.',
+        error: body['error']?.toString(),
+        data: body,
+        statusCode: response.statusCode,
+      );
+    } catch (e) {
+      return ApiResult(
+        success: false,
+        message: 'Could not connect to server to export data.',
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Submit real UGC / safety report to backend moderation queue
+  Future<ApiResult> submitReport({
+    required String token,
+    required String targetType,
+    int? targetId,
+    String? targetUsername,
+    required String targetName,
+    required String reason,
+    String details = '',
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/reports');
+      final response = await _client
+          .post(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'targetType': targetType,
+              if (targetId != null) 'targetId': targetId,
+              if (targetUsername != null && targetUsername.isNotEmpty)
+                'targetUsername': targetUsername,
+              'targetName': targetName,
+              'reason': reason,
+              'details': details,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      final body = _decodeJsonMap(response.body);
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        return ApiResult(
+          success: true,
+          message: body['message']?.toString() ?? 'Report submitted successfully.',
+          data: body,
+          statusCode: response.statusCode,
+        );
+      }
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Failed to submit report.',
+        error: body['error']?.toString(),
+        data: body,
+        statusCode: response.statusCode,
+      );
+    } catch (e) {
+      return ApiResult(
+        success: false,
+        message: 'Could not connect to server to submit report.',
+        error: e.toString(),
+      );
     }
   }
 }

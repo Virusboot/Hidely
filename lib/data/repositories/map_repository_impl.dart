@@ -52,7 +52,7 @@ class MapRepositoryImpl implements MapRepository {
 
     try {
       const apiKey = AppConstants.googleMapsApiKey;
-      final url = kIsWeb
+      final url = (kIsWeb || apiKey.isEmpty)
           ? Uri.parse('${ApiService().baseUrl}/api/map/geocode?address=${Uri.encodeComponent(address)}')
           : Uri.parse(
               'https://maps.googleapis.com/maps/api/geocode/json'
@@ -344,7 +344,7 @@ class MapRepositoryImpl implements MapRepository {
       if (query != null && query.trim().isNotEmpty) {
         try {
           const apiKey = AppConstants.googleMapsApiKey;
-          final url = kIsWeb
+          final url = (kIsWeb || apiKey.isEmpty)
               ? Uri.parse('${ApiService().baseUrl}/api/map/places/textsearch?query=${Uri.encodeComponent(query)}')
               : Uri.parse(
                   'https://maps.googleapis.com/maps/api/place/textsearch/json'
@@ -382,7 +382,9 @@ class MapRepositoryImpl implements MapRepository {
                 if (result['photos'] != null && (result['photos'] as List).isNotEmpty) {
                   final photoRef = result['photos'][0]['photo_reference'];
                   if (photoRef != null) {
-                    placeImg = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=$photoRef&key=$apiKey';
+                    placeImg = (kIsWeb || apiKey.isEmpty)
+                        ? '${ApiService().baseUrl}/api/map/photo?maxwidth=800&photo_reference=$photoRef'
+                        : 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=$photoRef&key=$apiKey';
                   }
                 }
 
@@ -440,7 +442,7 @@ class MapRepositoryImpl implements MapRepository {
           final Set<String> uniqueIds = {};
 
           for (final googleType in googleTypes) {
-            final url = kIsWeb
+            final url = (kIsWeb || apiKey.isEmpty)
                 ? Uri.parse(
                     '${ApiService().baseUrl}/api/map/places/nearby'
                     '?location=$lat,$lng'
@@ -491,7 +493,9 @@ class MapRepositoryImpl implements MapRepository {
                     if (result['photos'] != null && (result['photos'] as List).isNotEmpty) {
                       final photoRef = result['photos'][0]['photo_reference'];
                       if (photoRef != null) {
-                        placeImg = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=$photoRef&key=$apiKey';
+                        placeImg = (kIsWeb || apiKey.isEmpty)
+                            ? '${ApiService().baseUrl}/api/map/photo?maxwidth=800&photo_reference=$photoRef'
+                            : 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=$photoRef&key=$apiKey';
                       }
                     }
 
@@ -712,7 +716,7 @@ class MapRepositoryImpl implements MapRepository {
                     : 'walking';
         final googleLang = language ?? 'en';
         final departureParam = mode == 'driving' ? '&departure_time=now&traffic_model=best_guess' : '';
-        final url = kIsWeb
+        final url = (kIsWeb || apiKey.isEmpty)
             ? Uri.parse(
                 '${ApiService().baseUrl}/api/map/directions'
                 '?origin=${start.latitude},${start.longitude}'

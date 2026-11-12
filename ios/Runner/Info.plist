@@ -48,13 +48,11 @@
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>This app requires access to the photo library to select photos for posts.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
-		<string>This app requires access to your location to show nearby places and maps.</string>
-		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-		<string>This app requires access to your location to show nearby places and maps.</string>
+		<string>This app requires access to your location while in use to show nearby places and maps.</string>
 		<key>NSCameraUsageDescription</key>
-		<string>This app requires access to the camera to take photos and videos for posts and reels.</string>
+		<string>This app requires access to the camera to take photos and videos for posts, reels, and video calls.</string>
 		<key>NSMicrophoneUsageDescription</key>
-		<string>This app requires access to the microphone to record audio for videos and reels.</string>
+		<string>This app requires access to the microphone to record audio for videos, reels, voice search, and voice/video calls.</string>
 		<key>NSSpeechRecognitionUsageDescription</key>
 		<string>This app requires access to speech recognition for voice search on the map.</string>
 		<key>NSAppTransportSecurity</key>

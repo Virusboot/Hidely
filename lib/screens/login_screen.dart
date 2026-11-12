@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -223,6 +224,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             });
                           } else if (result.error == 'UNVERIFIED') {
                             if (!context.mounted) return;
+                            final rawDevOtp = result.data?['dev_otp']?.toString();
                             _showCustomSnackBar(context, "Account unverified. Redirecting to verification...", isError: true);
                             
                             Future.delayed(const Duration(milliseconds: 1000), () {
@@ -233,7 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   builder: (context) => OtpVerificationScreen(
                                     email: email,
                                     isSignupFlow: true,
-                                    devOtp: result.data?['dev_otp']?.toString(),
+                                    devOtp: kDebugMode ? rawDevOtp : null,
                                   ),
                                 ),
                               );

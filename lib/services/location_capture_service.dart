@@ -427,11 +427,12 @@ class LocationCaptureService {
 
   Future<ReverseGeocodeResult?> _reverseWithGoogleOrProxy(double lat, double lon) async {
     try {
-      final Uri url = kIsWeb
+      const apiKey = AppConstants.googleMapsApiKey;
+      final Uri url = (kIsWeb || apiKey.isEmpty)
           ? Uri.parse('${ApiService().baseUrl}/api/map/reverse-geocode?lat=$lat&lng=$lon')
           : Uri.parse(
               'https://maps.googleapis.com/maps/api/geocode/json'
-              '?latlng=$lat,$lon&language=en&key=${AppConstants.googleMapsApiKey}',
+              '?latlng=$lat,$lon&language=en&key=$apiKey',
             );
 
       final res = await _http.get(url).timeout(const Duration(seconds: 5));

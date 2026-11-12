@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hidely_new/screens/otp_verification_screen.dart';
@@ -144,6 +145,7 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
                           });
 
                           if (result.success) {
+                            final rawDevOtp = result.data?['dev_otp']?.toString();
                             _showCustomSnackBar(context, result.message, isError: false);
                             
                             Future.delayed(const Duration(milliseconds: 500), () {
@@ -154,7 +156,7 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
                                   builder: (context) => OtpVerificationScreen(
                                     email: email,
                                     isSignupFlow: false,
-                                    devOtp: result.data?['dev_otp']?.toString(),
+                                    devOtp: kDebugMode ? rawDevOtp : null,
                                   ),
                                 ),
                               );

@@ -164,7 +164,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                        onPressed: () {
                         if (_isLoading) return;
                         String otp = _controllers.map((c) => c.text.trim()).join();
-                        debugPrint("Verifying Secure Token Key: $otp");
 
                         if (otp.length == 4) {
                           setState(() {
