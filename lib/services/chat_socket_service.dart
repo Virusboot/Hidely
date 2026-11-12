@@ -32,6 +32,18 @@ class ChatSocketService {
   final _presenceController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get onPresenceUpdate => _presenceController.stream;
 
+  // WebRTC Call Signaling Streams (Unified stream with 'type' + dedicated streams)
+  final _callSignalController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get onCallSignal => _callSignalController.stream;
+
+  void _forwardCallEvent(String type, dynamic data) {
+    final map = data is Map<String, dynamic>
+        ? Map<String, dynamic>.from(data)
+        : (data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{});
+    map['type'] = type;
+    _callSignalController.add(map);
+  }
+
   void connect(String token) {
     if (token.trim().isEmpty || skipSocketConnectForTest) return;
 
@@ -102,6 +114,24 @@ class ChatSocketService {
         _presenceController.add(Map<String, dynamic>.from(data));
       }
     });
+
+    const callEvents = [
+      'call_invite',
+      'call_ringing',
+      'call_accept',
+      'call_joined_ack',
+      'participant_joined',
+      'call_offer',
+      'call_answer',
+      'ice_candidate',
+      'media_toggle',
+      'call_ended',
+      'call_busy',
+      'call_failed',
+    ];
+    for (final evt in callEvents) {
+      _socket!.on(evt, (data) => _forwardCallEvent(evt, data));
+    }
   }
 
   void joinConversation(int conversationId) {
@@ -122,6 +152,11 @@ class ChatSocketService {
 
   void stopTyping(int conversationId) {
     _socket?.emit('typing_stop', {'conversationId': conversationId});
+  }
+
+  void sendCallSignal(String eventName, Map<String, dynamic> payload) {
+    if (skipSocketConnectForTest) return;
+    _socket?.emit(eventName, payload);
   }
 
   void disconnect() {
@@ -149,7 +184,17 @@ class ChatSocketService {
   }
 
   @visibleForTesting
+  void emitReadForTest(Map<String, dynamic> data) {
+    _readController.add(data);
+  }
+
+  @visibleForTesting
   void emitPresenceForTest(Map<String, dynamic> data) {
     _presenceController.add(data);
+  }
+
+  @visibleForTesting
+  void emitCallSignalForTest(String type, Map<String, dynamic> data) {
+    _forwardCallEvent(type, data);
   }
 }

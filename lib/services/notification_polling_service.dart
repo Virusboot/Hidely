@@ -105,6 +105,16 @@ class NotificationPollingService with WidgetsBindingObserver {
               importance: Importance.max,
             ),
           );
+          await androidPlugin.createNotificationChannel(
+            const AndroidNotificationChannel(
+              'hidely_calls',
+              'Incoming Voice & Video Calls',
+              description: 'Alerts for incoming peer-to-peer calls on Hidely',
+              importance: Importance.max,
+              playSound: true,
+              enableVibration: true,
+            ),
+          );
           await androidPlugin.requestNotificationsPermission();
         }
 
@@ -473,6 +483,49 @@ class NotificationPollingService with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('[NotificationPollingService] Failed showing local notification: $e');
     }
+  }
+
+  Future<void> showIncomingCallNotification({
+    required String callerName,
+    required String callType,
+  }) async {
+    if (kIsWeb) return;
+    try {
+      await initialize();
+      final label = callType == 'video' ? 'Incoming video call' : 'Incoming voice call';
+      const androidDetails = AndroidNotificationDetails(
+        'hidely_calls',
+        'Incoming Voice & Video Calls',
+        channelDescription: 'Alerts for incoming peer-to-peer calls on Hidely',
+        importance: Importance.max,
+        priority: Priority.max,
+        category: AndroidNotificationCategory.call,
+        ongoing: true,
+        autoCancel: false,
+        playSound: true,
+        enableVibration: true,
+        icon: '@mipmap/ic_launcher_new',
+      );
+      const details = NotificationDetails(
+        android: androidDetails,
+        iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
+      );
+      await _localNotifications.show(
+        999901,
+        callerName,
+        '$label on Hidely',
+        details,
+      );
+    } catch (e) {
+      debugPrint('[NotificationPollingService] showIncomingCallNotification error: $e');
+    }
+  }
+
+  Future<void> cancelIncomingCallNotification() async {
+    if (kIsWeb) return;
+    try {
+      await _localNotifications.cancel(999901);
+    } catch (_) {}
   }
 
   void _handleNotificationClick(String payload) async {

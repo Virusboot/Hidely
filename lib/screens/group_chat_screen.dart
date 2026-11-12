@@ -6,9 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/chat_socket_service.dart';
+import 'package:hidely_new/services/call_manager.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:hidely_new/screens/outgoing_call_screen.dart';
 
 /// Trip Itinerary Details Model for Groups
 class TripItineraryData {
@@ -1634,11 +1634,13 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
   StreamSubscription? _typingSub;
   StreamSubscription? _reactionSub;
   StreamSubscription? _presenceSub;
+  StreamSubscription? _readSub;
   Timer? _typingIdleTimer;
   Timer? _remoteTypingTimeoutTimer;
   bool _isSendingTyping = false;
   bool _isOtherUserTyping = false;
   late bool _isTargetOnline;
+  int _peerLastReadMsgId = 0;
 
   @override
   void initState() {
@@ -1888,6 +1890,18 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
         }
       }
     });
+
+    _readSub = ChatSocketService().onMessageRead.listen((data) {
+      if (!mounted) return;
+      final evtConvId = (data['conversationId'] ?? data['conversation_id'])?.toString();
+      if (evtConvId != widget.chat.id) return;
+      if (data['userId']?.toString() == AuthService().userId) return;
+      final rawReadId = data['lastReadMessageId'] ?? data['last_read_message_id'];
+      final parsedId = rawReadId is int ? rawReadId : int.tryParse('$rawReadId') ?? 0;
+      if (parsedId > _peerLastReadMsgId) {
+        setState(() => _peerLastReadMsgId = parsedId);
+      }
+    });
   }
 
   void _onMessageInputChanged(String val) {
@@ -1923,6 +1937,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     _typingSub?.cancel();
     _reactionSub?.cancel();
     _presenceSub?.cancel();
+    _readSub?.cancel();
     final int? convId = int.tryParse(widget.chat.id);
     if (convId != null) {
       if (_isSendingTyping) {
@@ -2182,55 +2197,56 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     );
   }
 
-  void _showCallingDialog(bool isVideo) {
-    final callText = isVideo ? '📹 Started a video call' : '📞 Started a voice call';
-    final timeStr = _formatChatTime(DateTime.now().toIso8601String());
-    final localMsg = ChatMessage(
-      id: 'temp_${DateTime.now().microsecondsSinceEpoch}',
-      senderName: 'You',
-      senderAvatar: _normalizeChatAvatar(AuthService().userProfilePicture),
-      text: callText,
-      time: timeStr,
-      isMe: true,
-    );
-
-    setState(() {
-      _messages.add(localMsg);
-      widget.chat.lastMessage = 'You: $callText';
-      widget.chat.time = timeStr;
-    });
-    _scrollToBottom();
-
-    final int? convId = int.tryParse(widget.chat.id);
-    final token = AuthService().token;
-    if (convId != null && token != null && token.isNotEmpty) {
-      ApiService()
-          .sendChatMessage(
-        token: token,
-        conversationId: convId,
-        type: 'text',
-        text: callText,
-      )
-          .then((res) {
-        if (mounted && res.success && res.data != null && res.data!['message'] is Map) {
-          final serverId = res.data!['message']['id']?.toString();
-          if (serverId != null && serverId.isNotEmpty) {
-            setState(() => localMsg.id = serverId);
-          }
-        }
-      });
+  Future<void> _showCallingDialog(bool isVideo) async {
+    if (widget.chat.isGroup) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Voice and video calls are supported in 1-on-1 direct chats.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => OutgoingCallScreen(
-          callerName: widget.chat.name,
-          callerAvatar: widget.chat.avatar,
-          callID: widget.chat.id,
-          isVideo: isVideo,
+    String targetId = (widget.chat.targetUserId ?? '').trim();
+    final int? convId = int.tryParse(widget.chat.id);
+    if (targetId.isEmpty && convId != null) {
+      final token = AuthService().token;
+      if (token != null && token.isNotEmpty) {
+        final convRes = await ApiService().getChatConversations(token: token);
+        if (convRes.success && convRes.data?['conversations'] is List) {
+          for (final conv in convRes.data!['conversations'] as List) {
+            if (conv is Map && conv['id']?.toString() == widget.chat.id) {
+              final target = conv['target_user'];
+              if (target is Map && target['id'] != null) {
+                targetId = target['id'].toString();
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (!mounted) return;
+    if (targetId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to start call right now. Please reopen the chat.'),
+          behavior: SnackBarBehavior.floating,
         ),
-      ),
+      );
+      return;
+    }
+
+    await CallManager().startCall(
+      context: context,
+      targetUserId: targetId,
+      peerName: widget.chat.name,
+      peerUsername: widget.chat.targetUsername ?? '',
+      peerAvatar: _normalizeChatAvatar(widget.chat.avatar),
+      conversationId: convId,
+      callType: isVideo ? 'video' : 'audio',
     );
   }
 
@@ -2731,7 +2747,14 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final msg = _messages[index];
-                      return _buildMessageBubble(msg);
+                      final isLastOutgoing = msg.isMe && index == _messages.lastIndexWhere((m) => m.isMe);
+                      final msgNumericId = int.tryParse(msg.id) ?? 0;
+                      final showSeen = isLastOutgoing &&
+                          !widget.chat.isGroup &&
+                          _peerLastReadMsgId > 0 &&
+                          msgNumericId > 0 &&
+                          msgNumericId <= _peerLastReadMsgId;
+                      return _buildMessageBubble(msg, showSeen: showSeen);
                     },
                   ),
           ),
@@ -3078,7 +3101,93 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage msg) {
+  bool _isCallLogMessage(ChatMessage msg) {
+    if (msg.attachmentType == 'call_log') return true;
+    final t = msg.text.trim();
+    return (t.startsWith('📞') || t.startsWith('📹')) &&
+        t.toLowerCase().contains('call');
+  }
+
+  Widget _buildCallLogPill(ChatMessage msg, {required bool isMe}) {
+    final bool isVideo = msg.text.contains('📹') ||
+        msg.text.toLowerCase().contains('video');
+    final bool isMissed = msg.text.toLowerCase().contains('missed') ||
+        msg.text.toLowerCase().contains('declined') ||
+        msg.text.toLowerCase().contains('busy');
+    final cleanLabel =
+        msg.text.replaceFirst(RegExp(r'^(?:📞|📹)\s*', unicode: true), '').trim();
+
+    return GestureDetector(
+      onTap: widget.chat.isGroup ? null : () => _showCallingDialog(isVideo),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isMe
+              ? Colors.white.withValues(alpha: 0.14)
+              : const Color(0xffF1F5F9),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isMissed
+                    ? const Color(0xffEF4444).withValues(alpha: isMe ? 0.28 : 0.14)
+                    : (isMe
+                        ? Colors.white.withValues(alpha: 0.2)
+                        : const Color(0xff2B1564).withValues(alpha: 0.1)),
+              ),
+              child: Icon(
+                isVideo ? Icons.videocam_rounded : Icons.call_rounded,
+                size: 18,
+                color: isMissed
+                    ? (isMe ? const Color(0xffFCA5A5) : const Color(0xffDC2626))
+                    : (isMe ? Colors.white : const Color(0xff2B1564)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    cleanLabel,
+                    style: TextStyle(
+                      fontFamily: 'PublicSans',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isMe ? Colors.white : const Color(0xff1C0D5A),
+                    ),
+                  ),
+                  if (!widget.chat.isGroup)
+                    Text(
+                      'Tap to call back',
+                      style: TextStyle(
+                        fontFamily: 'PublicSans',
+                        fontSize: 11,
+                        color: isMe ? Colors.white70 : Colors.black54,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble(ChatMessage msg, {bool showSeen = false}) {
+    final bool isCallLog = _isCallLogMessage(msg);
+    final bool hideRedundantImageLabel = msg.attachmentType == 'image' &&
+        (msg.text.trim() == 'Sent an image 🏞️' || msg.text.trim() == 'Sent an image');
+
     return GestureDetector(
       onDoubleTap: () => _toggleHeartReaction(msg),
       onLongPress: () => _showMessageOptionsSheet(msg),
@@ -3088,43 +3197,64 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
           if (msg.isMe)
             Align(
               alignment: Alignment.centerRight,
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(12),
-                constraints: const BoxConstraints(maxWidth: 280),
-                decoration: const BoxDecoration(
-                  color: Color(0xff2B1564),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                    bottomLeft: Radius.circular(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    margin: EdgeInsets.only(bottom: showSeen ? 4 : 12),
+                    padding: const EdgeInsets.all(12),
+                    constraints: const BoxConstraints(maxWidth: 280),
+                    decoration: const BoxDecoration(
+                      color: Color(0xff2B1564),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
+                        bottomLeft: Radius.circular(16),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _buildReplyQuote(msg, isMe: true),
+                        _buildImageAttachment(msg),
+                        _buildVoiceAttachment(msg, isMe: true),
+                        if (isCallLog)
+                          _buildCallLogPill(msg, isMe: true)
+                        else if (!hideRedundantImageLabel)
+                          Text(
+                            msg.text,
+                            style: const TextStyle(
+                              fontFamily: 'PublicSans',
+                              fontSize: 13,
+                              color: Colors.white,
+                            ),
+                          ),
+                        const SizedBox(height: 4),
+                        Text(
+                          msg.time,
+                          style: TextStyle(
+                            fontFamily: 'PublicSans',
+                            fontSize: 11,
+                            color: Colors.white.withOpacity(0.7),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    _buildReplyQuote(msg, isMe: true),
-                    _buildImageAttachment(msg),
-                    _buildVoiceAttachment(msg, isMe: true),
-                    Text(
-                      msg.text,
-                      style: const TextStyle(
-                        fontFamily: 'PublicSans',
-                        fontSize: 13,
-                        color: Colors.white,
+                  if (showSeen)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 4, bottom: 10),
+                      child: Text(
+                        'Seen',
+                        style: TextStyle(
+                          fontFamily: 'PublicSans',
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black45,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      msg.time,
-                      style: TextStyle(
-                        fontFamily: 'PublicSans',
-                        fontSize: 11,
-                        color: Colors.white.withOpacity(0.7),
-                      ),
-                    ),
-                  ],
-                ),
+                ],
               ),
             )
           else
@@ -3199,14 +3329,17 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                             _buildImageAttachment(msg),
                             _buildVoiceAttachment(msg, isMe: false),
                             const SizedBox(height: 4),
-                            Text(
-                              msg.text,
-                              style: const TextStyle(
-                                fontFamily: 'PublicSans',
-                                fontSize: 13,
-                                color: Color(0xff334155),
+                            if (isCallLog)
+                              _buildCallLogPill(msg, isMe: false)
+                            else if (!hideRedundantImageLabel)
+                              Text(
+                                msg.text,
+                                style: const TextStyle(
+                                  fontFamily: 'PublicSans',
+                                  fontSize: 13,
+                                  color: Color(0xff334155),
+                                ),
                               ),
-                            ),
                             if (msg.attachmentType == 'itinerary_card' && widget.chat.itinerary != null) ...[
                               const SizedBox(height: 10),
                               Container(

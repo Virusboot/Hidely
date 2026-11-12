@@ -11,6 +11,7 @@ import 'package:hidely_new/services/notification_polling_service.dart';
 import 'package:hidely_new/widgets/something_went_wrong_screen.dart';
 
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/services/call_manager.dart';
 import 'package:hidely_new/services/deep_link_service.dart';
 import 'package:hidely_new/utils/url_strategy.dart';
 
@@ -76,6 +77,7 @@ Future<void> main() async {
 
   // Non-blocking initialization for < 2 sec app startup
   DeepLinkService();
+  CallManager().ensureInitialized();
   NotificationPollingService().initialize().catchError((e) {
     debugPrint("Background Notification Polling init error: $e");
   });
@@ -117,11 +119,14 @@ class HidelyApp extends StatelessWidget {
         );
         return MediaQuery(
           data: mediaQueryData.copyWith(textScaler: constrainedTextScaler),
-          child: GestureDetector(
-            onTap: () {
-              FocusManager.instance.primaryFocus?.unfocus();
-            },
-            child: child ?? const SizedBox.shrink(),
+          child: CallManager().wrapWithCallOverlay(
+            context,
+            GestureDetector(
+              onTap: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+              },
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         );
       },

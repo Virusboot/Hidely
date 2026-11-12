@@ -2024,6 +2024,27 @@ class ApiService {
     }
   }
 
+  /// Fetch WebRTC STUN/TURN ICE server configuration
+  Future<ApiResult> getChatIceServers({required String token}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/chat/ice-servers');
+      final response = await _client
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeJsonMap(response.body);
+      if (response.statusCode == 200 && body['iceServers'] is List) {
+        return ApiResult(success: true, message: 'ICE servers loaded.', data: body);
+      }
+      return ApiResult(
+        success: false,
+        message: body['error']?.toString() ?? 'Failed to load ICE servers.',
+        data: body,
+      );
+    } catch (e) {
+      return ApiResult(success: false, message: 'Connection error.', error: e.toString());
+    }
+  }
+
   /// Permanently delete user account & personal data on backend
   Future<ApiResult> deleteAccount({
     required String token,

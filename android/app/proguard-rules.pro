@@ -48,11 +48,10 @@
 -keep class io.flutter.app.FlutterPlayStoreSplitApplication { *; }
 -keep class io.flutter.embedding.engine.deferredcomponents.** { *; }
 
-# Zego Cloud Rules
--keep class im.zego.** { *; }
--keep class com.zego.** { *; }
--dontwarn im.zego.**
--dontwarn com.zego.**
+# WebRTC Rules
+-keep class org.webrtc.** { *; }
+-keep class com.cloudwebrtc.** { *; }
+-dontwarn org.webrtc.**
 -dontwarn com.heytap.**
 -dontwarn com.huawei.**
 -dontwarn com.vivo.**

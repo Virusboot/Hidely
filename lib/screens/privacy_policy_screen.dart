@@ -114,7 +114,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                         ),
                         _buildSectionHeader("3. How We Use Information & Processors"),
                         _buildSectionBody(
-                          "Your information powers nearby place discovery, user-generated feeds, in-app messaging, moderation/safety enforcement, and OTP verification. We do not sell or rent personal data. Essential processing relies on trusted infrastructure providers (managed database hosting, interactive maps, Zego SDK for user-initiated audio/video calls, and email OTP delivery) under strict data-protection controls.",
+                          "Your information powers nearby place discovery, user-generated feeds, in-app messaging, moderation/safety enforcement, and OTP verification. We do not sell or rent personal data. Essential processing relies on trusted infrastructure providers (managed database hosting, interactive maps, encrypted peer-to-peer WebRTC signaling for user-initiated audio/video calls, and email OTP delivery) under strict data-protection controls.",
                         ),
                         _buildSectionHeader("4. Permissions & Device Controls"),
                         _buildSectionBody(

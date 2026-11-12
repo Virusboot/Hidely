@@ -76,6 +76,7 @@ void main() {
         'profile_picture': '',
       },
     );
+    NotificationPollingService().stopPolling();
   });
 
   tearDown(() async {
@@ -791,5 +792,158 @@ void main() {
         expect(find.text('second_user'), findsOneWidget);
       },
     );
+
+    testWidgets(
+      'renders Instagram-style call log pills and live Seen receipts',
+      (WidgetTester tester) async {
+        ApiService().resetClientForTest(
+          MockClient((request) async {
+            if (request.url.path == '/api/chat/ice-servers') {
+              return http.Response(
+                jsonEncode({
+                  'success': true,
+                  'iceServers': [
+                    {'urls': 'stun:stun.l.google.com:19302'},
+                  ],
+                }),
+                200,
+                headers: {'content-type': 'application/json; charset=utf-8'},
+              );
+            }
+            if (request.url.path == '/api/chat/conversations') {
+              return http.Response(
+                jsonEncode({
+                  'success': true,
+                  'conversations': [
+                    {
+                      'id': 88,
+                      'type': 'DIRECT',
+                      'name': null,
+                      'updated_at': '2026-11-12T10:00:00.000Z',
+                      'unread_count': 0,
+                      'last_message': {
+                        'id': 502,
+                        'text': '📞 Voice call • 01:24',
+                        'type': 'call_log',
+                        'sender_id': 10,
+                        'created_at': '2026-11-12T10:00:00.000Z',
+                      },
+                      'participants': [
+                        {
+                          'id': 42,
+                          'name': 'Harsh bhardwaj',
+                          'username': 'dancerharsh',
+                          'profile_picture': null,
+                          'is_online': true,
+                        },
+                      ],
+                    },
+                  ],
+                }),
+                200,
+                headers: {'content-type': 'application/json; charset=utf-8'},
+              );
+            }
+            if (request.url.path == '/api/chat/conversations/88/messages') {
+              return http.Response(
+                jsonEncode({
+                  'success': true,
+                  'messages': [
+                    {
+                      'id': 501,
+                      'conversation_id': 88,
+                      'sender_id': 10,
+                      'sender_name': 'Real Harsh',
+                      'type': 'text',
+                      'text': 'Hey ready for trip?',
+                      'created_at': '2026-11-12T09:59:00.000Z',
+                      'reactions': [],
+                      'attachments': [],
+                    },
+                    {
+                      'id': 502,
+                      'conversation_id': 88,
+                      'sender_id': 10,
+                      'sender_name': 'Real Harsh',
+                      'type': 'call_log',
+                      'text': '📞 Voice call • 01:24',
+                      'created_at': '2026-11-12T10:00:00.000Z',
+                      'reactions': [],
+                      'attachments': [],
+                    },
+                  ],
+                }),
+                200,
+                headers: {'content-type': 'application/json; charset=utf-8'},
+              );
+            }
+            return http.Response(
+              jsonEncode({'success': true}),
+              200,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            );
+          }),
+        );
+
+        await tester.pumpWidget(const MaterialApp(home: GroupChatScreen()));
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Harsh bhardwaj'));
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Voice call • 01:24'), findsOneWidget);
+        expect(find.text('Tap to call back'), findsOneWidget);
+        expect(find.text('Seen'), findsNothing);
+
+        // Remote user reads up to message 502 -> "Seen" appears under latest outgoing bubble
+        ChatSocketService().emitReadForTest({
+          'conversationId': 88,
+          'userId': 42,
+          'lastReadMessageId': 502,
+        });
+        await tester.pumpAndSettle();
+
+        expect(find.text('Seen'), findsOneWidget);
+      },
+    );
+
+    test('fetches ICE server config and forwards WebRTC call signaling events', () async {
+      ApiService().resetClientForTest(
+        MockClient((request) async {
+          if (request.url.path == '/api/chat/ice-servers') {
+            return http.Response(
+              jsonEncode({
+                'success': true,
+                'iceServers': [
+                  {'urls': 'stun:stun.l.google.com:19302'},
+                ],
+              }),
+              200,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            );
+          }
+          return http.Response(jsonEncode({'success': true}), 200);
+        }),
+      );
+
+      final iceRes = await ApiService().getChatIceServers(token: 'jwt_chat_tester');
+      expect(iceRes.success, isTrue);
+      expect((iceRes.data?['iceServers'] as List).isNotEmpty, isTrue);
+
+      final receivedSignals = <Map<String, dynamic>>[];
+      final sub = ChatSocketService().onCallSignal.listen(receivedSignals.add);
+      ChatSocketService().emitCallSignalForTest('call_invite', {
+        'callId': 'call_88_1',
+        'callType': 'video',
+        'senderId': '42',
+      });
+      await Future<void>.delayed(Duration.zero);
+      expect(receivedSignals.length, 1);
+      expect(receivedSignals.first['type'], 'call_invite');
+      expect(receivedSignals.first['callType'], 'video');
+      await sub.cancel();
+    });
   });
 }

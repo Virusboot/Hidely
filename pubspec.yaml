@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.9+12
+version: 1.0.10+13
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -43,8 +43,7 @@ dependencies:
   geocoding: ^4.0.0
   image_picker: ^1.1.2
   camera: ^0.11.0+2
-  zego_uikit_prebuilt_call: ^4.24.4
-  zego_uikit: ^2.29.2
+  flutter_webrtc: ^1.6.0
   photo_manager: ^3.0.0
   http: ^1.2.2
   http_parser: ^4.0.0
@@ -74,8 +73,6 @@ dependencies:
   flutter_native_splash: ^2.4.1
 
 dependency_overrides:
-  zego_plugin_adapter: 2.14.2
-  zego_express_engine: 3.25.0
   file_picker: 8.3.2
   wakelock_plus: 1.2.8
 

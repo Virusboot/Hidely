@@ -8,6 +8,7 @@ import 'package:hidely_new/screens/explore_screen.dart';
 import 'package:hidely_new/screens/user_profile_screen.dart';
 import 'package:hidely_new/screens/login_screen.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/services/call_manager.dart';
 import 'package:hidely_new/widgets/desktop_sidebar.dart';
 import 'package:hidely_new/widgets/right_discovery_panel.dart';
 import 'package:hidely_new/config/routes.dart';
@@ -44,6 +45,7 @@ class MainWrapperState extends State<MainWrapper> {
     _currentIndex = widget.initialIndex;
     currentTabNotifier.value = _currentIndex;
     if (!AuthService().isGuest) {
+      CallManager().ensureInitialized();
       AuthService().syncBlockedUsersFromServer();
       AuthService().syncTagMentionSettingsFromServer();
     }
