@@ -68,6 +68,11 @@ class ChatSocketService {
       socket_io.OptionBuilder()
           .setTransports(['websocket', 'polling'])
           .enableAutoConnect()
+          .enableReconnection()
+          .setReconnectionDelay(500)
+          .setReconnectionDelayMax(2500)
+          .setReconnectionAttempts(99999)
+          .setTimeout(8000)
           .setAuth({'token': token})
           .build(),
     );
@@ -143,7 +148,10 @@ class ChatSocketService {
 
   void joinConversation(int conversationId) {
     _joinedConversations.add(conversationId);
-    if (_socket != null && _socket!.connected) {
+    if (_socket != null) {
+      if (!_socket!.connected) {
+        _socket!.connect();
+      }
       _socket?.emit('join_conversation', {'conversationId': conversationId});
     }
   }

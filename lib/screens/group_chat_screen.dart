@@ -1647,6 +1647,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
   StreamSubscription? _readSub;
   Timer? _typingIdleTimer;
   Timer? _remoteTypingTimeoutTimer;
+  Timer? _fastSyncTimer;
   bool _isSendingTyping = false;
   bool _isOtherUserTyping = false;
   late bool _isTargetOnline;
@@ -1663,6 +1664,9 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     _isLoadingMessages = _messages.isEmpty;
     _loadRealMessages();
     _setupSocketListeners();
+    _fastSyncTimer = Timer.periodic(const Duration(milliseconds: 3000), (_) {
+      _syncLatestMessagesSilently();
+    });
     if (_messages.isNotEmpty) {
       _scrollToBottom(animated: false);
     }
@@ -1942,6 +1946,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
 
   @override
   void dispose() {
+    _fastSyncTimer?.cancel();
     _typingIdleTimer?.cancel();
     _remoteTypingTimeoutTimer?.cancel();
     _msgSub?.cancel();
@@ -1962,6 +1967,68 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     _scrollController.dispose();
     _msgController.dispose();
     super.dispose();
+  }
+
+  Future<void> _syncLatestMessagesSilently() async {
+    if (!mounted) return;
+    final token = AuthService().token;
+    final convId = int.tryParse(widget.chat.id);
+    if (token == null || convId == null) return;
+    try {
+      final res = await ApiService().getChatMessages(token: token, conversationId: convId, limit: 15);
+      if (!mounted || !res.success || res.data == null || res.data!['messages'] == null) return;
+      final List rawMsgs = res.data!['messages'];
+      final currentUserId = AuthService().userId;
+      bool hasNew = false;
+      for (final m in rawMsgs) {
+        final serverId = m['id']?.toString() ?? '';
+        if (serverId.isEmpty) continue;
+        final exists = _messages.any((existing) => existing.id == serverId);
+        if (!exists) {
+          final senderId = m['sender_id'];
+          final isMe = senderId != null && senderId.toString() == currentUserId;
+          final tempIdx = _messages.lastIndexWhere((existing) =>
+              existing.isMe &&
+              existing.id.startsWith('temp_') &&
+              existing.text.trim() == (m['text'] ?? '').toString().trim());
+          if (tempIdx != -1) {
+            _messages[tempIdx].id = serverId;
+            hasNew = true;
+            continue;
+          }
+          final formattedTime = _formatChatTime(m['created_at']);
+          final replyObj = m['reply_to_message'] is Map ? Map<String, dynamic>.from(m['reply_to_message']) : null;
+          final reactions = m['reactions'] as List?;
+          final hasReaction = reactions != null && reactions.isNotEmpty;
+          final firstEmoji = (hasReaction && reactions.first is Map)
+              ? (reactions.first['emoji']?.toString() ?? '❤️')
+              : '❤️';
+          _messages.add(ChatMessage(
+            id: serverId,
+            senderName: isMe ? 'You' : (m['sender_name']?.toString() ?? 'User'),
+            senderAvatar: _normalizeChatAvatar(m['sender_profile_picture']),
+            text: (m['text'] ?? '').toString(),
+            time: formattedTime.isNotEmpty ? formattedTime : 'Just now',
+            isMe: isMe,
+            attachmentType: m['type'] != null && m['type'] != 'text' ? m['type'].toString() : null,
+            attachmentData: m['attachments'] is List && (m['attachments'] as List).isNotEmpty
+                ? {'url': m['attachments'][0]['url']}
+                : (m['shared_entity_type'] != null
+                    ? {'type': m['shared_entity_type'], 'id': m['shared_entity_id']}
+                    : null),
+            replyToSender: replyObj?['sender_name']?.toString(),
+            replyToText: replyObj?['text']?.toString(),
+            hasHeartReaction: hasReaction,
+            reactionEmoji: firstEmoji.isNotEmpty ? firstEmoji : '❤️',
+          ));
+          hasNew = true;
+        }
+      }
+      if (hasNew && mounted) {
+        setState(() {});
+        _scrollToBottom();
+      }
+    } catch (_) {}
   }
 
   void _sendMessage() async {
@@ -2267,7 +2334,12 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
   Future<void> _pickAndSendImage(ImageSource source) async {
     try {
       final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(source: source, imageQuality: 85);
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1440,
+        maxHeight: 1440,
+        imageQuality: 75,
+      );
       if (pickedFile != null) {
         final timeStr = _formatChatTime(DateTime.now().toIso8601String());
         final tempId = 'temp_${DateTime.now().microsecondsSinceEpoch}';
@@ -2865,126 +2937,162 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
               ),
             ),
 
-          // Chat Input Bar (Instagram DM Style - Solid White Bottom Margin)
+          // Chat Input Bar (Instagram DM Style - Professional Unified Pill with Camera Circle)
           Container(
-            color: Colors.white,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                top: BorderSide(color: Color(0xffE2E8F0), width: 0.7),
+              ),
+            ),
             child: SafeArea(
               top: false,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                ),
+              bottom: true,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.camera_alt_outlined, color: Color(0xff2B1564), size: 23),
-                      onPressed: () => _pickAndSendImage(ImageSource.camera),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.photo_library_outlined, color: Color(0xff2B1564), size: 22),
-                      onPressed: () => _pickAndSendImage(ImageSource.gallery),
-                    ),
-                    if (widget.chat.isGroup && widget.chat.itinerary != null)
-                      IconButton(
-                        icon: Icon(Icons.assignment_outlined, color: widget.chat.themeColor, size: 22),
-                        tooltip: 'Attach Trip Details',
-                        onPressed: _showItineraryModal,
+                    // Circular Blue Camera Button (Instagram Direct Style)
+                    GestureDetector(
+                      onTap: () => _pickAndSendImage(ImageSource.camera),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 2),
+                        width: 40,
+                        height: 40,
+                        decoration: const BoxDecoration(
+                          color: Color(0xff2563EB),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Unified Instagram Pill Input Bar
                     Expanded(
                       child: Container(
                         key: const Key('chat_composer_pill'),
                         constraints: const BoxConstraints(minHeight: 44, maxHeight: 120),
-                        alignment: Alignment.center,
+                        padding: const EdgeInsets.only(left: 14, right: 6, top: 2, bottom: 2),
                         decoration: BoxDecoration(
                           color: const Color(0xffF1F5F9),
-                          borderRadius: BorderRadius.circular(22),
+                          borderRadius: BorderRadius.circular(24),
                         ),
-                        child: TextField(
-                          key: const Key('chat_message_input'),
-                          controller: _msgController,
-                          minLines: 1,
-                          maxLines: 4,
-                          keyboardType: TextInputType.multiline,
-                          textCapitalization: TextCapitalization.sentences,
-                          textAlignVertical: TextAlignVertical.center,
-                          onChanged: _onMessageInputChanged,
-                          style: const TextStyle(
-                            fontFamily: 'PublicSans',
-                            fontSize: 14,
-                            height: 1.25,
-                            color: Color(0xff1C0D5A),
-                          ),
-                          decoration: InputDecoration(
-                            isDense: true,
-                            hintText: _isRecording ? 'Recording voice note...' : 'Message...',
-                            hintStyle: TextStyle(
-                              fontFamily: 'PublicSans',
-                              color: _isRecording ? Colors.red : Colors.black45,
-                              fontSize: 14,
-                              height: 1.25,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                key: const Key('chat_message_input'),
+                                controller: _msgController,
+                                minLines: 1,
+                                maxLines: 4,
+                                keyboardType: TextInputType.multiline,
+                                textCapitalization: TextCapitalization.sentences,
+                                textAlignVertical: TextAlignVertical.center,
+                                onChanged: _onMessageInputChanged,
+                                style: const TextStyle(
+                                  fontFamily: 'PublicSans',
+                                  fontSize: 14.5,
+                                  height: 1.25,
+                                  color: Color(0xff1C0D5A),
+                                ),
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  hintText: _isRecording ? 'Recording voice note...' : 'Message...',
+                                  hintStyle: TextStyle(
+                                    fontFamily: 'PublicSans',
+                                    color: _isRecording ? Colors.red : Colors.black45,
+                                    fontSize: 14.5,
+                                    height: 1.25,
+                                  ),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                                ),
+                              ),
                             ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                          ),
+                            if (_msgController.text.trim().isNotEmpty) ...[
+                              GestureDetector(
+                                key: const Key('chat_send_button'),
+                                onTap: _sendMessage,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  child: const Text(
+                                    'Send',
+                                    style: TextStyle(
+                                      fontFamily: 'PublicSans',
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xff2563EB),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ] else ...[
+                              GestureDetector(
+                                onTap: () {
+                                  if (_isRecording) {
+                                    setState(() => _isRecording = false);
+                                    _sendVoiceNote();
+                                  } else {
+                                    setState(() => _isRecording = true);
+                                  }
+                                },
+                                onLongPressStart: (_) {
+                                  HapticFeedback.lightImpact();
+                                  setState(() {
+                                    _isRecording = true;
+                                  });
+                                },
+                                onLongPressEnd: (_) {
+                                  HapticFeedback.lightImpact();
+                                  setState(() {
+                                    _isRecording = false;
+                                  });
+                                  _sendVoiceNote();
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: Icon(
+                                    _isRecording ? Icons.send_rounded : Icons.mic_none_rounded,
+                                    color: _isRecording ? Colors.red : const Color(0xff1C0D5A),
+                                    size: 22,
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => _pickAndSendImage(ImageSource.gallery),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(6),
+                                  child: Icon(
+                                    Icons.image_outlined,
+                                    color: Color(0xff1C0D5A),
+                                    size: 22,
+                                  ),
+                                ),
+                              ),
+                              if (widget.chat.isGroup && widget.chat.itinerary != null)
+                                GestureDetector(
+                                  onTap: _showItineraryModal,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(6),
+                                    child: Icon(
+                                      Icons.assignment_outlined,
+                                      color: widget.chat.themeColor,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    if (_msgController.text.trim().isNotEmpty)
-                      GestureDetector(
-                        key: const Key('chat_send_button'),
-                        onTap: _sendMessage,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          child: const Text(
-                            'Send',
-                            style: TextStyle(
-                              fontFamily: 'PublicSans',
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xff2563EB),
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      GestureDetector(
-                        onTap: () {
-                          if (_isRecording) {
-                            setState(() => _isRecording = false);
-                            _sendVoiceNote();
-                          } else {
-                            setState(() => _isRecording = true);
-                          }
-                        },
-                        onLongPressStart: (_) {
-                          HapticFeedback.lightImpact();
-                          setState(() {
-                            _isRecording = true;
-                          });
-                        },
-                        onLongPressEnd: (_) {
-                          HapticFeedback.lightImpact();
-                          setState(() {
-                            _isRecording = false;
-                          });
-                          _sendVoiceNote();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _isRecording ? Colors.red.withOpacity(0.12) : Colors.transparent,
-                          ),
-                          child: Icon(
-                            _isRecording ? Icons.send_rounded : Icons.mic_none_outlined,
-                            color: _isRecording ? Colors.red : const Color(0xff2B1564),
-                            size: 23,
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -3197,7 +3305,280 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     );
   }
 
+  Widget _buildInstagramMediaBubble(ChatMessage msg, {bool showSeen = false}) {
+    final data = msg.attachmentData;
+    final String? localPath = data?['imageFile'];
+    String? imageUrl = data?['imageUrl'] ?? data?['url'] ?? data?['image_url'];
+
+    if (imageUrl != null && !imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+      imageUrl = imageUrl.startsWith('/')
+          ? '${ApiService().baseUrl}$imageUrl'
+          : '${ApiService().baseUrl}/$imageUrl';
+    }
+    if (kIsWeb && localPath != null && localPath.isNotEmpty && (imageUrl == null || imageUrl.isEmpty)) {
+      imageUrl = localPath;
+    }
+
+    final bool hasLocal = !kIsWeb && localPath != null && localPath.isNotEmpty && File(localPath).existsSync();
+    final bool hasImage = hasLocal || (imageUrl != null && imageUrl.isNotEmpty);
+    final bool isVideo = msg.attachmentType == 'video';
+    final bool hideCaption = msg.text.trim() == 'Sent an image 🏞️' ||
+        msg.text.trim() == 'Sent an image' ||
+        msg.text.trim() == 'Sent a video' ||
+        msg.text.trim().isEmpty;
+
+    final mediaWidget = ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: Stack(
+        alignment: Alignment.bottomRight,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              minWidth: 160,
+              maxWidth: 270,
+              minHeight: 180,
+              maxHeight: 340,
+            ),
+            child: hasLocal
+                ? Image.file(
+                    File(localPath!),
+                    fit: BoxFit.cover,
+                  )
+                : (hasImage
+                    ? Image.network(
+                        imageUrl!,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (ctx, child, progress) {
+                          if (progress == null) return child;
+                          return Container(
+                            height: 200,
+                            width: 240,
+                            color: const Color(0xffF1F5F9),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                value: progress.expectedTotalBytes != null
+                                    ? progress.cumulativeBytesLoaded / (progress.expectedTotalBytes ?? 1)
+                                    : null,
+                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xff2563EB)),
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (ctx, err, stack) => Container(
+                          height: 180,
+                          width: 240,
+                          color: const Color(0xffF1F5F9),
+                          alignment: Alignment.center,
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.broken_image_rounded, color: Colors.black38, size: 28),
+                              SizedBox(height: 6),
+                              Text('Image unavailable', style: TextStyle(color: Colors.black45, fontSize: 11)),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Container(
+                        height: 180,
+                        width: 240,
+                        color: const Color(0xffF1F5F9),
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.image_not_supported_rounded, color: Colors.black38, size: 28),
+                      )),
+          ),
+          if (isVideo)
+            Positioned.fill(
+              child: Center(
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.45),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
+              ),
+            ),
+          // Subtle Instagram translucent timestamp pill
+          Positioned(
+            bottom: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.52),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                msg.time,
+                style: const TextStyle(
+                  fontFamily: 'PublicSans',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return GestureDetector(
+      onTap: () {
+        if (hasLocal) {
+          _showFullScreenImage(context, null, localPath);
+        } else if (imageUrl != null && imageUrl.isNotEmpty) {
+          _showFullScreenImage(context, imageUrl, null);
+        }
+      },
+      onDoubleTap: () => _toggleHeartReaction(msg),
+      onLongPress: () => _showMessageOptionsSheet(msg),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          if (msg.isMe)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    margin: EdgeInsets.only(bottom: showSeen ? 4 : 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _buildReplyQuote(msg, isMe: true),
+                        mediaWidget,
+                        if (!hideCaption)
+                          Container(
+                            margin: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xff2B1564),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Text(
+                              msg.text,
+                              style: const TextStyle(
+                                fontFamily: 'PublicSans',
+                                fontSize: 13,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (showSeen)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 4, bottom: 8),
+                      child: Text(
+                        'Seen',
+                        style: TextStyle(
+                          fontFamily: 'PublicSans',
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black45,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            )
+          else
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    UserAvatar(
+                      avatarUrl: _normalizeChatAvatar(msg.senderAvatar),
+                      displayName: msg.senderName,
+                      radius: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (widget.chat.isGroup)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4, bottom: 4),
+                              child: Text(
+                                msg.senderName,
+                                style: const TextStyle(
+                                  fontFamily: 'PublicSans',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xff1C0D5A),
+                                ),
+                              ),
+                            ),
+                          _buildReplyQuote(msg, isMe: false),
+                          mediaWidget,
+                          if (!hideCaption)
+                            Container(
+                              margin: const EdgeInsets.only(top: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xffF1F5F9),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Text(
+                                msg.text,
+                                style: const TextStyle(
+                                  fontFamily: 'PublicSans',
+                                  fontSize: 13,
+                                  color: Color(0xff1C0D5A),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          if (msg.hasHeartReaction)
+            Positioned(
+              right: msg.isMe ? 8 : null,
+              left: msg.isMe ? null : 44,
+              bottom: 4,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 4),
+                  ],
+                ),
+                child: Text(
+                  msg.reactionEmoji.isNotEmpty ? msg.reactionEmoji : '❤️',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMessageBubble(ChatMessage msg, {bool showSeen = false}) {
+    if (msg.attachmentType == 'image' || msg.attachmentType == 'video') {
+      return _buildInstagramMediaBubble(msg, showSeen: showSeen);
+    }
     final bool isCallLog = _isCallLogMessage(msg);
     final bool hideRedundantImageLabel = msg.attachmentType == 'image' &&
         (msg.text.trim() == 'Sent an image 🏞️' || msg.text.trim() == 'Sent an image');

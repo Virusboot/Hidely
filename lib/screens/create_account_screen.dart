@@ -643,7 +643,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         _buildStepContainer(child: _buildEmailStepContent()),
                         _buildStepContainer(child: _buildOtpStepContent()),
                         _buildStepContainer(child: _buildPasswordStepContent()),
-                        _buildStepContainer(child: _buildTermsStepContent()),
+                        _buildTermsStepContent(),
                       ],
                     ),
                   ),
@@ -1301,163 +1301,178 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   Widget _buildTermsStepContent() {
     final bodyFontFamily = Theme.of(context).textTheme.bodyMedium?.fontFamily;
     const bodyTextStyle = TextStyle(
-      fontSize: 14.5,
-      height: 1.45,
+      fontSize: 14.0,
+      height: 1.4,
       fontWeight: FontWeight.w400,
     );
     const linkTextStyle = TextStyle(
       color: Color(0xff5D3EBC),
-      fontSize: 14.5,
-      height: 1.45,
+      fontSize: 14.0,
+      height: 1.4,
       fontWeight: FontWeight.w600,
     );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 20),
-        const Text(
-          "Agree to Hidely's terms\nand policies",
-          style: TextStyle(
-            color: Color(0xff1C0D5A),
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            height: 1.25,
-            letterSpacing: -0.6,
-          ),
-        ),
-        const SizedBox(height: 22),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+                  const Text(
+                    "Agree to Hidely's terms\nand policies",
+                    style: TextStyle(
+                      color: Color(0xff1C0D5A),
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      height: 1.25,
+                      letterSpacing: -0.6,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
-        // Paragraph 1: Age & optional permissions disclosure
-        RichText(
-          text: TextSpan(
-            style: bodyTextStyle.copyWith(
-              color: const Color(0xff1C0D5A).withOpacity(0.75),
-              fontFamily: bodyFontFamily,
-            ),
-            children: [
-              const TextSpan(
-                text: "You must be at least 18 years old to join Hidely. Location access is strictly optional and used only with your permission. ",
-              ),
-              TextSpan(
-                text: "Learn more",
-                style: linkTextStyle,
-                recognizer: _learnMoreRecognizer,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 18),
+                  // Paragraph 1: Age & optional permissions disclosure
+                  RichText(
+                    text: TextSpan(
+                      style: bodyTextStyle.copyWith(
+                        color: const Color(0xff1C0D5A).withOpacity(0.75),
+                        fontFamily: bodyFontFamily,
+                      ),
+                      children: [
+                        const TextSpan(
+                          text: "You must be at least 18 years old to join Hidely. Location access is strictly optional and used only with your permission. ",
+                        ),
+                        TextSpan(
+                          text: "Learn more",
+                          style: linkTextStyle,
+                          recognizer: _learnMoreRecognizer,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
 
-        // Paragraph 2: By confirming & tapping I agree...
-        RichText(
-          text: TextSpan(
-            style: bodyTextStyle.copyWith(
-              color: const Color(0xff1C0D5A).withOpacity(0.75),
-              fontFamily: bodyFontFamily,
-            ),
-            children: [
-              const TextSpan(text: "By confirming below and tapping "),
-              const TextSpan(
-                text: "I agree",
-                style: TextStyle(
-                  color: Color(0xff1C0D5A),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const TextSpan(
-                text: ", you agree to create an account and to Hidely's ",
-              ),
-              TextSpan(
-                text: "Terms",
-                style: linkTextStyle,
-                recognizer: _termsRecognizer,
-              ),
-              const TextSpan(text: ", "),
-              TextSpan(
-                text: "Privacy Policy",
-                style: linkTextStyle,
-                recognizer: _privacyRecognizer,
-              ),
-              const TextSpan(text: " and "),
-              TextSpan(
-                text: "Child Safety Standards",
-                style: linkTextStyle,
-                recognizer: _cookiesRecognizer,
-              ),
-              const TextSpan(text: "."),
-            ],
-          ),
-        ),
-        const SizedBox(height: 18),
+                  // Paragraph 2: By confirming & tapping I agree...
+                  RichText(
+                    text: TextSpan(
+                      style: bodyTextStyle.copyWith(
+                        color: const Color(0xff1C0D5A).withOpacity(0.75),
+                        fontFamily: bodyFontFamily,
+                      ),
+                      children: [
+                        const TextSpan(text: "By confirming below and tapping "),
+                        const TextSpan(
+                          text: "I agree",
+                          style: TextStyle(
+                            color: Color(0xff1C0D5A),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const TextSpan(
+                          text: ", you agree to create an account and to Hidely's ",
+                        ),
+                        TextSpan(
+                          text: "Terms",
+                          style: linkTextStyle,
+                          recognizer: _termsRecognizer,
+                        ),
+                        const TextSpan(text: ", "),
+                        TextSpan(
+                          text: "Privacy Policy",
+                          style: linkTextStyle,
+                          recognizer: _privacyRecognizer,
+                        ),
+                        const TextSpan(text: " and "),
+                        TextSpan(
+                          text: "Child Safety Standards",
+                          style: linkTextStyle,
+                          recognizer: _cookiesRecognizer,
+                        ),
+                        const TextSpan(text: "."),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
 
-        // Paragraph 3: Privacy Policy description (truthful Data Safety disclosure)
-        RichText(
-          text: TextSpan(
-            style: bodyTextStyle.copyWith(
-              color: const Color(0xff1C0D5A).withOpacity(0.75),
-              fontFamily: bodyFontFamily,
-            ),
-            children: [
-              const TextSpan(text: "The "),
-              TextSpan(
-                text: "Privacy Policy",
-                style: linkTextStyle,
-                recognizer: _privacyRecognizer,
-              ),
-              const TextSpan(
-                text:
-                    " explains how we process your profile and location data to operate discovery, messaging, and moderation features. We do not sell your data or serve behavioral third-party ads.",
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
+                  // Paragraph 3: Privacy Policy description (truthful Data Safety disclosure)
+                  RichText(
+                    text: TextSpan(
+                      style: bodyTextStyle.copyWith(
+                        color: const Color(0xff1C0D5A).withOpacity(0.75),
+                        fontFamily: bodyFontFamily,
+                      ),
+                      children: [
+                        const TextSpan(text: "The "),
+                        TextSpan(
+                          text: "Privacy Policy",
+                          style: linkTextStyle,
+                          recognizer: _privacyRecognizer,
+                        ),
+                        const TextSpan(
+                          text:
+                              " explains how we process your profile and location data to operate discovery, messaging, and moderation features. We do not sell your data or serve behavioral third-party ads.",
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
-        // Mandatory 18+ Age & DPDP Data Consent Confirmation
-        Material(
-          color: Colors.white.withOpacity(0.78),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: _isAdultAndConsentAgreed
-                  ? const Color(0xff5D3EBC)
-                  : Colors.white.withOpacity(0.9),
-              width: 1.4,
-            ),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: CheckboxListTile(
-            value: _isAdultAndConsentAgreed,
-            onChanged: (val) {
-              setState(() {
-                _isAdultAndConsentAgreed = val ?? false;
-              });
-            },
-            activeColor: const Color(0xff2B1564),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            controlAffinity: ListTileControlAffinity.leading,
-            title: const Text(
-              "I confirm I am at least 18 years old and consent to Hidely processing my personal data per the Privacy Policy & Terms.",
-              style: TextStyle(
-                color: Color(0xff1C0D5A),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                height: 1.35,
+                  // Mandatory 18+ Age & DPDP Data Consent Confirmation
+                  Material(
+                    color: Colors.white.withOpacity(0.78),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: _isAdultAndConsentAgreed
+                            ? const Color(0xff5D3EBC)
+                            : Colors.white.withOpacity(0.9),
+                        width: 1.4,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: CheckboxListTile(
+                      value: _isAdultAndConsentAgreed,
+                      onChanged: (val) {
+                        setState(() {
+                          _isAdultAndConsentAgreed = val ?? false;
+                        });
+                      },
+                      activeColor: const Color(0xff2B1564),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: const Text(
+                        "I confirm I am at least 18 years old and consent to Hidely processing my personal data per the Privacy Policy & Terms.",
+                        style: TextStyle(
+                          color: Color(0xff1C0D5A),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 24),
+          const SizedBox(height: 10),
 
-        // Primary Action Button
-        _buildActionButton(
-          text: _isLoading ? "Please wait..." : "I agree",
-          isLoading: _isLoading,
-          borderRadius: BorderRadius.circular(28),
-          onPressed: _submitRegistration,
-        ),
-      ],
+          // Primary Action Button - Pinned at bottom, never cut off by navigation bars
+          _buildActionButton(
+            text: _isLoading ? "Please wait..." : "I agree",
+            isLoading: _isLoading,
+            borderRadius: BorderRadius.circular(28),
+            onPressed: _submitRegistration,
+          ),
+          const SizedBox(height: 6),
+        ],
+      ),
     );
   }
 
@@ -1581,7 +1596,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   // --- Bottom Sign In Navigation Link ---
   Widget _buildBottomSignInLink() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20.0, top: 10.0),
+      padding: const EdgeInsets.only(bottom: 14.0, top: 6.0),
       child: GestureDetector(
         onTap: () => Navigator.pop(context),
         child: _currentStep == 6
