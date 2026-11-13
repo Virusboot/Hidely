@@ -154,28 +154,71 @@ class UserPointsProfile {
     this.badges = const [],
   });
 
-  factory UserPointsProfile.fromJson(Map<String, dynamic> json) {
+  factory UserPointsProfile.fromJson(Map<String, dynamic> rawJson) {
+    final json = (rawJson['profile'] is Map<String, dynamic>)
+        ? rawJson['profile'] as Map<String, dynamic>
+        : (rawJson['user'] is Map<String, dynamic> ? rawJson['user'] as Map<String, dynamic> : rawJson);
+
     final bList = (json['badges'] as List?)
             ?.map((e) => BadgeModel.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [];
+
+    final bool claimedToday = json['isDailyCheckInClaimed'] == true ||
+        json['claimed_today'] == true ||
+        rawJson['isDailyCheckInClaimed'] == true ||
+        rawJson['claimed_today'] == true;
 
     return UserPointsProfile(
       userId: json['userId'] is int ? json['userId'] : int.tryParse(json['userId']?.toString() ?? '0') ?? 0,
       name: json['name']?.toString() ?? 'Explorer',
       username: json['username']?.toString() ?? 'user',
       profilePicture: json['profile_picture']?.toString(),
-      totalPoints: json['totalPoints'] is int ? json['totalPoints'] : int.tryParse(json['totalPoints']?.toString() ?? '0') ?? 0,
+      totalPoints: json['totalPoints'] is int
+          ? json['totalPoints']
+          : int.tryParse(json['totalPoints']?.toString() ?? json['points']?.toString() ?? '0') ?? 0,
       level: json['level'] is int ? json['level'] : int.tryParse(json['level']?.toString() ?? '1') ?? 1,
       levelName: json['levelName']?.toString() ?? 'New Explorer',
       minXp: json['minXp'] is int ? json['minXp'] : int.tryParse(json['minXp']?.toString() ?? '0') ?? 0,
       nextLevelMinXp: json['nextLevelMinXp'] is int ? json['nextLevelMinXp'] : int.tryParse(json['nextLevelMinXp']?.toString() ?? '200') ?? 200,
       rank: json['rank'] is int ? json['rank'] : int.tryParse(json['rank']?.toString() ?? '1') ?? 1,
-      isDailyCheckInClaimed: json['isDailyCheckInClaimed'] == true,
+      isDailyCheckInClaimed: claimedToday,
       featuredBadge: json['featuredBadge'] != null && json['featuredBadge'] is Map<String, dynamic>
           ? BadgeModel.fromJson(json['featuredBadge'])
           : null,
       badges: bList,
+    );
+  }
+
+  UserPointsProfile copyWith({
+    int? userId,
+    String? name,
+    String? username,
+    String? profilePicture,
+    int? totalPoints,
+    int? level,
+    String? levelName,
+    int? minXp,
+    int? nextLevelMinXp,
+    int? rank,
+    bool? isDailyCheckInClaimed,
+    BadgeModel? featuredBadge,
+    List<BadgeModel>? badges,
+  }) {
+    return UserPointsProfile(
+      userId: userId ?? this.userId,
+      name: name ?? this.name,
+      username: username ?? this.username,
+      profilePicture: profilePicture ?? this.profilePicture,
+      totalPoints: totalPoints ?? this.totalPoints,
+      level: level ?? this.level,
+      levelName: levelName ?? this.levelName,
+      minXp: minXp ?? this.minXp,
+      nextLevelMinXp: nextLevelMinXp ?? this.nextLevelMinXp,
+      rank: rank ?? this.rank,
+      isDailyCheckInClaimed: isDailyCheckInClaimed ?? this.isDailyCheckInClaimed,
+      featuredBadge: featuredBadge ?? this.featuredBadge,
+      badges: badges ?? this.badges,
     );
   }
 }

@@ -49,13 +49,16 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   }
 
   String get _displayUsername {
-    final raw = _username.isNotEmpty 
-        ? _username 
-        : (AuthService().userUsername.isNotEmpty 
-            ? AuthService().userUsername 
-            : (_name.isNotEmpty ? _name : AuthService().userName));
-    if (raw.isEmpty) return 'User';
-    return raw.startsWith('@') ? raw : '@$raw';
+    final authUname = AuthService().userUsername;
+    final activeUsername = _username.isNotEmpty ? _username : authUname;
+    if (activeUsername.isNotEmpty && activeUsername.toLowerCase() != 'user') {
+      return activeUsername.startsWith('@') ? activeUsername : '@$activeUsername';
+    }
+    final activeName = _name.isNotEmpty ? _name : AuthService().userName;
+    if (activeName.isNotEmpty && activeName.toLowerCase() != 'user') {
+      return activeName;
+    }
+    return 'Profile';
   }
 
   List<Map<String, String>> get _allProfileLinks {

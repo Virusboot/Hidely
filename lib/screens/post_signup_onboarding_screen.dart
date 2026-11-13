@@ -417,7 +417,7 @@ class _PostSignupOnboardingScreenState
                                 'username': newUsername,
                                 'username_changed_at': DateTime.now().toIso8601String(),
                               });
-                              ApiService().updateUserProfile(token: token, username: newUsername);
+                              await ApiService().updateUserProfile(token: token, username: newUsername);
                             }
                           },
                           child: Container(

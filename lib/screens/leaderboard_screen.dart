@@ -71,14 +71,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
     }).toList();
 
     final myId = int.tryParse(AuthService().userId);
+    final myUsername = AuthService().userUsername.replaceAll('@', '').trim().toLowerCase();
     LeaderboardUser? myRank;
-    if (myId != null) {
+    if (myId != null || myUsername.isNotEmpty) {
       myRank = parsedUsers.firstWhere(
-        (u) => u.id == myId,
+        (u) => (myId != null && u.id == myId) ||
+            (myUsername.isNotEmpty && u.username.replaceAll('@', '').trim().toLowerCase() == myUsername),
         orElse: () => LeaderboardUser(
           rank: parsedUsers.length + 1,
-          id: myId,
-          name: AuthService().userName,
+          id: myId ?? 0,
+          name: AuthService().userName.isNotEmpty ? AuthService().userName : (myUsername.isNotEmpty ? myUsername : 'You'),
           username: AuthService().userUsername,
           profilePicture: AuthService().userProfilePicture,
           points: 0,
@@ -122,6 +124,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
     final top2 = _users.length > 1 ? _users[1] : null;
     final top3 = _users.length > 2 ? _users[2] : null;
     final restUsers = _users.length > 3 ? _users.sublist(3) : <LeaderboardUser>[];
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -271,7 +274,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
                                           ),
                                         )
                                       : ListView.builder(
-                                          padding: const EdgeInsets.fromLTRB(16, 20, 16, 95),
+                                          padding: EdgeInsets.fromLTRB(16, 20, 16, bottomInset + 96),
                                           physics: const BouncingScrollPhysics(),
                                           itemCount: restUsers.length,
                                           itemBuilder: (context, idx) {
@@ -291,7 +294,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
                   Positioned(
                     left: 16,
                     right: 16,
-                    bottom: 16,
+                    bottom: bottomInset > 0 ? bottomInset + 8 : 16,
                     child: _buildStickyMyRankCard(_currentUserRank!),
                   ),
               ],

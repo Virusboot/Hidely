@@ -74,25 +74,85 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
     setState(() => _isClaimingCheckIn = true);
 
     final res = await ApiService().claimDailyCheckIn();
-    setState(() => _isClaimingCheckIn = false);
 
     if (!mounted) return;
 
-    if (res.success) {
+    final isAlreadyClaimed = res.data?['alreadyClaimed'] == true;
+    final pointsAwarded = (res.data?['pointsAwarded'] as num?)?.toInt() ?? 0;
+    final serverTotal = (res.data?['totalPoints'] as num?)?.toInt();
+
+    if (res.success && !isAlreadyClaimed) {
+      final awarded = pointsAwarded > 0 ? pointsAwarded : 10;
+      final newTotal = serverTotal ?? ((_profile?.totalPoints ?? 0) + awarded);
+
+      // Instant optimistic local update
+      setState(() {
+        _isClaimingCheckIn = false;
+        if (_profile != null) {
+          _profile = _profile!.copyWith(
+            totalPoints: newTotal,
+            isDailyCheckInClaimed: true,
+          );
+        }
+        // Prepend transaction immediately into history
+        final now = DateTime.now();
+        final dateStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+        _history.insert(
+          0,
+          PointTransaction(
+            id: now.millisecondsSinceEpoch,
+            points: awarded,
+            eventType: 'daily_check_in',
+            description: 'Daily App Check-In bonus',
+            createdAt: dateStr,
+          ),
+        );
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res.message.isNotEmpty ? res.message : "+10 Daily Check-In points claimed!"),
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  res.message.isNotEmpty ? res.message : "+$awarded Daily Check-In points claimed!",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
           backgroundColor: const Color(0xff10B981),
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
       _loadData();
     } else {
+      setState(() {
+        _isClaimingCheckIn = false;
+        if (_profile != null) {
+          _profile = _profile!.copyWith(isDailyCheckInClaimed: true);
+        }
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res.message.isNotEmpty ? res.message : "Daily check-in already recorded."),
+          content: Row(
+            children: [
+              const Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  res.message.isNotEmpty ? res.message : "Daily check-in already recorded for today.",
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
           backgroundColor: const Color(0xffF59E0B),
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -645,12 +705,13 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
 
   Widget _buildDailyCheckInBanner() {
     final isClaimed = _profile?.isDailyCheckInClaimed ?? false;
-    return Container(
-      padding: const EdgeInsets.all(16),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isClaimed
-              ? [const Color(0xff065F46), const Color(0xff047857)]
+              ? [const Color(0xff064E3B), const Color(0xff047857)]
               : [const Color(0xffEA580C), const Color(0xffDC2626)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -658,8 +719,8 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: (isClaimed ? const Color(0xff059669) : const Color(0xffDC2626)).withOpacity(0.3),
-            blurRadius: 12,
+            color: (isClaimed ? const Color(0xff059669) : const Color(0xffDC2626)).withOpacity(0.35),
+            blurRadius: 14,
             offset: const Offset(0, 4),
           ),
         ],
@@ -696,7 +757,7 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
                 const SizedBox(height: 3),
                 Text(
                   isClaimed
-                      ? "Great job! Keep your exploration streak alive tomorrow."
+                      ? "Great job! Keep your streak alive tomorrow."
                       : "Claim your daily exploration bonus today!",
                   style: TextStyle(
                     fontFamily: 'PublicSans',
@@ -710,18 +771,26 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
           const SizedBox(width: 8),
           if (isClaimed)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withOpacity(0.3)),
+                color: Colors.white.withOpacity(0.22),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withOpacity(0.35)),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.done_all_rounded, color: Colors.white, size: 14),
+                  Icon(Icons.check_rounded, color: Colors.white, size: 15),
                   SizedBox(width: 4),
-                  Text("Claimed", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5)),
+                  Text(
+                    "Claimed",
+                    style: TextStyle(
+                      fontFamily: 'PublicSans',
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             )
@@ -731,13 +800,32 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> with SingleTi
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: const Color(0xffDC2626),
-                elevation: 0,
+                elevation: 4,
+                shadowColor: Colors.black26,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               ),
               child: _isClaimingCheckIn
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text("Claim +10", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5)),
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xffDC2626)),
+                    )
+                  : const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.local_fire_department_rounded, size: 15, color: Color(0xffDC2626)),
+                        SizedBox(width: 4),
+                        Text(
+                          "Claim +10",
+                          style: TextStyle(
+                            fontFamily: 'PublicSans',
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
         ],
       ),
