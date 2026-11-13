@@ -309,7 +309,8 @@ void main() {
       ScaffoldMessenger.of(tester.element(find.byType(CreateAccountScreen))).clearSnackBars();
       await tester.pumpAndSettle();
 
-      // Step 7: Unchecked 18+ consent must block registration
+      // Step 7: Review & Agree to Terms (Heading in 2 lines)
+      expect(find.text("Agree to Hidely's terms\nand policies"), findsOneWidget);
       expect(find.textContaining('I confirm I am at least 18 years old'), findsOneWidget);
       await tester.ensureVisible(find.text('I agree'));
       await tester.tap(find.text('I agree'));

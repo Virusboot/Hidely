@@ -1311,7 +1311,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       children: [
         const SizedBox(height: 20),
         const Text(
-          "Agree to Hidely's terms and\npolicies",
+          "Agree to Hidely's terms\nand policies",
           style: TextStyle(
             color: Color(0xff1C0D5A),
             fontSize: 28,
