@@ -232,7 +232,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
           }
         }
 
-        int pCount = creator?['posts_count'] ?? 0;
+        pCount = creator?['posts_count'] ?? 0;
         if (posts.length > pCount) {
           pCount = posts.length;
         }
