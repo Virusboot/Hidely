@@ -1134,13 +1134,28 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.5,
-        titleSpacing: Navigator.canPop(context) ? 0 : 16,
+        titleSpacing: 4,
+        leadingWidth: Navigator.canPop(context) ? 88 : 48,
         leading: Navigator.canPop(context)
-            ? IconButton(
-                icon: Image.asset('assets/images/back_icon.png', color: const Color(0xff1C0D5A), width: 22.0, height: 22.0),
-                onPressed: () => Navigator.pop(context),
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Image.asset('assets/images/back_icon.png', color: const Color(0xff1C0D5A), width: 20.0, height: 20.0),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  IconButton(
+                    icon: Image.asset('assets/icons/edit.png', width: 22, height: 22, color: const Color(0xff1C0D5A)),
+                    tooltip: 'New Message / Squad',
+                    onPressed: _showNewMessageUserSearchSheet,
+                  ),
+                ],
               )
-            : null,
+            : IconButton(
+                icon: Image.asset('assets/icons/edit.png', width: 22, height: 22, color: const Color(0xff1C0D5A)),
+                tooltip: 'New Message / Squad',
+                onPressed: _showNewMessageUserSearchSheet,
+              ),
         title: Text(
           AuthService().userUsername.isNotEmpty
               ? AuthService().userUsername
@@ -1164,11 +1179,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             ),
             tooltip: 'Filter Messages',
             onPressed: _showFilterSheet,
-          ),
-          IconButton(
-            icon: Image.asset('assets/icons/edit.png', width: 24, height: 24, color: const Color(0xff1C0D5A)),
-            tooltip: 'New Message / Squad',
-            onPressed: _showNewMessageUserSearchSheet,
           ),
           const SizedBox(width: 4),
         ],

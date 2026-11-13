@@ -358,9 +358,36 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                           savedResult.data?['posts'] ?? 
                           (savedResult.data is List ? savedResult.data : null);
         if (savedList != null) {
-          _savedPosts = savedList as List;
+          _savedPosts = List.from(savedList as List);
         }
       }
+
+      // Merge locally saved location items (from location detail page)
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final localSavedRaw = prefs.getStringList('locally_saved_locations') ?? [];
+        final List<Map<String, dynamic>> localSavedList = [];
+        for (final str in localSavedRaw) {
+          try {
+            final decoded = jsonDecode(str);
+            if (decoded is Map) localSavedList.add(Map<String, dynamic>.from(decoded));
+          } catch (_) {}
+        }
+        if (localSavedList.isNotEmpty) {
+          final existingKeys = <String>{};
+          for (final p in _savedPosts) {
+            final k = p['image_url'] ?? p['image'] ?? p['id']?.toString() ?? '';
+            if (k.isNotEmpty) existingKeys.add(k.toString());
+          }
+          for (final item in localSavedList) {
+            final k = item['image_url'] ?? item['image'] ?? item['id']?.toString() ?? '';
+            if (!existingKeys.contains(k)) {
+              _savedPosts.insert(0, item);
+              existingKeys.add(k);
+            }
+          }
+        }
+      } catch (_) {}
 
       // 5. Process gamification profile
       if (gResult.success && gResult.data?['profile'] != null) {

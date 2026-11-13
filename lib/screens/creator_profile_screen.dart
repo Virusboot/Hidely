@@ -500,42 +500,24 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            GestureDetector(
-                              onTap: _handleBack,
-                              child: Container(
-                                width: 44,
-                                height: 44,
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Center(
-                                  child: Image.asset(
-                                    'assets/images/back_icon.png',
-                                    width: 18,
-                                    height: 18,
-                                    color: const Color(0xFF1C0D5A),
-                                  ),
-                                ),
+                        GestureDetector(
+                          onTap: _handleBack,
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Image.asset(
+                                'assets/images/back_icon.png',
+                                width: 18,
+                                height: 18,
+                                color: const Color(0xFF1C0D5A),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () => Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false),
-                              child: Container(
-                                width: 44,
-                                height: 44,
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.home_rounded, color: Color(0xFF1C0D5A), size: 22),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                         Text(
                           (_isBlockedByTarget && !_isBlocked)
@@ -698,8 +680,8 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
                               const SizedBox(height: 16),
                               ElevatedButton.icon(
                                 onPressed: _handleBack,
-                                icon: const Icon(Icons.home_rounded, size: 18),
-                                label: const Text("Go to Home Feed"),
+                                icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                                label: const Text("Go Back"),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xff1C0D5A),
                                   foregroundColor: Colors.white,

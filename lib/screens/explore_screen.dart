@@ -1284,6 +1284,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
               controller: _searchController,
               focusNode: _searchFocusNode,
               textAlignVertical: TextAlignVertical.center,
+              style: const TextStyle(
+                color: Color(0xff1C0D5A),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
               onChanged: (val) {
                 setState(() {
                   _searchQuery = val;
@@ -1305,11 +1310,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 _fetchExplorePosts();
               },
               decoration: InputDecoration(
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
                 isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 13),
                 hintText: "Search accounts or places...",
-                hintStyle: const TextStyle(color: Colors.black38, fontSize: 13.5, height: 1.2),
-                prefixIcon: const Icon(Icons.search, color: Color(0xff1C0D5A), size: 20),
-                prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 46),
+                hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.only(left: 14, right: 10),
+                  child: Icon(Icons.search, color: Color(0xff1C0D5A), size: 21),
+                ),
+                prefixIconConstraints: const BoxConstraints(minWidth: 45, minHeight: 48),
                 suffixIcon: Row(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.end,

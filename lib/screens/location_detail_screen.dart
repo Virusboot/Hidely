@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:hidely_new/screens/nearby_locations_screen.dart';
 import 'package:hidely_new/screens/nearby_stays_screen.dart';
 import 'package:hidely_new/screens/single_post_view_screen.dart';
@@ -33,27 +36,184 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   List<dynamic> _locationPosts = [];
   bool _isLoadingGrid = true;
   bool _isSaved = false;
+  List<Map<String, dynamic>> _feedbacks = [];
+  double _currentRating = 4.8;
+  int _reviewsCount = 128;
 
-  void _toggleSave() {
-    setState(() => _isSaved = !_isSaved);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(_isSaved ? "Saved to your bookmarks!" : "Removed from bookmarks"),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _checkIfSaved();
+    _loadFeedbacks();
+    _fetchLocationPosts();
   }
 
-  void _shareLocation() {
+  Future<void> _checkIfSaved() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final localSaved = prefs.getStringList('locally_saved_locations') ?? [];
+      final locationKey = '${widget.title}_${widget.location}';
+      final isAlreadySaved = localSaved.any((s) {
+        try {
+          final map = jsonDecode(s);
+          return map['key'] == locationKey || (map['image_url'] != null && map['image_url'] == widget.image);
+        } catch (_) {
+          return false;
+        }
+      });
+      if (mounted) setState(() => _isSaved = isAlreadySaved);
+    } catch (_) {}
+  }
+
+  Future<void> _toggleSave() async {
+    final prefs = await SharedPreferences.getInstance();
+    final localSaved = prefs.getStringList('locally_saved_locations') ?? [];
+    final locationKey = '${widget.title}_${widget.location}';
+    final token = AuthService().token ?? '';
+
+    setState(() => _isSaved = !_isSaved);
+
+    if (_isSaved) {
+      final savedItem = {
+        'id': 'loc_${DateTime.now().millisecondsSinceEpoch}',
+        'key': locationKey,
+        'image_url': widget.image,
+        'image': widget.image,
+        'caption': widget.title.isNotEmpty ? widget.title : widget.location,
+        'location': widget.location,
+        'category': widget.category,
+        'is_bookmarked': true,
+        'likes_count': 12,
+        'comments_count': 4,
+        'author_username': AuthService().userUsername.isNotEmpty ? AuthService().userUsername : 'hidely',
+        'author_name': AuthService().userName.isNotEmpty ? AuthService().userName : 'Explorer',
+        'author_profile_picture': AuthService().userProfilePicture,
+        'created_at': DateTime.now().toIso8601String(),
+      };
+      localSaved.removeWhere((s) {
+        try {
+          final m = jsonDecode(s);
+          return m['key'] == locationKey || m['image_url'] == widget.image;
+        } catch (_) {
+          return false;
+        }
+      });
+      localSaved.insert(0, jsonEncode(savedItem));
+      await prefs.setStringList('locally_saved_locations', localSaved);
+
+      if (_locationPosts.isNotEmpty && _locationPosts[0]['id'] != null) {
+        final pId = int.tryParse(_locationPosts[0]['id'].toString());
+        if (pId != null && token.isNotEmpty) {
+          ApiService().toggleBookmarkPost(token: token, postId: pId);
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.bookmark_added_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 10),
+                Expanded(child: Text("Saved to your profile's Saved tab!")),
+              ],
+            ),
+            backgroundColor: Color(0xff1C0D5A),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } else {
+      localSaved.removeWhere((s) {
+        try {
+          final m = jsonDecode(s);
+          return m['key'] == locationKey || m['image_url'] == widget.image;
+        } catch (_) {
+          return false;
+        }
+      });
+      await prefs.setStringList('locally_saved_locations', localSaved);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Removed from your Saved tab"),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _shareLocation() async {
     final title = widget.title.isNotEmpty ? widget.title : widget.location;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Sharing link for $title (https://hidely.app/place/2001)"),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    final locText = widget.location.isNotEmpty && widget.location != title ? " in ${widget.location}" : "";
+    final shareText = "Explore $title$locText on Hidely! 🌍✨\nhttps://hidely.app/explore?q=${Uri.encodeComponent(title)}";
+    try {
+      await Share.share(shareText, subject: title);
+    } catch (e) {
+      debugPrint('[LocationDetailScreen] Share error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Link copied: https://hidely.app/explore?q=${Uri.encodeComponent(title)}"),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadFeedbacks() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final locationKey = 'feedback_${widget.title}_${widget.location}';
+      final raw = prefs.getStringList(locationKey) ?? [];
+      final List<Map<String, dynamic>> loaded = [];
+      for (final s in raw) {
+        try {
+          final m = jsonDecode(s);
+          if (m is Map) loaded.add(Map<String, dynamic>.from(m));
+        } catch (_) {}
+      }
+      if (mounted) {
+        setState(() {
+          _feedbacks = loaded;
+          if (loaded.isNotEmpty) {
+            _reviewsCount = 128 + loaded.length;
+            double totalStars = 128 * 4.8;
+            for (final f in loaded) {
+              totalStars += (f['rating'] as num?)?.toDouble() ?? 5.0;
+            }
+            _currentRating = (totalStars / _reviewsCount);
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _submitFeedback(int rating, String category, String text) async {
+    final prefs = await SharedPreferences.getInstance();
+    final locationKey = 'feedback_${widget.title}_${widget.location}';
+    final raw = prefs.getStringList(locationKey) ?? [];
+
+    final item = {
+      'id': DateTime.now().millisecondsSinceEpoch,
+      'username': AuthService().userUsername.isNotEmpty ? AuthService().userUsername : 'explorer',
+      'name': AuthService().userName.isNotEmpty ? AuthService().userName : 'Travel Explorer',
+      'avatar': AuthService().userProfilePicture,
+      'rating': rating,
+      'category': category,
+      'text': text,
+      'created_at': DateTime.now().toIso8601String(),
+    };
+
+    raw.insert(0, jsonEncode(item));
+    await prefs.setStringList(locationKey, raw);
+
+    await _loadFeedbacks();
   }
 
 
@@ -366,8 +526,9 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                             shadowColor: const Color(0xff2B1564).withOpacity(0.3),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
-                          onPressed: () {
-                            if (feedbackController.text.trim().isEmpty) {
+                          onPressed: () async {
+                            final text = feedbackController.text.trim();
+                            if (text.isEmpty) {
                               ScaffoldMessenger.of(ctx).showSnackBar(
                                 const SnackBar(content: Text('Please enter your feedback or tips')),
                               );
@@ -375,6 +536,8 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                             }
 
                             Navigator.pop(ctx);
+                            await _submitFeedback(selectedRating, selectedCategory, text);
+                            if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: const Row(
@@ -383,7 +546,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                                     SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
-                                        'Feedback submitted! +50 Explorer XP added to your profile 🌟',
+                                        'Feedback posted live on location page! +50 Explorer XP added 🌟',
                                         style: TextStyle(fontWeight: FontWeight.bold),
                                       ),
                                     ),
@@ -464,10 +627,81 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     );
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchLocationPosts();
+  Widget _buildFeedbackCard(Map<String, dynamic> fb) {
+    final name = (fb['name'] ?? fb['username'] ?? 'Explorer').toString();
+    final category = (fb['category'] ?? 'Tip').toString();
+    final text = (fb['text'] ?? '').toString();
+    final rating = (fb['rating'] as num?)?.toInt() ?? 5;
+
+    return Container(
+      width: 260,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: const Color(0xffE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 14,
+                backgroundColor: const Color(0xff2B1564).withOpacity(0.1),
+                child: Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : 'E',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xff2B1564)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Row(
+                children: List.generate(
+                  rating,
+                  (_) => const Icon(Icons.star_rounded, size: 13, color: Color(0xffF59E0B)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xffFEF3C7),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              category,
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xffD97706)),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 12, color: Colors.black87),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _fetchLocationPosts() async {
@@ -716,13 +950,13 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(color: const Color(0xffFDBA74).withOpacity(0.5)),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   children: [
-                                    Icon(Icons.star_rounded, size: 16, color: Color(0xffF59E0B)),
-                                    SizedBox(width: 4),
-                                    Text('4.8', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xff9A3412))),
-                                    SizedBox(width: 4),
-                                    Text('(128 Reviews)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xffC2410C))),
+                                    const Icon(Icons.star_rounded, size: 16, color: Color(0xffF59E0B)),
+                                    const SizedBox(width: 4),
+                                    Text(_currentRating.toStringAsFixed(1), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xff9A3412))),
+                                    const SizedBox(width: 4),
+                                    Text('($_reviewsCount Reviews)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xffC2410C))),
                                   ],
                                 ),
                               ),
@@ -831,36 +1065,83 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // --- INSTAGRAM HIGHLIGHT STYLE ACTION BUBBLES ---
+                    // --- ACTION BUBBLES WITH GENEROUS SPACING ---
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 28.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildHighlightBubble(
+                            icon: _isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                            label: _isSaved ? 'Saved' : 'Save',
+                            iconColor: _isSaved ? const Color(0xff2563EB) : const Color(0xff1C0D5A),
+                            onTap: _toggleSave,
+                          ),
+                          _buildHighlightBubble(
+                            icon: Icons.share_rounded,
+                            label: 'Share',
+                            iconColor: const Color(0xff1C0D5A),
+                            onTap: _shareLocation,
+                          ),
+                          _buildHighlightBubble(
+                            icon: Icons.rate_review_outlined,
+                            label: 'Feedback',
+                            iconColor: const Color(0xff1C0D5A),
+                            onTap: () => _showLocationFeedbackSheet(context),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    if (_feedbacks.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            _buildHighlightBubble(
-                              icon: _isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
-                              label: _isSaved ? 'Saved' : 'Save',
-                              iconColor: const Color(0xff1C0D5A),
-                              onTap: _toggleSave,
+                            const Text(
+                              "Traveler Tips & Feedback",
+                              style: TextStyle(
+                                color: Color(0xff1C0D5A),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            _buildHighlightBubble(
-                              icon: Icons.share_rounded,
-                              label: 'Share',
-                              iconColor: const Color(0xff1C0D5A),
-                              onTap: _shareLocation,
-                            ),
-                            _buildHighlightBubble(
-                              icon: Icons.rate_review_outlined,
-                              label: 'Feedback',
-                              iconColor: const Color(0xff1C0D5A),
-                              onTap: () => _showLocationFeedbackSheet(context),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xffEEF2FF),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                "${_feedbacks.length} Tips",
+                                style: const TextStyle(
+                                  color: Color(0xff4F46E5),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 124,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: _feedbacks.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 12),
+                          itemBuilder: (ctx, idx) {
+                            final fb = _feedbacks[idx];
+                            return _buildFeedbackCard(fb);
+                          },
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 24),
 
                     // --- 1.6 INTERACTIVE TAB BAR WITH SELECTION ---
