@@ -79,6 +79,24 @@ class AuthService {
     return '';
   }
 
+  DateTime? get usernameChangedAt {
+    final raw = _user?['username_changed_at'] ?? _user?['usernameChangedAt'];
+    if (raw != null) {
+      return DateTime.tryParse(raw.toString());
+    }
+    return null;
+  }
+
+  int get daysUntilUsernameChange {
+    final lastChanged = usernameChangedAt;
+    if (lastChanged == null) return 0;
+    final diff = DateTime.now().difference(lastChanged);
+    if (diff.inDays < 15) {
+      return 15 - diff.inDays;
+    }
+    return 0;
+  }
+
   bool get isOfficialOrAdmin {
     if (_user == null) return false;
     final u = (_user?['username'] ?? '').toString().toLowerCase();

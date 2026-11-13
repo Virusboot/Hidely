@@ -20,6 +20,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _usernameController;
   late final TextEditingController _bioController;
+  late final String _initialUsername;
 
 
   // Profile Image State Variables
@@ -34,7 +35,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: AuthService().userName);
-    _usernameController = TextEditingController(text: AuthService().userUsername);
+    _initialUsername = AuthService().userUsername.trim().toLowerCase();
+    _usernameController = TextEditingController(text: _initialUsername);
     
     final originalBio = AuthService().userBio;
     final RegExp linkLineReg = RegExp(r'^([^:\n]+):\s*(https?://[^\s\n]+|@[^\s\n]+|[^\s\n]+)', caseSensitive: false);
@@ -218,6 +220,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
 
 
+                            // 15-Day Username change limitation check
+                            if (username != _initialUsername && _initialUsername.isNotEmpty) {
+                              final daysLeft = AuthService().daysUntilUsernameChange;
+                              if (daysLeft > 0) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text("You can only change your username once every 15 days. Please wait $daysLeft more day${daysLeft == 1 ? '' : 's'}."),
+                                    behavior: SnackBarBehavior.floating,
+                                    backgroundColor: Colors.redAccent,
+                                    duration: const Duration(seconds: 4),
+                                  ),
+                                );
+                                return;
+                              }
+                            }
+
                             setState(() {
                               _isLoading = true;
                             });
@@ -385,6 +403,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           LengthLimitingTextInputFormatter(30),
                           FilteringTextInputFormatter.allow(RegExp(r'[a-z0-9_.]')),
                         ],
+                        helperText: AuthService().daysUntilUsernameChange > 0
+                            ? "You can change your username again in ${AuthService().daysUntilUsernameChange} days."
+                            : "You can only change your username once every 15 days.",
+                        helperColor: AuthService().daysUntilUsernameChange > 0
+                            ? Colors.deepOrange
+                            : const Color(0xff1C0D5A).withOpacity(0.55),
                       ),
                       _buildGenderDropdownField(),
                       _buildEditableField(
@@ -417,7 +441,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     int maxLines = 1,
     String? hint,
     List<TextInputFormatter>? inputFormatters,
+    String? helperText,
+    Color? helperColor,
   }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -436,18 +463,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
             ),
             Expanded(
-              child: TextFormField(
-                controller: controller,
-                maxLines: maxLines,
-                inputFormatters: inputFormatters,
-                style: const TextStyle(fontSize: 15, color: Colors.black87),
-                decoration: InputDecoration(
-                  hintText: hint,
-                  hintStyle: const TextStyle(color: Colors.black38),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: controller,
+                    maxLines: maxLines,
+                    inputFormatters: inputFormatters,
+                    style: const TextStyle(fontSize: 15, color: Colors.black87),
+                    decoration: InputDecoration(
+                      hintText: hint,
+                      hintStyle: const TextStyle(color: Colors.black38),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  if (helperText != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      helperText,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: helperColor ?? Colors.black45,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ],

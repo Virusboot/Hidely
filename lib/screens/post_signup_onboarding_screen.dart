@@ -24,6 +24,7 @@ class _PostSignupOnboardingScreenState
 
   File? _avatarFile;
   bool _isUploadingAvatar = false;
+  String _username = "";
   String _displayName = "";
   String _bio = "";
   bool _inviteShared = false;
@@ -33,6 +34,7 @@ class _PostSignupOnboardingScreenState
   @override
   void initState() {
     super.initState();
+    _username = AuthService().userUsername;
     _displayName = AuthService().userName;
     _bio = AuthService().userBio;
   }
@@ -67,19 +69,27 @@ class _PostSignupOnboardingScreenState
 
   Future<void> _finishOnboarding() async {
     if (_isUploadingAvatar) return;
-    if (_avatarFile != null) {
-      final token = AuthService().token;
-      if (token != null && token.isNotEmpty) {
+    final token = AuthService().token;
+    if (token != null && token.isNotEmpty) {
+      final needsAvatar = _avatarFile != null;
+      final needsUsername = _username.isNotEmpty && _username.toLowerCase() != AuthService().userUsername.toLowerCase();
+      final needsName = _displayName.isNotEmpty && _displayName != AuthService().userName;
+      final needsBio = _bio.isNotEmpty && _bio != AuthService().userBio;
+
+      if (needsAvatar || needsUsername || needsName || needsBio) {
         setState(() => _isUploadingAvatar = true);
         try {
           final result = await ApiService().updateUserProfile(
             token: token,
             avatar: _avatarFile,
+            username: needsUsername ? _username : null,
+            name: needsName ? _displayName : null,
+            bio: needsBio ? _bio : null,
           );
           if (result.success && result.data != null) {
-            final newPic = result.data?['user']?['profile_picture'];
-            if (newPic != null) {
-              await AuthService().updateUserData({'profile_picture': newPic});
+            final userMap = result.data?['user'];
+            if (userMap is Map) {
+              await AuthService().updateUserData(Map<String, dynamic>.from(userMap));
             }
           }
         } catch (_) {
@@ -294,6 +304,224 @@ class _PostSignupOnboardingScreenState
       _inviteShared = true;
     });
     showHidelySnackBar(context, "Invite link copied!", isError: false);
+  }
+
+  // --- Sub-Screen 0: Edit Username ---
+  void _openUsernameEditor() {
+    final controller = TextEditingController(text: _username);
+    String? localError;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (modalContext, setModalState) {
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.9,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xffE0F2FE), Color(0xffFDF7FF)],
+              ),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 12),
+                    // Header with back and checkmark
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        GestureDetector(
+                          onTap: () => Navigator.pop(ctx),
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Color(0xff1C0D5A)),
+                          ),
+                        ),
+                        const Text(
+                          "Username",
+                          style: TextStyle(
+                            color: Color(0xff1C0D5A),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () async {
+                            final newUsername = controller.text.trim().toLowerCase();
+                            if (newUsername.isEmpty) {
+                              setModalState(() {
+                                localError = "Username cannot be empty";
+                              });
+                              return;
+                            }
+                            final usernameRegex = RegExp(r'^[a-z0-9]([a-z0-9_.]*[a-z0-9])?$');
+                            if (newUsername.length < 3) {
+                              setModalState(() {
+                                localError = "Username must be at least 3 characters";
+                              });
+                              return;
+                            }
+                            if (newUsername.length > 30) {
+                              setModalState(() {
+                                localError = "Username cannot exceed 30 characters";
+                              });
+                              return;
+                            }
+                            if (!usernameRegex.hasMatch(newUsername)) {
+                              setModalState(() {
+                                localError = "Username can only contain lowercase letters, numbers, underscores, and periods.";
+                              });
+                              return;
+                            }
+
+                            // 15-day cooldown check if user already had a set username
+                            if (_username.isNotEmpty && newUsername != _username.toLowerCase()) {
+                              final daysLeft = AuthService().daysUntilUsernameChange;
+                              if (daysLeft > 0) {
+                                setModalState(() {
+                                  localError = "You can only change your username once every 15 days. Please wait $daysLeft more day${daysLeft == 1 ? '' : 's'}.";
+                                });
+                                return;
+                              }
+
+                              final checkRes = await ApiService().checkUsernameAvailable(username: newUsername);
+                              if (!checkRes.success) {
+                                setModalState(() {
+                                  localError = checkRes.message.isNotEmpty ? checkRes.message : "Username is already taken.";
+                                });
+                                return;
+                              }
+                            }
+
+                            Navigator.pop(ctx);
+                            setState(() {
+                              _username = newUsername;
+                            });
+
+                            final token = AuthService().token;
+                            if (token != null) {
+                              await AuthService().updateUserData({
+                                'username': newUsername,
+                                'username_changed_at': DateTime.now().toIso8601String(),
+                              });
+                              ApiService().updateUserProfile(token: token, username: newUsername);
+                            }
+                          },
+                          child: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: const BoxDecoration(
+                              color: Color(0xff2B1564),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.check, size: 20, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
+
+                    // Username Input Card
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: Colors.white.withOpacity(0.9), width: 1.2),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Username",
+                            style: TextStyle(
+                              color: const Color(0xff1C0D5A).withOpacity(0.5),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          TextField(
+                            controller: controller,
+                            autofocus: true,
+                            inputFormatters: [
+                              LengthLimitingTextInputFormatter(30),
+                              FilteringTextInputFormatter.allow(RegExp(r'[a-z0-9_.]')),
+                            ],
+                            style: const TextStyle(
+                              color: Color(0xff1C0D5A),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              border: InputBorder.none,
+                              prefixText: "@",
+                              prefixStyle: TextStyle(
+                                color: const Color(0xff1C0D5A).withOpacity(0.6),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                              suffixIcon: controller.text.isNotEmpty
+                                  ? GestureDetector(
+                                      onTap: () {
+                                        controller.clear();
+                                        setModalState(() {});
+                                      },
+                                      child: const Icon(Icons.cancel, size: 18, color: Colors.grey),
+                                    )
+                                  : null,
+                              suffixIconConstraints: const BoxConstraints(minWidth: 24, minHeight: 0),
+                            ),
+                            onChanged: (_) {
+                              if (localError != null) setModalState(() => localError = null);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (localError != null) ...[
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Text(
+                          localError!,
+                          style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    Text(
+                      AuthService().daysUntilUsernameChange > 0
+                          ? "You can only change your username once every 15 days. You will be able to change it again in ${AuthService().daysUntilUsernameChange} days."
+                          : "You can change your username to any available handle. Once changed, you will be able to change it again after 15 days.",
+                      style: TextStyle(
+                        color: const Color(0xff1C0D5A).withOpacity(0.6),
+                        fontSize: 13.5,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   // --- Sub-Screen 1: Edit Name (Matching Image 5) ---
@@ -967,7 +1195,7 @@ class _PostSignupOnboardingScreenState
   // SCREEN 3: Create a profile that shows your vibe (Image 3)
   // ==========================================
   Widget _buildProfileVibeStep() {
-    final username = AuthService().userUsername;
+    final activeUsername = _username.isNotEmpty ? _username : AuthService().userUsername;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28.0),
@@ -1080,7 +1308,7 @@ class _PostSignupOnboardingScreenState
                                 )
                               : UserAvatar(
                                   avatarUrl: AuthService().userProfilePicture,
-                                  displayName: _displayName.isNotEmpty ? _displayName : username,
+                                  displayName: _displayName.isNotEmpty ? _displayName : activeUsername,
                                   radius: 55,
                                 ),
                         ),
@@ -1104,22 +1332,67 @@ class _PostSignupOnboardingScreenState
                 const SizedBox(height: 18),
 
                 // Username Pill Tag
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xff2B1564).withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    "@${username.isNotEmpty ? username : 'username'}",
-                    style: const TextStyle(
-                      color: Color(0xff2B1564),
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.bold,
+                GestureDetector(
+                  onTap: _openUsernameEditor,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xff2B1564).withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xff5D3EBC).withOpacity(0.2)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          "@${activeUsername.isNotEmpty ? activeUsername : 'username'}",
+                          style: const TextStyle(
+                            color: Color(0xff2B1564),
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.edit_rounded, size: 14, color: Color(0xff5D3EBC)),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 20),
+
+                // Add / Edit Username
+                GestureDetector(
+                  onTap: _openUsernameEditor,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.8), width: 1.2),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.alternate_email_rounded, size: 20, color: const Color(0xff1C0D5A).withOpacity(0.6)),
+                            const SizedBox(width: 12),
+                            Text(
+                              activeUsername.isNotEmpty ? "@$activeUsername" : "Add username",
+                              style: TextStyle(
+                                color: activeUsername.isNotEmpty ? const Color(0xff1C0D5A) : const Color(0xff5D3EBC),
+                                fontSize: 15,
+                                fontWeight: activeUsername.isNotEmpty ? FontWeight.w600 : FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Icon(Icons.chevron_right_rounded, size: 20, color: const Color(0xff1C0D5A).withOpacity(0.4)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
 
                 // Add / Edit Name
                 GestureDetector(
