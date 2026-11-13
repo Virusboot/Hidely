@@ -8,7 +8,6 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/location_capture_service.dart';
 import 'post_details_screen.dart';
-import 'create_reel_screen.dart';
 
 // 0 = POST (4:5),  1 = REEL (9:16)
 
@@ -218,62 +217,8 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
   }
 
   Future<void> _handleReelCameraTap() async {
-    if (kIsWeb) {
-      await _pickVideoFromCamera();
-      return;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
-              ),
-              const Text('Record Reel Video', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xff1C0D5A))),
-              const SizedBox(height: 12),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: const Color(0xff2B1564).withOpacity(0.1), shape: BoxShape.circle),
-                  child: const Icon(Icons.movie_filter_rounded, color: Color(0xff2B1564)),
-                ),
-                title: const Text('Reel Studio Camera', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Live viewfinder with filters, 15s-60s timer & speed'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateReelScreen()));
-                },
-              ),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: const Color(0xff2B1564).withOpacity(0.1), shape: BoxShape.circle),
-                  child: const Icon(Icons.videocam_rounded, color: Color(0xff2B1564)),
-                ),
-                title: const Text('System Camera', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Open phone standard video camera'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickVideoFromCamera();
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    // Always open system camera directly — no bottom sheet selection needed.
+    await _pickVideoFromCamera();
   }
 
 

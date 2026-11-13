@@ -87,6 +87,11 @@ class AuthService {
     return null;
   }
 
+  int get userPostsCount => (_user?['posts_count'] as num?)?.toInt() ?? 0;
+  int get userFollowersCount => (_user?['followers_count'] as num?)?.toInt() ?? 0;
+  int get userFollowingsCount => (_user?['followings_count'] as num?)?.toInt() ?? 0;
+  String get userRankBadge => _user?['rank_badge']?.toString() ?? '';
+
   int get daysUntilUsernameChange {
     final lastChanged = usernameChangedAt;
     if (lastChanged == null) return 0;
@@ -673,55 +678,77 @@ class AuthService {
     }
   }
 
+  bool _isSyncingBlockedUsers = false;
+
   /// Sync blocked users list with backend, flushing any offline/pending block ops first
   Future<void> syncBlockedUsersFromServer() async {
     final activeToken = _token;
     if (!_isLoggedIn || activeToken == null || activeToken.isEmpty) return;
+    if (_isSyncingBlockedUsers) return;
+    _isSyncingBlockedUsers = true;
 
-    final prefs = await SharedPreferences.getInstance();
-    final pendingOps = List<String>.from(prefs.getStringList(_pendingBlockOpsKey) ?? <String>[]);
-    final List<String> remainingOps = <String>[];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pendingOps = List<String>.from(prefs.getStringList(_pendingBlockOpsKey) ?? <String>[]);
+      final List<String> remainingOps = <String>[];
 
-    for (final entry in pendingOps) {
-      final sep = entry.indexOf(':');
-      if (sep <= 0) continue;
-      final op = entry.substring(0, sep);
-      final target = entry.substring(sep + 1);
-      if (target.isEmpty) continue;
-
-      if (op == 'block') {
-        final res = await ApiService().blockUser(token: activeToken, identifier: target);
-        if (!res.success && !(res.statusCode == 404 && res.message.toLowerCase().contains('target user'))) {
-          remainingOps.add(entry);
-        }
-      } else if (op == 'unblock') {
-        final res = await ApiService().unblockUser(token: activeToken, identifier: target);
-        if (!res.success && !(res.statusCode == 404 && res.message.toLowerCase().contains('target user'))) {
-          remainingOps.add(entry);
-        }
-      }
-    }
-    await prefs.setStringList(_pendingBlockOpsKey, remainingOps);
-
-    final res = await ApiService().getBlockedUsers(token: activeToken);
-    if (res.success && res.data != null) {
-      final serverRaw = res.data?['blocked_users'] as List? ?? [];
-      final Set<String> serverSet = <String>{};
-      for (final item in serverRaw) {
-        final clean = normalizeBlockedUsername(item?.toString());
-        if (clean.isNotEmpty) serverSet.add(clean);
-      }
-      for (final opEntry in remainingOps) {
-        final sep = opEntry.indexOf(':');
+      for (final entry in pendingOps) {
+        final sep = entry.indexOf(':');
         if (sep <= 0) continue;
-        final op = opEntry.substring(0, sep);
-        final target = opEntry.substring(sep + 1);
-        if (op == 'block') serverSet.add(target);
-        if (op == 'unblock') serverSet.remove(target);
+        final op = entry.substring(0, sep);
+        final target = entry.substring(sep + 1);
+        if (target.isEmpty) continue;
+
+        try {
+          if (op == 'block') {
+            final res = await ApiService()
+                .blockUser(token: activeToken, identifier: target)
+                .timeout(const Duration(seconds: 4));
+            if (!res.success && !(res.statusCode == 404 && res.message.toLowerCase().contains('target user'))) {
+              remainingOps.add(entry);
+            }
+          } else if (op == 'unblock') {
+            final res = await ApiService()
+                .unblockUser(token: activeToken, identifier: target)
+                .timeout(const Duration(seconds: 4));
+            if (!res.success && !(res.statusCode == 404 && res.message.toLowerCase().contains('target user'))) {
+              remainingOps.add(entry);
+            }
+          }
+        } catch (_) {
+          remainingOps.add(entry);
+        }
       }
-      _blockedUsernames = serverSet;
-      await prefs.setStringList(_blockedUsersKey, serverSet.toList());
-      blockedUsersNotifier.value = Set<String>.unmodifiable(serverSet);
+      await prefs.setStringList(_pendingBlockOpsKey, remainingOps);
+
+      final res = await ApiService()
+          .getBlockedUsers(token: activeToken)
+          .timeout(const Duration(seconds: 5));
+      if (res.success && res.data != null) {
+        final serverRaw = res.data?['blocked_users'] as List? ?? [];
+        final Set<String> serverSet = <String>{};
+        for (final item in serverRaw) {
+          final clean = normalizeBlockedUsername(item?.toString());
+          if (clean.isNotEmpty) serverSet.add(clean);
+        }
+        for (final opEntry in remainingOps) {
+          final sep = opEntry.indexOf(':');
+          if (sep <= 0) continue;
+          final op = opEntry.substring(0, sep);
+          final target = opEntry.substring(sep + 1);
+          if (op == 'block') serverSet.add(target);
+          if (op == 'unblock') serverSet.remove(target);
+        }
+        _blockedUsernames = serverSet;
+        await prefs.setStringList(_blockedUsersKey, serverSet.toList());
+        if (!setEquals(blockedUsersNotifier.value, serverSet)) {
+          blockedUsersNotifier.value = Set<String>.unmodifiable(serverSet);
+        }
+      }
+    } catch (e) {
+      debugPrint('[AuthService] syncBlockedUsersFromServer error: $e');
+    } finally {
+      _isSyncingBlockedUsers = false;
     }
   }
 

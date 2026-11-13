@@ -1685,6 +1685,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
 
     final int? convId = int.tryParse(widget.chat.id);
     if (convId != null) {
+      ChatSocketService().currentActiveConversationId = convId;
       ChatSocketService().joinConversation(convId);
 
       final res = await ApiService().getChatMessages(token: token, conversationId: convId);
@@ -1942,6 +1943,9 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     if (convId != null) {
       if (_isSendingTyping) {
         ChatSocketService().stopTyping(convId);
+      }
+      if (ChatSocketService().currentActiveConversationId == convId) {
+        ChatSocketService().currentActiveConversationId = null;
       }
       ChatSocketService().leaveConversation(convId);
     }

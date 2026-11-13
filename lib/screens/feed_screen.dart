@@ -1326,7 +1326,14 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
         if (result.success) {
           final comment = result.data?['comment'];
           if (comment != null) {
-            _comments.add(Map<String, dynamic>.from(comment));
+            final commentMap = Map<String, dynamic>.from(comment);
+            final rawId = commentMap['id'] ?? commentMap['comment_id'];
+            if (rawId != null) {
+              commentMap['id'] = rawId is int ? rawId : int.tryParse(rawId.toString()) ?? rawId;
+            }
+            commentMap['is_liked'] = commentMap['is_liked'] ?? false;
+            commentMap['likes_count'] = commentMap['likes_count'] ?? 0;
+            _comments.add(commentMap);
           }
           widget.onCommentAdded?.call();
           _commentController.clear();
@@ -1540,9 +1547,12 @@ class _CommentSheetWidgetState extends State<CommentSheetWidget> {
                                       final bool commentIsLiked = comment["is_liked"] ?? false;
                                       final int commentLikesCount = comment["likes_count"] ?? 0;
 
-                                      if (commentId is int) {
+                                      final int? parsedCommentId = commentId is int
+                                          ? commentId
+                                          : int.tryParse(commentId?.toString() ?? '');
+                                      if (parsedCommentId != null) {
                                         final token = AuthService().token ?? '';
-                                        final result = await ApiService().toggleLikeComment(token: token, commentId: commentId);
+                                        final result = await ApiService().toggleLikeComment(token: token, commentId: parsedCommentId);
                                         if (result.success) {
                                           setState(() {
                                             comment["is_liked"] = result.data?["is_liked"] ?? !commentIsLiked;

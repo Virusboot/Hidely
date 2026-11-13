@@ -303,18 +303,23 @@ class NotificationPollingService with WidgetsBindingObserver {
 
     try {
       final result = await ApiService()
-          .getNotifications(token: token, limit: 50)
+          .getNotifications(token: token, limit: 50, includeChat: true)
           .timeout(const Duration(seconds: 30));
 
       if (result.success) {
         sessionExpiredNotifier.value = false;
         final rawList = result.data?['notifications'];
         final notificationsList = rawList is List ? rawList : const <dynamic>[];
+
+        // Filter out chat/message notifications from in-app store (they appear as OS popups only, like Instagram).
+        const Set<String> chatOnlyTypes = {'message', 'new_message', 'chat'};
+        final nonChatList = notificationsList.where((n) => n is Map && !chatOnlyTypes.contains(n['type']?.toString())).toList();
+
         final int unreadCount = result.data?['unread_count'] is int
             ? result.data!['unread_count'] as int
-            : notificationsList.where(isUnreadNotification).length;
+            : nonChatList.where(isUnreadNotification).length;
 
-        await _saveCachedNotifications(notificationsList, unreadCount);
+        await _saveCachedNotifications(nonChatList, unreadCount);
         if (notificationsList.isEmpty) return;
 
         final prefs = await SharedPreferences.getInstance();
@@ -369,6 +374,10 @@ class NotificationPollingService with WidgetsBindingObserver {
 
   Future<void> _showLocalNotification(Map<String, dynamic> notif) async {
     if (kIsWeb) return;
+
+    // Respect the user's in-app notification toggle — if disabled, suppress all OS banners.
+    final _prefs = await SharedPreferences.getInstance();
+    if (!(_prefs.getBool('enable_notifications') ?? true)) return;
 
     final type = (notif['type'] ?? 'notification').toString();
     final actorId = notif['actor_id']?.toString();
@@ -485,11 +494,72 @@ class NotificationPollingService with WidgetsBindingObserver {
     }
   }
 
+  Future<void> showChatSocketNotification(Map<String, dynamic> msg) async {
+    if (kIsWeb) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!(prefs.getBool('enable_notifications') ?? true)) return;
+
+      final senderId = msg['sender_id']?.toString();
+      final currentUserId = AuthService().userId;
+      if (senderId != null && currentUserId.isNotEmpty && senderId == currentUserId) {
+        return;
+      }
+
+      final senderUsername = msg['sender_username']?.toString() ?? '';
+      if (senderUsername.isNotEmpty && AuthService().isUserBlockedSync(senderUsername)) {
+        return;
+      }
+
+      final senderName = (msg['sender_name'] ?? senderUsername).toString().trim();
+      final text = (msg['text'] ?? '').toString().trim();
+      final body = text.isNotEmpty ? text : 'Sent an attachment 📷';
+
+      await initialize();
+
+      const androidDetails = AndroidNotificationDetails(
+        'hidely_chat_channel',
+        'Direct Messages',
+        channelDescription: 'Notifications for incoming direct messages',
+        importance: Importance.max,
+        priority: Priority.high,
+        showWhen: true,
+        playSound: true,
+        enableVibration: true,
+        icon: '@mipmap/ic_launcher',
+      );
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+      const details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      final notifId = (msg['id'] is int ? msg['id'] as int : (DateTime.now().millisecondsSinceEpoch % 100000));
+      await _localNotifications.show(
+        notifId,
+        senderName.isNotEmpty ? senderName : 'New Message',
+        body,
+        details,
+        payload: jsonEncode({
+          'type': 'message',
+          'conversation_id': msg['conversation_id'],
+        }),
+      );
+    } catch (e) {
+      debugPrint('[NotificationPollingService] showChatSocketNotification error: $e');
+    }
+  }
+
   Future<void> showIncomingCallNotification({
     required String callerName,
     required String callType,
   }) async {
     if (kIsWeb) return;
+    // Incoming calls always ring regardless of the notification toggle.
     try {
       await initialize();
       final label = callType == 'video' ? 'Incoming video call' : 'Incoming voice call';

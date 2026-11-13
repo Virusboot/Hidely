@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:hidely_new/services/auth_service.dart';
 
 import 'package:hidely_new/widgets/empty_state.dart';
@@ -18,11 +19,17 @@ class _BlockedAccountsScreenState extends State<BlockedAccountsScreen> {
   void initState() {
     super.initState();
     AuthService().blockedUsersNotifier.addListener(_onBlockedUsersChanged);
-    _loadBlockedUsers().then((_) {
-      if (!AuthService().isGuest) {
-        AuthService().syncBlockedUsersFromServer();
-      }
-    });
+    if (AuthService().isGuest) {
+      _isLoading = false;
+    } else {
+      _loadBlockedUsers().then((_) {
+        if (!AuthService().isGuest && mounted) {
+          AuthService().syncBlockedUsersFromServer().catchError((e) {
+            debugPrint('[BlockedAccountsScreen] syncBlockedUsersFromServer error: $e');
+          });
+        }
+      });
+    }
   }
 
   @override
@@ -33,29 +40,45 @@ class _BlockedAccountsScreenState extends State<BlockedAccountsScreen> {
 
   void _onBlockedUsersChanged() {
     if (!mounted) return;
-    _loadBlockedUsers();
+    setState(() {
+      _blockedUsers = AuthService().blockedUsersNotifier.value.toList();
+      _isLoading = false;
+    });
   }
 
   Future<void> _loadBlockedUsers() async {
-    final list = await AuthService().getBlockedUsers();
-    if (mounted) {
-      setState(() {
-        _blockedUsers = list;
-        _isLoading = false;
-      });
+    try {
+      final list = await AuthService().getBlockedUsers();
+      if (mounted) {
+        setState(() {
+          _blockedUsers = list;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[BlockedAccountsScreen] _loadBlockedUsers error: $e');
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _unblockUser(String username) async {
-    await AuthService().unblockUser(username);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('@$username unblocked successfully.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    _loadBlockedUsers();
+    try {
+      await AuthService().unblockUser(username);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('@$username unblocked successfully.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      _loadBlockedUsers();
+    } catch (e) {
+      debugPrint('[BlockedAccountsScreen] _unblockUser error: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to unblock. Please try again.'), behavior: SnackBarBehavior.floating),
+      );
+    }
   }
 
   @override

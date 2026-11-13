@@ -179,12 +179,21 @@ class _SettingsAndPrivacyScreenState
             'icon': Icons.block_rounded,
             'iconBg': const Color(0xffFFEBEE),
             'iconColor': const Color(0xffD32F2F),
-            'onTap': () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const BlockedAccountsScreen(),
-              ),
-            ),
+            'onTap': () {
+              if (AuthService().isGuest) {
+                showLoginRequiredSheet(
+                  context,
+                  reason: 'manage blocked accounts',
+                );
+                return;
+              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const BlockedAccountsScreen(),
+                ),
+              );
+            },
           },
         ],
       },

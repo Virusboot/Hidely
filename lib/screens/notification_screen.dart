@@ -72,8 +72,16 @@ class _NotificationScreenState extends State<NotificationScreen>
     return AuthService().isUserBlockedSync(n['actor_username']?.toString());
   }
 
+  bool _isChatNotification(dynamic n) {
+    if (n is! Map) return false;
+    final type = n['type']?.toString();
+    return type == 'message' || type == 'new_message' || type == 'chat';
+  }
+
   List<dynamic> _filterNotifications(List<dynamic> items) {
-    return items.where((n) => !_isFromBlockedUser(n)).toList();
+    return items
+        .where((n) => !_isFromBlockedUser(n) && !_isChatNotification(n))
+        .toList();
   }
 
   void _onBlockedUsersChanged() {

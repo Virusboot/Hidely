@@ -424,7 +424,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
     if (isSelf) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const UserProfileScreen(isFromLeaderboard: true)),
+        MaterialPageRoute(
+          builder: (_) => UserProfileScreen(
+            isFromLeaderboard: true,
+            initialRankBadge: user.levelName,
+            initialFollowersCount: AuthService().userFollowersCount,
+            initialFollowingsCount: AuthService().userFollowingsCount,
+            initialPostsCount: AuthService().userPostsCount,
+          ),
+        ),
       );
     } else {
       Navigator.push(
@@ -434,6 +442,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
             username: user.username,
             avatarPath: user.profilePicture ?? '',
             rank: user.levelName,
+            initialName: user.name,
+            initialPoints: user.points,
+            initialRankNumber: user.rank,
+            initialLevel: user.level,
+            initialIsVerified: user.isVerified,
           ),
         ),
       );

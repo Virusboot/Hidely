@@ -20,7 +20,19 @@ import 'package:hidely_new/utils/verification_utils.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final bool isFromLeaderboard;
-  const UserProfileScreen({super.key, this.isFromLeaderboard = false});
+  final String? initialRankBadge;
+  final int? initialFollowersCount;
+  final int? initialFollowingsCount;
+  final int? initialPostsCount;
+
+  const UserProfileScreen({
+    super.key,
+    this.isFromLeaderboard = false,
+    this.initialRankBadge,
+    this.initialFollowersCount,
+    this.initialFollowingsCount,
+    this.initialPostsCount,
+  });
 
   // ignore: library_private_types_in_public_api
   static _UserProfileScreenState? activeState;
@@ -128,6 +140,18 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     super.initState();
     UserProfileScreen.activeState = this;
     _tabController = TabController(length: 3, vsync: this);
+    if (widget.initialRankBadge != null && widget.initialRankBadge!.isNotEmpty) {
+      _rankBadge = widget.initialRankBadge!;
+    }
+    if (widget.initialFollowersCount != null) {
+      _followersCount = widget.initialFollowersCount!;
+    }
+    if (widget.initialFollowingsCount != null) {
+      _followingsCount = widget.initialFollowingsCount!;
+    }
+    if (widget.initialPostsCount != null) {
+      _postsCount = widget.initialPostsCount!;
+    }
     _hydrateFromAuthCache();
     _loadProfileData();
   }
@@ -139,6 +163,10 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     final cachedBio = auth.userBio;
     final cachedPic = auth.userProfilePicture;
     final cachedPronouns = auth.userPronouns;
+    final cachedPosts = auth.userPostsCount;
+    final cachedFollowers = auth.userFollowersCount;
+    final cachedFollowings = auth.userFollowingsCount;
+    final cachedRank = auth.userRankBadge;
 
     if (cachedUsername.isNotEmpty) {
       _username = cachedUsername;
@@ -156,6 +184,18 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     }
     if (cachedPronouns.isNotEmpty) {
       _pronouns = cachedPronouns;
+    }
+    if (cachedPosts > 0 && _postsCount == 0) {
+      _postsCount = cachedPosts;
+    }
+    if (cachedFollowers > 0 && _followersCount == 0) {
+      _followersCount = cachedFollowers;
+    }
+    if (cachedFollowings > 0 && _followingsCount == 0) {
+      _followingsCount = cachedFollowings;
+    }
+    if (cachedRank.isNotEmpty && _rankBadge == "NOVICE") {
+      _rankBadge = cachedRank;
     }
 
     // If we already have identity data, don't block the UI with full-screen blanking
@@ -326,6 +366,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       if (gResult.success && gResult.data?['profile'] != null) {
         _gamificationProfile = UserPointsProfile.fromJson(gResult.data!['profile'] as Map<String, dynamic>);
         _rankBadge = "LVL ${_gamificationProfile!.level} · RANK #${_gamificationProfile!.rank}";
+        AuthService().updateUserData({'rank_badge': _rankBadge});
       }
     } catch (e) {
       debugPrint('[UserProfileScreen] Error loading profile data: $e');

@@ -1472,10 +1472,10 @@ class ApiService {
   }
 
   /// Fetch notifications for current user (paginated)
-  Future<ApiResult> getNotifications({required String token, int page = 1, int limit = 30}) async {
+  Future<ApiResult> getNotifications({required String token, int page = 1, int limit = 30, bool includeChat = false}) async {
     try {
       final response = await _client.get(
-        Uri.parse('$baseUrl/api/notifications?page=$page&limit=$limit'),
+        Uri.parse('$baseUrl/api/notifications?page=$page&limit=$limit&include_chat=$includeChat'),
         headers: {
           'Authorization': 'Bearer $token',
         },

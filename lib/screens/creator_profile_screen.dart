@@ -19,6 +19,14 @@ class CreatorProfileScreen extends StatefulWidget {
   final String avatarPath;
   final String rank;
   final String bio;
+  final String initialName;
+  final int? initialFollowers;
+  final int? initialFollowings;
+  final int? initialPostsCount;
+  final int? initialPoints;
+  final int? initialRankNumber;
+  final int? initialLevel;
+  final bool? initialIsVerified;
 
   const CreatorProfileScreen({
     super.key,
@@ -26,6 +34,14 @@ class CreatorProfileScreen extends StatefulWidget {
     this.avatarPath = '',
     this.rank = '',
     this.bio = "",
+    this.initialName = '',
+    this.initialFollowers,
+    this.initialFollowings,
+    this.initialPostsCount,
+    this.initialPoints,
+    this.initialRankNumber,
+    this.initialLevel,
+    this.initialIsVerified,
   });
 
   @override
@@ -35,6 +51,7 @@ class CreatorProfileScreen extends StatefulWidget {
 class _CreatorProfileScreenState extends State<CreatorProfileScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isLoading = true;
+  bool _isLoadingPosts = true;
   bool _isOpeningChat = false;
   bool _isFollowing = false;
   bool _isBlocked = false;
@@ -100,6 +117,28 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
     AppRoutes.syncWebUrl('/profile/${widget.username}');
     _tabController = TabController(length: 2, vsync: this);
     AuthService().blockedUsersNotifier.addListener(_onBlockedUsersChanged);
+
+    if (widget.username.isNotEmpty) {
+      _creatorData = {
+        'username': widget.username,
+        'name': widget.initialName.isNotEmpty ? widget.initialName : widget.username,
+        'profile_picture': widget.avatarPath,
+        'bio': widget.bio,
+        'level_name': widget.rank,
+        'rank': widget.initialRankNumber,
+        'level': widget.initialLevel,
+        'points': widget.initialPoints,
+        'is_verified': widget.initialIsVerified ?? false,
+        'followers_count': widget.initialFollowers ?? 0,
+        'followings_count': widget.initialFollowings ?? 0,
+        'posts_count': widget.initialPostsCount ?? 0,
+      };
+      if (widget.initialFollowers != null) _followers = "${widget.initialFollowers}";
+      if (widget.initialFollowings != null) _followings = "${widget.initialFollowings}";
+      if (widget.initialPostsCount != null) _postsCount = "${widget.initialPostsCount}";
+      _isLoading = false;
+    }
+
     _loadCreatorProfile();
   }
 
@@ -125,11 +164,13 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
         _followings = "0";
         _postsCount = "0";
         _isLoading = false;
+        _isLoadingPosts = false;
       });
     } else if (_isBlocked) {
       setState(() {
         _isBlocked = false;
-        _isLoading = true;
+        _isLoading = _creatorData == null;
+        _isLoadingPosts = true;
       });
       _loadCreatorProfile();
     }
@@ -137,7 +178,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
 
   Future<void> _loadCreatorProfile() async {
     final token = AuthService().token;
-    final blocked = await AuthService().isUserBlocked(widget.username);
+    final blocked = AuthService().isUserBlockedSync(widget.username);
     if (blocked) {
       if (mounted) {
         setState(() {
@@ -179,8 +220,9 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
         }
 
         List posts = result.data?['posts'] as List? ?? [];
+        int pCount = creator?['posts_count'] ?? 0;
         
-        if (posts.isEmpty && creator != null && creator['id'] != null) {
+        if (posts.isEmpty && creator != null && creator['id'] != null && pCount > 0) {
           final postsResult = await ApiService().getUserPosts(
             userId: creator['id'].toString(),
             token: token,
@@ -206,6 +248,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
           _isBlocked = false;
           _isBlockedByTarget = false;
           _isLoading = false;
+          _isLoadingPosts = false;
         });
       } else {
         final bool blockedByServer = result.statusCode == 403 ||
@@ -255,6 +298,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
             _isBlocked = false;
             _isBlockedByTarget = false;
             _isLoading = false;
+            _isLoadingPosts = false;
           });
           return;
         }
@@ -262,6 +306,7 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
           _isBlocked = blocked;
           _isBlockedByTarget = false;
           _isLoading = false;
+          _isLoadingPosts = false;
         });
       }
     }
@@ -1157,6 +1202,15 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
   }
 
   Widget _buildImageGridStream(List<dynamic> posts) {
+    if (_isLoadingPosts && posts.isEmpty) {
+      return const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xff2B1564)),
+        ),
+      );
+    }
     if (posts.isEmpty) {
       return const Center(
         child: Column(
@@ -1260,6 +1314,15 @@ class _CreatorProfileScreenState extends State<CreatorProfileScreen> with Single
   }
 
   Widget _buildVideoGridStream(List<dynamic> posts) {
+    if (_isLoadingPosts && posts.isEmpty) {
+      return const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xff2B1564)),
+        ),
+      );
+    }
     if (posts.isEmpty) {
       return const EmptyStateWidget(
         icon: Icons.movie_creation_outlined,

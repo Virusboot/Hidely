@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as socket_io;
 import 'package:hidely_new/services/api_service.dart';
+import 'package:hidely_new/services/notification_polling_service.dart';
 
 class ChatSocketService {
   static final ChatSocketService _instance = ChatSocketService._internal();
@@ -12,6 +13,7 @@ class ChatSocketService {
   bool _isConnected = false;
   String? _activeToken;
   final Set<int> _joinedConversations = <int>{};
+  int? currentActiveConversationId;
   bool get isConnected => _isConnected;
 
   @visibleForTesting
@@ -84,10 +86,15 @@ class ChatSocketService {
     });
 
     _socket!.on('new_message', (data) {
-      if (data is Map<String, dynamic>) {
-        _newMessageController.add(data);
-      } else if (data is Map) {
-        _newMessageController.add(Map<String, dynamic>.from(data));
+      final map = data is Map<String, dynamic>
+          ? data
+          : (data is Map ? Map<String, dynamic>.from(data) : null);
+      if (map != null) {
+        _newMessageController.add(map);
+        final convId = int.tryParse(map['conversation_id']?.toString() ?? '');
+        if (convId != null && convId != currentActiveConversationId) {
+          NotificationPollingService().showChatSocketNotification(map);
+        }
       }
     });
 
