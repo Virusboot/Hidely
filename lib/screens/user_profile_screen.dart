@@ -51,7 +51,9 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   String get _displayUsername {
     final raw = _username.isNotEmpty 
         ? _username 
-        : (AuthService().userUsername.isNotEmpty ? AuthService().userUsername : '');
+        : (AuthService().userUsername.isNotEmpty 
+            ? AuthService().userUsername 
+            : (_name.isNotEmpty ? _name : AuthService().userName));
     if (raw.isEmpty) return 'User';
     return raw.startsWith('@') ? raw : '@$raw';
   }
@@ -123,7 +125,40 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     super.initState();
     UserProfileScreen.activeState = this;
     _tabController = TabController(length: 3, vsync: this);
+    _hydrateFromAuthCache();
     _loadProfileData();
+  }
+
+  void _hydrateFromAuthCache() {
+    final auth = AuthService();
+    final cachedUsername = auth.userUsername;
+    final cachedName = auth.userName;
+    final cachedBio = auth.userBio;
+    final cachedPic = auth.userProfilePicture;
+    final cachedPronouns = auth.userPronouns;
+
+    if (cachedUsername.isNotEmpty) {
+      _username = cachedUsername;
+    }
+    if (cachedName.isNotEmpty) {
+      _name = cachedName;
+    } else if (_username.isNotEmpty && _name.isEmpty) {
+      _name = _username;
+    }
+    if (cachedBio.isNotEmpty) {
+      _bio = cachedBio;
+    }
+    if (cachedPic.isNotEmpty) {
+      _profilePic = cachedPic;
+    }
+    if (cachedPronouns.isNotEmpty) {
+      _pronouns = cachedPronouns;
+    }
+
+    // If we already have identity data, don't block the UI with full-screen blanking
+    if (_username.isNotEmpty || _name.isNotEmpty) {
+      _isLoading = false;
+    }
   }
 
   @override
@@ -136,6 +171,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   }
 
   void reload() {
+    _hydrateFromAuthCache();
     _loadProfileData();
   }
 
@@ -148,18 +184,14 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
   Future<void> _loadProfileData() async {
     final token = AuthService().token ?? '';
-    final activeUsername = AuthService().userUsername;
+    final auth = AuthService();
 
-    setState(() {
-      _isLoading = true;
-      if (activeUsername.isNotEmpty) {
-        _username = activeUsername;
-        _name = AuthService().userName.isNotEmpty ? AuthService().userName : activeUsername;
-      }
-    });
+    _hydrateFromAuthCache();
+
+    final activeUsername = _username.isNotEmpty ? _username : auth.userUsername;
 
     // Check if logged in as Official Admin Account
-    if (_username == 'hidely_official' || _username == 'hidely' || activeUsername == 'hidely_official' || activeUsername == 'hidely') {
+    if (activeUsername == 'hidely_official' || activeUsername == 'hidely') {
       if (mounted) {
         setState(() {
           _username = 'hidely_official';
@@ -190,92 +222,94 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     }
 
     try {
-      // Load profile
-      final profileResult = await ApiService().getUserProfile(token: token);
-      if (profileResult.success) {
-        final userData = profileResult.data?['user'];
-        if (userData != null) {
-          await AuthService().login(token, userData); // Update global session with latest data
-          _username = userData['username'] ?? '';
-          _name = userData['name'] ?? '';
-          _bio = userData['bio'] ?? '';
-          _pronouns = userData['pronouns'] ?? '';
-          _profilePic = userData['profile_picture'] ?? '';
-          _postsCount = userData['posts_count'] ?? 0;
-          _followersCount = userData['followers_count'] ?? 0;
-          _followingsCount = userData['followings_count'] ?? 0;
-        }
+      final currentUserId = auth.userId;
+
+      // PARALLEL EXECUTION: Launch profile, posts, saved, and gamification concurrently!
+      final profileFuture = ApiService().getUserProfile(token: token);
+      final postsFuture = currentUserId.isNotEmpty
+          ? ApiService().getUserPosts(userId: currentUserId, token: token)
+          : null;
+      final savedFuture = ApiService().getSavedPosts(token: token);
+      final gamificationFuture = ApiService().getUserGamificationProfile();
+
+      final results = await Future.wait([
+        profileFuture,
+        if (postsFuture != null) postsFuture else Future.value(ApiResult(success: false, message: '')),
+        savedFuture,
+        gamificationFuture,
+      ]);
+
+      final profileResult = results[0];
+      final postsResult = results[1];
+      final savedResult = results[2];
+      final gResult = results[3];
+
+      // 1. Process profile result
+      if (profileResult.success && profileResult.data?['user'] != null) {
+        final userData = profileResult.data!['user'];
+        // Update local auth cache in-memory & disk WITHOUT heavy login reset
+        await AuthService().updateUserData(Map<String, dynamic>.from(userData));
+
+        final uUname = userData['username']?.toString() ?? '';
+        final uName = userData['name']?.toString() ?? '';
+        final uBio = userData['bio']?.toString() ?? '';
+        final uPronouns = userData['pronouns']?.toString() ?? '';
+        final uPic = userData['profile_picture']?.toString() ?? '';
+        final uPosts = (userData['posts_count'] as num?)?.toInt();
+        final uFollowers = (userData['followers_count'] as num?)?.toInt();
+        final uFollowings = (userData['followings_count'] as num?)?.toInt();
+
+        if (uUname.isNotEmpty) _username = uUname;
+        if (uName.isNotEmpty) _name = uName;
+        if (uBio.isNotEmpty) _bio = uBio;
+        if (uPronouns.isNotEmpty) _pronouns = uPronouns;
+        if (uPic.isNotEmpty) _profilePic = uPic;
+        if (uPosts != null) _postsCount = uPosts;
+        if (uFollowers != null) _followersCount = uFollowers;
+        if (uFollowings != null) _followingsCount = uFollowings;
       }
 
-      // Try fetching posts robustly to avoid any ID mismatch issues
+      // 2. Process user posts (from profile endpoint or posts endpoint)
       bool postsLoaded = false;
-      
-      // 1. Check if posts were returned inline with the profile request
       if (profileResult.success && profileResult.data?['posts'] != null) {
         _userPosts = (profileResult.data?['posts'] as List?) ?? [];
         if (_userPosts.isNotEmpty) postsLoaded = true;
       }
 
-      // 2. Fallback: Fetch via the public profile endpoint using username
+      if (!postsLoaded && postsResult.success && postsResult.data?['posts'] != null) {
+        _userPosts = (postsResult.data?['posts'] as List?) ?? [];
+        if (_userPosts.isNotEmpty) postsLoaded = true;
+      }
+
+      // 3. Fallback: If still not loaded and username exists, fetch public creator profile
       if (!postsLoaded && _username.isNotEmpty) {
-        final publicResult = await ApiService().getCreatorProfile(username: _username, token: token);
-        if (publicResult.success) {
-          final creator = publicResult.data?['creator'];
-          if (!profileResult.success && creator != null) {
-            _name = creator['name'] ?? _name;
-            _bio = creator['bio'] ?? '';
-            _pronouns = creator['pronouns'] ?? '';
-            _profilePic = creator['profile_picture'] ?? '';
-            _followersCount = creator['followers_count'] ?? 0;
-            _followingsCount = creator['followings_count'] ?? 0;
-          }
-          final publicPosts = publicResult.data?['posts'] as List?;
-          if (publicPosts != null && publicPosts.isNotEmpty) {
-            _userPosts = publicPosts;
-            postsLoaded = true;
-          } else {
-            // 3. Fallback: Use the exact ID returned by the public profile
-            final exactId = creator?['id']?.toString() ?? creator?['_id']?.toString();
-            if (exactId != null && exactId.isNotEmpty) {
-              final postsResult = await ApiService().getUserPosts(userId: exactId, token: token);
-              if (postsResult.success && postsResult.data?['posts'] != null) {
-                _userPosts = (postsResult.data?['posts'] as List?) ?? [];
-                if (_userPosts.isNotEmpty) postsLoaded = true;
-              }
+        try {
+          final publicResult = await ApiService().getCreatorProfile(username: _username, token: token);
+          if (publicResult.success) {
+            final creator = publicResult.data?['creator'];
+            if (!profileResult.success && creator != null) {
+              _name = creator['name']?.toString() ?? _name;
+              _bio = creator['bio']?.toString() ?? _bio;
+              _pronouns = creator['pronouns']?.toString() ?? _pronouns;
+              _profilePic = creator['profile_picture']?.toString() ?? _profilePic;
+              _followersCount = (creator['followers_count'] as num?)?.toInt() ?? _followersCount;
+              _followingsCount = (creator['followings_count'] as num?)?.toInt() ?? _followingsCount;
+            }
+            final publicPosts = publicResult.data?['posts'] as List?;
+            if (publicPosts != null && publicPosts.isNotEmpty) {
+              _userPosts = publicPosts;
+              postsLoaded = true;
             }
           }
-        }
-      }
-
-      // 4. Last resort: Fetch using AuthService().userId
-      if (!postsLoaded) {
-        final postsResult = await ApiService().getUserPosts(
-          userId: AuthService().userId,
-          token: token,
-        );
-        if (postsResult.success && postsResult.data?['posts'] != null) {
-          _userPosts = (postsResult.data?['posts'] as List?) ?? [];
-        }
-      }
-
-      // Handle hidely_official Admin Profile Data & Location-wise Posts
-      if (_username == 'hidely_official' || _username == 'hidely') {
-        if (_userPosts.isEmpty) {
-          final exploreResult = await ApiService().getExplorePosts(token: token);
-          if (exploreResult.success && exploreResult.data?['posts'] != null) {
-            _userPosts = (exploreResult.data?['posts'] as List?) ?? [];
-          }
-        }
+        } catch (_) {}
       }
 
       if (_userPosts.length > _postsCount) {
         _postsCount = _userPosts.length;
       }
 
-      // Load saved posts
-      final savedResult = await ApiService().getSavedPosts(token: token);
+      // 4. Process saved posts
       if (savedResult.success) {
-        // Check multiple keys to be extremely resilient to backend schema changes
         final savedList = savedResult.data?['saved'] ?? 
                           savedResult.data?['bookmarks'] ?? 
                           savedResult.data?['posts'] ?? 
@@ -285,8 +319,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         }
       }
 
-      // Fetch authoritative Gamification Profile (Level, XP, Badges, Rank)
-      final gResult = await ApiService().getUserGamificationProfile();
+      // 5. Process gamification profile
       if (gResult.success && gResult.data?['profile'] != null) {
         _gamificationProfile = UserPointsProfile.fromJson(gResult.data!['profile'] as Map<String, dynamic>);
         _rankBadge = "LVL ${_gamificationProfile!.level} · RANK #${_gamificationProfile!.rank}";
@@ -704,16 +737,14 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               padding: EdgeInsets.only(
                 bottom: 90 + MediaQuery.of(context).padding.bottom,
               ),
-              child: _isLoading && _userPosts.isEmpty
-                  ? const SizedBox.shrink()
-                  : TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildPersonalGridStream(_photoPosts),
-                        _buildVideoGridStream(_videoPosts),
-                        _buildSavedGridStream(),
-                      ],
-                    ),
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildPersonalGridStream(_photoPosts),
+                  _buildVideoGridStream(_videoPosts),
+                  _buildSavedGridStream(),
+                ],
+              ),
             ),
           ),
         ),
@@ -785,6 +816,21 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
   Widget _buildPersonalGridStream(List<dynamic> posts) {
     if (posts.isEmpty) {
+      if (_isLoading) {
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.only(top: 48),
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xff4F46E5)),
+              ),
+            ),
+          ),
+        );
+      }
       return const EmptyStateWidget(
         icon: Icons.photo_library_outlined,
         title: "No Photo Posts Yet",
@@ -889,6 +935,21 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
   Widget _buildVideoGridStream(List<dynamic> posts) {
     if (posts.isEmpty) {
+      if (_isLoading) {
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.only(top: 48),
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xff4F46E5)),
+              ),
+            ),
+          ),
+        );
+      }
       return const EmptyStateWidget(
         icon: Icons.movie_creation_outlined,
         title: "No Reels Yet",
@@ -971,6 +1032,21 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
   Widget _buildSavedGridStream() {
     if (_savedPosts.isEmpty) {
+      if (_isLoading) {
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.only(top: 48),
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xff4F46E5)),
+              ),
+            ),
+          ),
+        );
+      }
       return const EmptyStateWidget(
         icon: Icons.bookmark_border_rounded,
         title: "No Saved Posts Yet",

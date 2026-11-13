@@ -550,9 +550,15 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
       if (result.success) {
         final token = result.data?['token'];
-        final userData = result.data?['user'];
+        final rawUserData = result.data?['user'];
 
-        if (token != null && userData != null) {
+        if (token != null) {
+          final Map<String, dynamic> userData = rawUserData is Map
+              ? Map<String, dynamic>.from(rawUserData)
+              : <String, dynamic>{};
+          userData['username'] ??= username;
+          userData['name'] ??= name;
+          userData['email'] ??= email;
           await AuthService().login(token, userData);
         }
 

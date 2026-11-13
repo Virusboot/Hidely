@@ -65,7 +65,30 @@ class _PostSignupOnboardingScreenState
     }
   }
 
-  void _finishOnboarding() {
+  Future<void> _finishOnboarding() async {
+    if (_isUploadingAvatar) return;
+    if (_avatarFile != null) {
+      final token = AuthService().token;
+      if (token != null && token.isNotEmpty) {
+        setState(() => _isUploadingAvatar = true);
+        try {
+          final result = await ApiService().updateUserProfile(
+            token: token,
+            avatar: _avatarFile,
+          );
+          if (result.success && result.data != null) {
+            final newPic = result.data?['user']?['profile_picture'];
+            if (newPic != null) {
+              await AuthService().updateUserData({'profile_picture': newPic});
+            }
+          }
+        } catch (_) {
+        } finally {
+          if (mounted) setState(() => _isUploadingAvatar = false);
+        }
+      }
+    }
+    if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
@@ -1179,6 +1202,7 @@ class _PostSignupOnboardingScreenState
           _buildPillButton(
             text: "Next",
             isPrimary: true,
+            isLoading: _isUploadingAvatar,
             onPressed: _finishOnboarding,
           ),
           const SizedBox(height: 24),

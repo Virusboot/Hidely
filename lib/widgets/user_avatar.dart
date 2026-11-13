@@ -112,7 +112,7 @@ class UserAvatar extends StatelessWidget {
             errorBuilder: (context, error, stackTrace) => fallbackChild,
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
-              return Container(color: const Color(0xffE2E8F0));
+              return fallbackChild;
             },
           ),
         ),
@@ -128,7 +128,7 @@ class UserAvatar extends StatelessWidget {
           fit: BoxFit.cover,
           memCacheWidth: (diameter * 2.5).clamp(60, 300).toInt(),
           alignment: Alignment.center,
-          placeholder: (context, url) => Container(color: const Color(0xffE2E8F0)),
+          placeholder: (context, url) => fallbackChild,
           errorWidget: (context, url, error) => fallbackChild,
         ),
       ),

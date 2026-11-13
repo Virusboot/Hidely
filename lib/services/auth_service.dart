@@ -39,13 +39,45 @@ class AuthService {
     }
     return '';
   }
-  String get userName => _user?['name'] ?? '';
-  String get userUsername => _user?['username'] ?? '';
-  String get userGender => _user?['gender'] ?? '';
-  String get userPronouns => _user?['pronouns'] ?? '';
-  String get userEmail => _user?['email'] ?? '';
-  String get userBio => _user?['bio'] ?? '';
-  String get userProfilePicture => _user?['profile_picture'] ?? '';
+  String get userName {
+    if (_user == null) return '';
+    final n = _user?['name'] ?? _user?['displayName'] ?? _user?['fullName'];
+    if (n != null && n.toString().trim().isNotEmpty) {
+      return n.toString().trim();
+    }
+    return '';
+  }
+
+  String get userUsername {
+    if (_user == null) return '';
+    final u = _user?['username'] ?? _user?['user_name'] ?? _user?['userName'] ?? _user?['handle'];
+    if (u != null && u.toString().trim().isNotEmpty) {
+      return u.toString().trim();
+    }
+    return '';
+  }
+
+  String get userGender => _user?['gender']?.toString() ?? '';
+  String get userPronouns => _user?['pronouns']?.toString() ?? '';
+  String get userEmail => _user?['email']?.toString() ?? '';
+
+  String get userBio {
+    if (_user == null) return '';
+    final b = _user?['bio'] ?? _user?['description'] ?? _user?['about'];
+    if (b != null && b.toString().trim().isNotEmpty) {
+      return b.toString().trim();
+    }
+    return '';
+  }
+
+  String get userProfilePicture {
+    if (_user == null) return '';
+    final p = _user?['profile_picture'] ?? _user?['profilePicture'] ?? _user?['avatar'] ?? _user?['avatar_url'];
+    if (p != null && p.toString().trim().isNotEmpty) {
+      return p.toString().trim();
+    }
+    return '';
+  }
 
   bool get isOfficialOrAdmin {
     if (_user == null) return false;
@@ -537,7 +569,7 @@ class AuthService {
 
   /// Update local user data fields and persist to storage
   Future<void> updateUserData(Map<String, dynamic> newFields) async {
-    if (_user == null) return;
+    _user ??= <String, dynamic>{};
     _user!.addAll(newFields);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('auth_user', jsonEncode(_user));
