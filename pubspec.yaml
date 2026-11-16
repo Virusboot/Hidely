@@ -71,6 +71,8 @@ dependencies:
   socket_io_client: ^2.0.3+1
   visibility_detector: ^0.4.0+2
   flutter_native_splash: ^2.4.1
+  record: ^7.2.0
+  audioplayers: ^6.8.1
 
 dependency_overrides:
   file_picker: 8.3.2

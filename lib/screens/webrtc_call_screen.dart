@@ -239,12 +239,19 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
           'autoGainControl': true,
         },
         'video': widget.callType == 'video'
-            ? {
-                'facingMode': 'user',
-                'width': {'ideal': 720},
-                'height': {'ideal': 1280},
-                'frameRate': {'ideal': 30},
-              }
+            ? (kIsWeb
+                ? {
+                    'facingMode': 'user',
+                    'width': {'ideal': 1280},
+                    'height': {'ideal': 720},
+                    'frameRate': {'ideal': 30},
+                  }
+                : {
+                    'facingMode': 'user',
+                    'width': {'ideal': 720},
+                    'height': {'ideal': 1280},
+                    'frameRate': {'ideal': 30},
+                  })
             : false,
       };
 
@@ -832,7 +839,9 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
                 child: RTCVideoView(
                   _remoteRenderer,
                   key: const ValueKey('hidely_remote_video'),
-                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                  objectFit: kIsWeb
+                      ? RTCVideoViewObjectFit.RTCVideoViewObjectFitContain
+                      : RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                 ),
               )
             else if (isVideo && !_isConnected && showLocalPreview)
@@ -841,7 +850,9 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
                   _localRenderer,
                   key: const ValueKey('hidely_local_preview_full'),
                   mirror: true,
-                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                  objectFit: kIsWeb
+                      ? RTCVideoViewObjectFit.RTCVideoViewObjectFitContain
+                      : RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                 ),
               )
             else
@@ -919,7 +930,9 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
                       _localRenderer,
                       key: const ValueKey('hidely_local_pip'),
                       mirror: true,
-                      objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                      objectFit: kIsWeb
+                          ? RTCVideoViewObjectFit.RTCVideoViewObjectFitContain
+                          : RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                     ),
                   ),
                 ),

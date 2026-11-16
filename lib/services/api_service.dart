@@ -1943,6 +1943,8 @@ class ApiService {
     String? sharedEntityType,
     String? sharedEntityId,
     File? mediaFile,
+    Uint8List? mediaBytes,
+    String? mediaFilename,
     double? latitude,
     double? longitude,
   }) async {
@@ -1959,16 +1961,36 @@ class ApiService {
       if (latitude != null) request.fields['latitude'] = latitude.toString();
       if (longitude != null) request.fields['longitude'] = longitude.toString();
 
-      if (mediaFile != null && !kIsWeb) {
-        final ext = mediaFile.path.contains('.') ? mediaFile.path.split('.').last.toLowerCase() : 'jpg';
+      if (mediaBytes != null && mediaBytes.isNotEmpty) {
+        final filename = mediaFilename ?? (type == 'voice' ? 'voice_note.m4a' : 'upload_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        final ext = filename.contains('.') ? filename.split('.').last.toLowerCase() : (type == 'voice' ? 'm4a' : 'jpg');
+        final isAudio = type == 'voice' || ['m4a', 'mp3', 'wav', 'aac', 'ogg', 'opus', 'caf'].contains(ext);
         final isVideo = ['mp4', 'mov', 'avi', 'mkv', 'mpeg'].contains(ext);
-        final mediaType = isVideo ? 'video' : 'image';
-        final subType = isVideo ? ext : (ext == 'jpg' ? 'jpeg' : ext);
+        
+        final mediaCat = isAudio ? 'audio' : (isVideo ? 'video' : 'image');
+        final subType = isAudio ? (ext == 'mp3' ? 'mpeg' : (ext == 'm4a' ? 'mp4' : ext)) : (isVideo ? ext : (ext == 'jpg' ? 'jpeg' : ext));
+
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'media',
+            mediaBytes,
+            filename: filename,
+            contentType: MediaType(mediaCat, subType),
+          ),
+        );
+      } else if (mediaFile != null && !kIsWeb) {
+        final ext = mediaFile.path.contains('.') ? mediaFile.path.split('.').last.toLowerCase() : 'jpg';
+        final isAudio = type == 'voice' || ['m4a', 'mp3', 'wav', 'aac', 'ogg', 'opus', 'caf'].contains(ext);
+        final isVideo = ['mp4', 'mov', 'avi', 'mkv', 'mpeg'].contains(ext);
+        
+        final mediaCat = isAudio ? 'audio' : (isVideo ? 'video' : 'image');
+        final subType = isAudio ? (ext == 'mp3' ? 'mpeg' : (ext == 'm4a' ? 'mp4' : ext)) : (isVideo ? ext : (ext == 'jpg' ? 'jpeg' : ext));
+        
         request.files.add(
           await http.MultipartFile.fromPath(
             'media',
             mediaFile.path,
-            contentType: MediaType(mediaType, subType),
+            contentType: MediaType(mediaCat, subType),
           ),
         );
       }

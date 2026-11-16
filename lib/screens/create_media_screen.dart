@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/services/upload_quality_service.dart';
 import 'package:hidely_new/services/location_capture_service.dart';
 import 'post_details_screen.dart';
 
@@ -150,8 +151,14 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
     }
 
     try {
+      final quality = UploadQualityService().imageQuality;
+      final maxDim = UploadQualityService().maxDimension;
       final f = await _picker.pickImage(
         source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.rear,
+        maxWidth: maxDim,
+        maxHeight: maxDim,
+        imageQuality: quality,
         requestFullMetadata: true,
       );
       if (f != null && mounted) {
@@ -471,8 +478,13 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
               await Permission.accessMediaLocation.request();
             } catch (_) {}
           }
+          final quality = UploadQualityService().imageQuality;
+          final maxDim = UploadQualityService().maxDimension;
           final f = await _picker.pickImage(
             source: ImageSource.gallery,
+            maxWidth: maxDim,
+            maxHeight: maxDim,
+            imageQuality: quality,
             requestFullMetadata: true,
           );
           if (f != null && mounted) {

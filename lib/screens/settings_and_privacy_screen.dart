@@ -17,6 +17,7 @@ import 'hire_traveller_screen.dart';
 import 'tags_and_mentions_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hidely_new/services/upload_quality_service.dart';
 
 class SettingsAndPrivacyScreen extends StatefulWidget {
   const SettingsAndPrivacyScreen({super.key});
@@ -48,9 +49,13 @@ class _SettingsAndPrivacyScreenState
   void _loadApiKey() async {
     final prefs = await SharedPreferences.getInstance();
     final notifsEnabled = prefs.getBool('enable_notifications') ?? true;
+    final hqEnabled = prefs.getBool('high_quality_uploads') ?? false;
+    final savePhotos = prefs.getBool('save_original_photos') ?? true;
     if (mounted) {
       setState(() {
         _enableNotifications = notifsEnabled;
+        _highQualityUploads = hqEnabled;
+        _saveOriginalPhotos = savePhotos;
       });
     }
   }
@@ -239,7 +244,11 @@ class _SettingsAndPrivacyScreenState
             'iconColor': const Color(0xff0288D1),
             'toggle': true,
             'toggleValue': _saveOriginalPhotos,
-            'onToggle': (val) => setState(() => _saveOriginalPhotos = val),
+            'onToggle': (val) async {
+              setState(() => _saveOriginalPhotos = val);
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('save_original_photos', val);
+            },
           },
           {
             'title': 'High Quality Uploads',
@@ -249,7 +258,10 @@ class _SettingsAndPrivacyScreenState
             'iconColor': const Color(0xff546E7A),
             'toggle': true,
             'toggleValue': _highQualityUploads,
-            'onToggle': (val) => setState(() => _highQualityUploads = val),
+            'onToggle': (val) async {
+              setState(() => _highQualityUploads = val);
+              await UploadQualityService().setHighQuality(val);
+            },
           },
           {
             'title': 'Language',

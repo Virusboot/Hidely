@@ -8,6 +8,7 @@ import 'post_details_screen.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:hidely_new/services/location_capture_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/services/upload_quality_service.dart';
 
 class CreatePostScreen extends StatefulWidget {
   final File? selectedImage;
@@ -188,8 +189,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           await Permission.accessMediaLocation.request();
         } catch (_) {}
       }
+      final quality = UploadQualityService().imageQuality;
+      final maxDim = UploadQualityService().maxDimension;
       final XFile? pickedFile = await _picker.pickImage(
         source: ImageSource.gallery,
+        maxWidth: maxDim,
+        maxHeight: maxDim,
+        imageQuality: quality,
         requestFullMetadata: true,
       );
       if (pickedFile != null && mounted) {
@@ -221,7 +227,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           await Permission.accessMediaLocation.request();
         } catch (_) {}
       }
+      final quality = UploadQualityService().imageQuality;
+      final maxDim = UploadQualityService().maxDimension;
       final List<XFile> pickedFiles = await _picker.pickMultiImage(
+        maxWidth: maxDim,
+        maxHeight: maxDim,
+        imageQuality: quality,
         requestFullMetadata: true,
       );
       if (pickedFiles.isNotEmpty && mounted) {
@@ -263,8 +274,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
 
     try {
+      final quality = UploadQualityService().imageQuality;
+      final maxDim = UploadQualityService().maxDimension;
       final XFile? pickedFile = await _picker.pickImage(
         source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.rear,
+        maxWidth: maxDim,
+        maxHeight: maxDim,
+        imageQuality: quality,
         requestFullMetadata: true,
       );
       if (pickedFile != null && mounted) {

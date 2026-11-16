@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hidely_new/config/config.dart';
+import 'package:hidely_new/services/upload_quality_service.dart';
 import 'package:hidely_new/services/notification_polling_service.dart';
 
 import 'package:hidely_new/widgets/something_went_wrong_screen.dart';
@@ -77,6 +78,7 @@ Future<void> main() async {
 
   // Non-blocking initialization for < 2 sec app startup
   DeepLinkService();
+  UploadQualityService().init();
   CallManager().ensureInitialized();
   NotificationPollingService().initialize().catchError((e) {
     debugPrint("Background Notification Polling init error: $e");

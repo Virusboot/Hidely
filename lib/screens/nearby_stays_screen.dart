@@ -66,19 +66,30 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
 
       // If geocoding failed or no location name was provided, fallback to GPS
       if (lat == 0.0 && lng == 0.0) {
-        var permission = await Geolocator.checkPermission();
-        if (permission == LocationPermission.denied) {
-          permission = await Geolocator.requestPermission();
+        try {
+          var permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            permission = await Geolocator.requestPermission();
+          }
+          if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+            final pos = await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(
+                accuracy: LocationAccuracy.medium,
+                timeLimit: Duration(seconds: 5),
+              ),
+            );
+            lat = pos.latitude;
+            lng = pos.longitude;
+          }
+        } catch (e) {
+          debugPrint('[NearbyStays] GPS error: $e');
         }
-        if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-          if (mounted) setState(() => _isLoading = false);
-          return;
+
+        // Resilient fallback coordinates if GPS is disabled or unavailable
+        if (lat == 0.0 && lng == 0.0) {
+          lat = 28.6139;
+          lng = 77.2090;
         }
-        final pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(accuracy: LocationAccuracy.bestForNavigation),
-        );
-        lat = pos.latitude;
-        lng = pos.longitude;
       }
 
       final restaurantUrl = (kIsWeb || apiKey.isEmpty)

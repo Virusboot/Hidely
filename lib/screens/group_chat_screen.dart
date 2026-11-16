@@ -9,6 +9,11 @@ import 'package:hidely_new/services/chat_socket_service.dart';
 import 'package:hidely_new/services/call_manager.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:record/record.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:hidely_new/services/upload_quality_service.dart';
 
 /// Trip Itinerary Details Model for Groups
 class TripItineraryData {
@@ -1638,6 +1643,15 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
   String? _playingVoiceMsgId;
   ChatMessage? _replyingTo;
 
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String? _currentRecordingPath;
+  int _recordingSeconds = 0;
+  Timer? _recordingTimer;
+  PlayerState _playerState = PlayerState.stopped;
+  Duration _playbackPosition = Duration.zero;
+  Duration _playbackDuration = Duration.zero;
+
   static final Map<String, List<ChatMessage>> _messagesHistory = {};
 
   StreamSubscription? _msgSub;
@@ -1666,6 +1680,24 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     _setupSocketListeners();
     _fastSyncTimer = Timer.periodic(const Duration(milliseconds: 3000), (_) {
       _syncLatestMessagesSilently();
+    });
+    _audioPlayer.onPlayerStateChanged.listen((state) {
+      if (mounted) setState(() => _playerState = state);
+    });
+    _audioPlayer.onPositionChanged.listen((pos) {
+      if (mounted) setState(() => _playbackPosition = pos);
+    });
+    _audioPlayer.onDurationChanged.listen((dur) {
+      if (mounted) setState(() => _playbackDuration = dur);
+    });
+    _audioPlayer.onPlayerComplete.listen((_) {
+      if (mounted) {
+        setState(() {
+          _playingVoiceMsgId = null;
+          _playerState = PlayerState.stopped;
+          _playbackPosition = Duration.zero;
+        });
+      }
     });
     if (_messages.isNotEmpty) {
       _scrollToBottom(animated: false);
@@ -1946,6 +1978,9 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
 
   @override
   void dispose() {
+    _recordingTimer?.cancel();
+    _audioRecorder.dispose();
+    _audioPlayer.dispose();
     _fastSyncTimer?.cancel();
     _typingIdleTimer?.cancel();
     _remoteTypingTimeoutTimer?.cancel();
@@ -2334,13 +2369,18 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
   Future<void> _pickAndSendImage(ImageSource source) async {
     try {
       final picker = ImagePicker();
+      final quality = UploadQualityService().imageQuality;
+      final maxDim = UploadQualityService().maxDimension;
+
       final pickedFile = await picker.pickImage(
         source: source,
-        maxWidth: 1440,
-        maxHeight: 1440,
-        imageQuality: 75,
+        preferredCameraDevice: CameraDevice.rear,
+        maxWidth: maxDim,
+        maxHeight: maxDim,
+        imageQuality: quality,
       );
       if (pickedFile != null) {
+        final bytes = await pickedFile.readAsBytes();
         final timeStr = _formatChatTime(DateTime.now().toIso8601String());
         final tempId = 'temp_${DateTime.now().microsecondsSinceEpoch}';
 
@@ -2374,6 +2414,8 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
             conversationId: convId,
             type: 'image',
             text: 'Sent an image 🏞️',
+            mediaBytes: bytes,
+            mediaFilename: pickedFile.name,
             mediaFile: kIsWeb ? null : File(pickedFile.path),
           );
           if (!mounted) return;
@@ -2405,44 +2447,203 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     }
   }
 
-  void _sendVoiceNote() async {
-    final timeStr = _formatChatTime(DateTime.now().toIso8601String());
-    final tempId = 'temp_${DateTime.now().microsecondsSinceEpoch}';
+  Future<void> _startVoiceRecording() async {
+    try {
+      if (await _audioRecorder.hasPermission()) {
+        HapticFeedback.mediumImpact();
+        String recordPath = '';
+        if (!kIsWeb) {
+          final tempDir = await getTemporaryDirectory();
+          recordPath = '${tempDir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+          await _audioRecorder.start(
+            const RecordConfig(
+              encoder: AudioEncoder.aacLc,
+              bitRate: 128000,
+              sampleRate: 44100,
+            ),
+            path: recordPath,
+          );
+        } else {
+          await _audioRecorder.start(
+            const RecordConfig(
+              encoder: AudioEncoder.opus,
+            ),
+            path: '',
+          );
+        }
 
-    final localMsg = ChatMessage(
-      id: tempId,
-      senderName: AuthService().userName.isNotEmpty ? AuthService().userName : 'You',
-      senderAvatar: _normalizeChatAvatar(AuthService().userProfilePicture),
-      text: 'Voice note (0:05)',
-      time: timeStr,
-      isMe: true,
-      attachmentType: 'voice',
-    );
+        _recordingTimer?.cancel();
+        setState(() {
+          _isRecording = true;
+          _recordingSeconds = 0;
+          _currentRecordingPath = recordPath;
+        });
 
-    setState(() {
-      _messages.add(localMsg);
-      widget.chat.lastMessage = 'You: 🎤 Voice note (0:05)';
-      widget.chat.time = timeStr;
-    });
-    _scrollToBottom();
-
-    HapticFeedback.lightImpact();
-
-    final int? convId = int.tryParse(widget.chat.id);
-    final token = AuthService().token;
-    if (convId != null && token != null && token.isNotEmpty) {
-      final res = await ApiService().sendChatMessage(
-        token: token,
-        conversationId: convId,
-        type: 'voice',
-        text: 'Voice note (0:05)',
-      );
-      if (mounted && res.success && res.data != null && res.data!['message'] is Map) {
-        final serverId = res.data!['message']['id']?.toString();
-        if (serverId != null && serverId.isNotEmpty) {
-          setState(() => localMsg.id = serverId);
+        _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          if (mounted && _isRecording) {
+            setState(() {
+              _recordingSeconds++;
+            });
+          }
+        });
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Microphone permission required for voice notes.')),
+          );
         }
       }
+    } catch (e) {
+      debugPrint('[VoiceRecord] Start recording error: $e');
+      setState(() => _isRecording = false);
+    }
+  }
+
+  Future<void> _stopAndSendVoiceRecording() async {
+    _recordingTimer?.cancel();
+    if (!_isRecording) return;
+    final recordedSeconds = _recordingSeconds;
+    setState(() => _isRecording = false);
+
+    try {
+      final stopResult = await _audioRecorder.stop();
+      final finalPath = stopResult ?? _currentRecordingPath;
+      if (finalPath == null || finalPath.isEmpty) return;
+
+      Uint8List? audioBytes;
+      String filename = 'voice_note_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+      if (kIsWeb) {
+        try {
+          final res = await http.get(Uri.parse(finalPath));
+          if (res.statusCode == 200) {
+            audioBytes = res.bodyBytes;
+          }
+        } catch (e) {
+          debugPrint('[VoiceRecord] Web blob fetch error: $e');
+        }
+        filename = 'voice_note_${DateTime.now().millisecondsSinceEpoch}.webm';
+      } else {
+        final f = File(finalPath);
+        if (await f.exists()) {
+          audioBytes = await f.readAsBytes();
+        }
+      }
+
+      if (audioBytes == null || audioBytes.isEmpty) {
+        debugPrint('[VoiceRecord] No audio bytes recorded.');
+        return;
+      }
+
+      final timeStr = _formatChatTime(DateTime.now().toIso8601String());
+      final tempId = 'temp_${DateTime.now().microsecondsSinceEpoch}';
+      final formattedDuration = '0:${recordedSeconds.toString().padLeft(2, '0')}';
+      final textLabel = 'Voice note ($formattedDuration)';
+
+      final localMsg = ChatMessage(
+        id: tempId,
+        senderName: AuthService().userName.isNotEmpty ? AuthService().userName : 'You',
+        senderAvatar: _normalizeChatAvatar(AuthService().userProfilePicture),
+        text: textLabel,
+        time: timeStr,
+        isMe: true,
+        attachmentType: 'voice',
+        attachmentData: {
+          'localPath': finalPath,
+          'duration': recordedSeconds,
+        },
+      );
+
+      setState(() {
+        _messages.add(localMsg);
+        widget.chat.lastMessage = 'You: 🎤 $textLabel';
+        widget.chat.time = timeStr;
+      });
+      _scrollToBottom();
+      HapticFeedback.lightImpact();
+
+      final int? convId = int.tryParse(widget.chat.id);
+      final token = AuthService().token;
+      if (convId != null && token != null && token.isNotEmpty) {
+        final res = await ApiService().sendChatMessage(
+          token: token,
+          conversationId: convId,
+          type: 'voice',
+          text: textLabel,
+          mediaBytes: audioBytes,
+          mediaFilename: filename,
+          mediaFile: kIsWeb ? null : File(finalPath),
+        );
+        if (!mounted) return;
+        if (res.success && res.data != null && res.data!['message'] is Map) {
+          final serverMsg = res.data!['message'];
+          final serverId = serverMsg['id']?.toString();
+          final attachments = serverMsg['attachments'] as List? ?? [];
+          setState(() {
+            if (serverId != null && serverId.isNotEmpty) {
+              localMsg.id = serverId;
+            }
+            if (attachments.isNotEmpty) {
+              final url = attachments[0]['url'];
+              localMsg.attachmentData?['url'] = url;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('[VoiceRecord] Stop and send error: $e');
+    }
+  }
+
+  Future<void> _playVoiceNote(ChatMessage msg) async {
+    try {
+      if (_playingVoiceMsgId == msg.id && _playerState == PlayerState.playing) {
+        await _audioPlayer.pause();
+        setState(() {
+          _playerState = PlayerState.paused;
+        });
+        return;
+      }
+
+      await _audioPlayer.stop();
+
+      final data = msg.attachmentData;
+      final localPath = data?['localPath'] as String?;
+      String? audioUrl = data?['url'] ?? data?['audioUrl'];
+
+      if (!kIsWeb && localPath != null && localPath.isNotEmpty && File(localPath).existsSync()) {
+        setState(() {
+          _playingVoiceMsgId = msg.id;
+          _playerState = PlayerState.playing;
+        });
+        await _audioPlayer.play(DeviceFileSource(localPath));
+        return;
+      }
+
+      if (kIsWeb && localPath != null && localPath.startsWith('blob:')) {
+        setState(() {
+          _playingVoiceMsgId = msg.id;
+          _playerState = PlayerState.playing;
+        });
+        await _audioPlayer.play(UrlSource(localPath));
+        return;
+      }
+
+      if (audioUrl != null && audioUrl.isNotEmpty) {
+        if (!audioUrl.startsWith('http://') && !audioUrl.startsWith('https://')) {
+          audioUrl = audioUrl.startsWith('/')
+              ? '${ApiService().baseUrl}$audioUrl'
+              : '${ApiService().baseUrl}/$audioUrl';
+        }
+        setState(() {
+          _playingVoiceMsgId = msg.id;
+          _playerState = PlayerState.playing;
+        });
+        await _audioPlayer.play(UrlSource(audioUrl));
+      }
+    } catch (e) {
+      debugPrint('[AudioPlayer] Playback error: $e');
+      setState(() => _playingVoiceMsgId = null);
     }
   }
 
@@ -2492,10 +2693,23 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     if (msg.attachmentType != 'voice' && msg.attachmentType != 'audio') {
       return const SizedBox.shrink();
     }
-    final isPlaying = _playingVoiceMsgId == msg.id;
+    final isThisMsg = _playingVoiceMsgId == msg.id;
+    final isPlaying = isThisMsg && _playerState == PlayerState.playing;
     final color = isMe ? Colors.white : const Color(0xff2B1564);
     final trackColor = isMe ? Colors.white.withOpacity(0.3) : const Color(0xffCBD5E1);
     final activeTrackColor = isMe ? Colors.white : const Color(0xff2563EB);
+
+    String durationDisplay = '0:05';
+    if (isThisMsg && _playbackDuration.inSeconds > 0) {
+      final posSec = _playbackPosition.inSeconds;
+      durationDisplay = '0:${posSec.toString().padLeft(2, '0')}';
+    } else if (msg.text.contains('(') && msg.text.contains(')')) {
+      final start = msg.text.indexOf('(') + 1;
+      final end = msg.text.indexOf(')');
+      if (end > start) {
+        durationDisplay = msg.text.substring(start, end);
+      }
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -2508,16 +2722,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
         mainAxisSize: MainAxisSize.min,
         children: [
           GestureDetector(
-            onTap: () {
-              setState(() {
-                if (_playingVoiceMsgId == msg.id) {
-                  _playingVoiceMsgId = null;
-                } else {
-                  _playingVoiceMsgId = msg.id;
-                }
-              });
-              HapticFeedback.lightImpact();
-            },
+            onTap: () => _playVoiceNote(msg),
             child: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
@@ -2539,7 +2744,10 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
               Row(
                 children: List.generate(12, (index) {
                   final height = 6.0 + ((index * 7) % 14);
-                  final isActive = isPlaying && (index <= 6);
+                  final progressIndex = isThisMsg && _playbackDuration.inMilliseconds > 0
+                      ? ((_playbackPosition.inMilliseconds / _playbackDuration.inMilliseconds) * 12).round()
+                      : (isPlaying ? 6 : 0);
+                  final isActive = index <= progressIndex;
                   return Container(
                     margin: const EdgeInsets.symmetric(horizontal: 1.5),
                     width: 3,
@@ -2553,7 +2761,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
               ),
               const SizedBox(height: 3),
               Text(
-                isPlaying ? 'Playing...' : '0:05',
+                isPlaying ? 'Playing ($durationDisplay)' : durationDisplay,
                 style: TextStyle(
                   fontSize: 10.5,
                   fontFamily: 'PublicSans',
@@ -3004,7 +3212,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                                 ),
                                 decoration: InputDecoration(
                                   isDense: true,
-                                  hintText: _isRecording ? 'Recording voice note...' : 'Message...',
+                                  hintText: _isRecording ? 'Recording voice note (${_recordingSeconds}s)... Tap to send' : 'Message...',
                                   hintStyle: TextStyle(
                                     fontFamily: 'PublicSans',
                                     color: _isRecording ? Colors.red : Colors.black45,
@@ -3037,24 +3245,16 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                               GestureDetector(
                                 onTap: () {
                                   if (_isRecording) {
-                                    setState(() => _isRecording = false);
-                                    _sendVoiceNote();
+                                    _stopAndSendVoiceRecording();
                                   } else {
-                                    setState(() => _isRecording = true);
+                                    _startVoiceRecording();
                                   }
                                 },
                                 onLongPressStart: (_) {
-                                  HapticFeedback.lightImpact();
-                                  setState(() {
-                                    _isRecording = true;
-                                  });
+                                  _startVoiceRecording();
                                 },
                                 onLongPressEnd: (_) {
-                                  HapticFeedback.lightImpact();
-                                  setState(() {
-                                    _isRecording = false;
-                                  });
-                                  _sendVoiceNote();
+                                  _stopAndSendVoiceRecording();
                                 },
                                 child: Padding(
                                   padding: const EdgeInsets.all(6),
@@ -3341,7 +3541,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
             ),
             child: hasLocal
                 ? Image.file(
-                    File(localPath!),
+                    File(localPath),
                     fit: BoxFit.cover,
                   )
                 : (hasImage
