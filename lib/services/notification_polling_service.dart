@@ -376,8 +376,8 @@ class NotificationPollingService with WidgetsBindingObserver {
     if (kIsWeb) return;
 
     // Respect the user's in-app notification toggle — if disabled, suppress all OS banners.
-    final _prefs = await SharedPreferences.getInstance();
-    if (!(_prefs.getBool('enable_notifications') ?? true)) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool('enable_notifications') ?? true)) return;
 
     final type = (notif['type'] ?? 'notification').toString();
     final actorId = notif['actor_id']?.toString();

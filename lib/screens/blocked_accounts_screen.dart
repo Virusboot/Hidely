@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:hidely_new/services/auth_service.dart';
 
 import 'package:hidely_new/widgets/empty_state.dart';
