@@ -39,3 +39,4 @@ class UploadQualityService {
 
   double? get maxDimension => _isHighQuality ? 2560.0 : 1440.0;
 }
+
