@@ -27,18 +27,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<Map<String, String>> _pages = [
     {
-      "title": "Cinematography",
-      "description": "We handle both music and video production to make your sound and visuals pop.",
+      "title": "Uncover Hidden Gems",
+      "description": "Discover secret spots, untouched landscapes, and off-beat destinations hidden from the crowd.",
       "image": "assets/images/onboarding_1.jpg",
     },
     {
-      "title": "Romantic Escapes",
-      "description": "Discover picturesque streetscapes, classical art, and romantic cafes across Europe.",
+      "title": "Explore Near & Far",
+      "description": "Find nearby stays, scenic viewpoints, and unexplored trails with precision navigation.",
       "image": "assets/images/onboarding_2.jpg",
     },
     {
-      "title": "Cultural Journeys",
-      "description": "Explore the ancient traditions, spiritual ghats, and vibrant festivals of India.",
+      "title": "Connect & Travel Together",
+      "description": "Share your journeys, connect with passionate explorers, and create unforgettable adventures.",
       "image": "assets/images/onboarding_3.jpg",
     },
   ];

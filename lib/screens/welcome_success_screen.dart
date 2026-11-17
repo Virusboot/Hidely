@@ -91,16 +91,16 @@ class _WelcomeSuccessScreenState extends State<WelcomeSuccessScreen> {
                                   child: Stack(
                                     fit: StackFit.expand,
                                     children: [
-                                      // Perfect scaled valley background asset with defensive fallback
+                                      // Scaled scenic background asset with defensive fallback
                                       Image.asset(
-                                        'assets/images/welcome_success_bg.jpg',
+                                        'assets/images/background.jpg',
                                         fit: BoxFit.cover,
-                                        alignment: const Alignment(0.0, -0.2),
+                                        alignment: const Alignment(0.0, -0.1),
                                         errorBuilder: (context, error, stackTrace) {
                                           return Image.asset(
                                             'assets/images/onboarding_bg.jpg',
                                             fit: BoxFit.cover,
-                                            alignment: const Alignment(0.0, -0.2),
+                                            alignment: const Alignment(0.0, -0.1),
                                           );
                                         },
                                       ),
@@ -122,23 +122,23 @@ class _WelcomeSuccessScreenState extends State<WelcomeSuccessScreen> {
 
                                       // Floating Target Point Indicator (Purple Circular Dot Ring)
                                       Positioned(
-                                        top: cardHeight * 0.40,
+                                        top: cardHeight * 0.42,
                                         left: screenSize.width * 0.22,
                                         child: _buildLocationPulsePoint(),
                                       ),
 
-                                      // Floating Tag 1: PARTENON • 438 BC
+                                      // Floating Tag 1: ALPINE LAKE • 1,496 M
                                       Positioned(
-                                        top: cardHeight * 0.47,
+                                        top: cardHeight * 0.49,
                                         left: screenSize.width * 0.18,
-                                        child: _buildGlassmorphicTag("PARTENON • 438 BC"),
+                                        child: _buildGlassmorphicTag("ALPINE LAKE • 1,496 M"),
                                       ),
 
-                                      // Floating Tag 2: DORIC COLUMNS
+                                      // Floating Tag 2: PRISTINE TRAIL
                                       Positioned(
                                         bottom: cardHeight * 0.26,
                                         right: screenSize.width * 0.14,
-                                        child: _buildGlassmorphicTag("DORIC COLUMNS"),
+                                        child: _buildGlassmorphicTag("PRISTINE TRAIL"),
                                       ),
 
                                       // Small camera circular tag anchor on top right
@@ -196,7 +196,7 @@ class _WelcomeSuccessScreenState extends State<WelcomeSuccessScreen> {
                                                       mainAxisSize: MainAxisSize.min,
                                                       children: [
                                                         Text(
-                                                          "AI Lens is Ready",
+                                                          "AI Spot Finder Active",
                                                           style: TextStyle(
                                                             fontWeight: FontWeight.bold,
                                                             fontSize: 16,
@@ -205,7 +205,7 @@ class _WelcomeSuccessScreenState extends State<WelcomeSuccessScreen> {
                                                         ),
                                                         SizedBox(height: 3),
                                                         Text(
-                                                          "I've calibrated for your current location in Athens.",
+                                                          "Calibrated to discover hidden gems & stays near you.",
                                                           style: TextStyle(
                                                             fontSize: 12.5,
                                                             color: Colors.black54,
@@ -254,7 +254,7 @@ class _WelcomeSuccessScreenState extends State<WelcomeSuccessScreen> {
 
                               // Restored Original Description style
                               Text(
-                                "Your cinematic guide to history is now active. Explore the world's secrets in real-time.",
+                                "Your guide to hidden gems is now active. Explore untouched spots in real-time.",
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: const Color(0xff1C0D5A).withOpacity(0.65),
