@@ -25,26 +25,29 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   void initState() {
     super.initState();
 
-    try {
-      FlutterNativeSplash.remove();
-    } catch (_) {}
+    // Dismiss native splash seamlessly on the first Flutter frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        FlutterNativeSplash.remove();
+      } catch (_) {}
+    });
 
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 700),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _fadeAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+        curve: Curves.easeOut,
       ),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.94, end: 1.0).animate(
+    _scaleAnimation = Tween<double>(begin: 0.97, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: const Interval(0.0, 0.85, curve: Curves.easeOutCubic),
+        curve: Curves.easeOutCubic,
       ),
     );
 
@@ -127,6 +130,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
       ),
       child: Scaffold(
         backgroundColor: Colors.white,
@@ -143,13 +149,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               );
             },
             child: Image.asset(
-              'assets/images/logo.png',
-              width: 170,
-              height: 170,
+              'assets/images/splash_logo.png',
+              width: 220,
+              height: 220,
               fit: BoxFit.contain,
               errorBuilder: (_, __, ___) => Image.asset(
                 'assets/images/logo_horizontal_color.png',
-                width: 220,
+                width: 240,
                 fit: BoxFit.contain,
               ),
             ),

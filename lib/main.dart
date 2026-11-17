@@ -17,13 +17,13 @@ import 'package:hidely_new/services/deep_link_service.dart';
 import 'package:hidely_new/utils/url_strategy.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
 
-  // Dismiss native splash screen immediately so Android 12+ never gets stuck
+  // Preserve native splash until Flutter's first frame renders for seamless handover
   try {
-    FlutterNativeSplash.remove();
+    FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   } catch (e) {
-    debugPrint('[main] FlutterNativeSplash remove error: $e');
+    debugPrint('[main] FlutterNativeSplash preserve error: $e');
   }
 
   // Global Error Handling & Custom Error Screen (>99.5% Crash Free Target)
