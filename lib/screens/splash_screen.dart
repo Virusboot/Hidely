@@ -20,7 +20,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
-  String _statusMessage = "Loading cinematic world...";
 
   @override
   void initState() {
@@ -32,20 +31,20 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 900),
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
+        curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
       ),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(
+    _scaleAnimation = Tween<double>(begin: 0.94, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: const Interval(0.0, 0.85, curve: Curves.easeOutBack),
+        curve: const Interval(0.0, 0.85, curve: Curves.easeOutCubic),
       ),
     );
 
@@ -61,8 +60,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   Future<void> _initializeApp() async {
     try {
-      setState(() => _statusMessage = "Loading Hidely...");
-
       // Initialize core services concurrently
       await Future.wait([
         AuthService().init().timeout(const Duration(seconds: 4), onTimeout: () {
@@ -76,9 +73,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         }),
       ]);
 
-      // Skip splash delay on Web for instantaneous Home load
+      // Smooth brief delay on mobile for graceful logo presentation
       if (!kIsWeb) {
-        await Future.delayed(const Duration(milliseconds: 800));
+        await Future.delayed(const Duration(milliseconds: 700));
       }
 
       if (!mounted) return;
@@ -97,7 +94,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             );
             return FadeTransition(opacity: curvedAnimation, child: child);
           },
-          transitionDuration: const Duration(milliseconds: 450),
+          transitionDuration: const Duration(milliseconds: 400),
         ),
       );
     } catch (e) {
@@ -116,7 +113,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 child: child,
               );
             },
-            transitionDuration: const Duration(milliseconds: 450),
+            transitionDuration: const Duration(milliseconds: 400),
           ),
         );
       }
@@ -128,24 +125,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
       ),
       child: Scaffold(
-        body: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xff0D0622),
-                Color(0xff1C0D5A),
-                Color(0xff2B1564),
-              ],
-            ),
-          ),
+        backgroundColor: Colors.white,
+        body: Center(
           child: AnimatedBuilder(
             animation: _animationController,
             builder: (context, child) {
@@ -157,153 +142,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 ),
               );
             },
-            child: SafeArea(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Atmospheric background glowing spheres
-                  Positioned(
-                    top: -60,
-                    right: -60,
-                    child: Container(
-                      width: 240,
-                      height: 240,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xff9333EA).withOpacity(0.18),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xff9333EA).withOpacity(0.25),
-                            blurRadius: 90,
-                            spreadRadius: 20,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: -80,
-                    left: -80,
-                    child: Container(
-                      width: 260,
-                      height: 260,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xff3B82F6).withOpacity(0.12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xff3B82F6).withOpacity(0.2),
-                            blurRadius: 100,
-                            spreadRadius: 20,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Center Logo Emblem & Brand
-                  Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Glassy glowing emblem card
-                        Container(
-                          width: 104,
-                          height: 104,
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withOpacity(0.08),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.22),
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xff9333EA).withOpacity(0.35),
-                                blurRadius: 36,
-                                spreadRadius: 6,
-                              ),
-                            ],
-                          ),
-                          child: Image.asset(
-                            'assets/images/app_icon.png',
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.explore_rounded,
-                              color: Colors.white,
-                              size: 48,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        // App Brand Title
-                        Image.asset(
-                          'assets/images/logo_horizontal.png',
-                          width: 210,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => const Text(
-                            'HIDELY',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 34,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 4.0,
-                              fontFamily: 'serif',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        // Tagline
-                        Text(
-                          'CINEMATIC TRAVEL & DISCOVERY',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.65),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 2.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Bottom Loading & Status
-                  Positioned(
-                    left: 40,
-                    right: 40,
-                    bottom: 40,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Subtle smooth progress indicator
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: SizedBox(
-                            height: 3,
-                            width: 140,
-                            child: LinearProgressIndicator(
-                              backgroundColor: Colors.white.withOpacity(0.12),
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                Color(0xffA855F7),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          _statusMessage,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.55),
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+            child: Image.asset(
+              'assets/images/logo.png',
+              width: 170,
+              height: 170,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => Image.asset(
+                'assets/images/logo_horizontal_color.png',
+                width: 220,
+                fit: BoxFit.contain,
               ),
             ),
           ),
