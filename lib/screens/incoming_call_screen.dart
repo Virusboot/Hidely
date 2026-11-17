@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:hidely_new/services/chat_socket_service.dart';
 import 'package:hidely_new/services/notification_polling_service.dart';
+import 'package:hidely_new/services/ringtone_service.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 
 class IncomingCallScreen extends StatefulWidget {
@@ -59,16 +59,13 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
 
   void _startRingingFeedback() {
     _stopRingingFeedback();
-    HapticFeedback.heavyImpact();
-    _ringTimer = Timer.periodic(const Duration(milliseconds: 1400), (_) {
-      HapticFeedback.vibrate();
-      SystemSound.play(SystemSoundType.click);
-    });
+    RingtoneService().playIncomingRingtone();
   }
 
   void _stopRingingFeedback() {
     _ringTimer?.cancel();
     _ringTimer = null;
+    RingtoneService().stopIncomingRingtone();
   }
 
   Future<void> _handleAccept() async {

@@ -16,6 +16,7 @@ import 'package:http/http.dart' as http;
 import 'package:hidely_new/services/upload_quality_service.dart';
 import 'package:hidely_new/screens/creator_profile_screen.dart';
 import 'package:hidely_new/screens/user_profile_screen.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Trip Itinerary Details Model for Groups
 class TripItineraryData {
@@ -201,6 +202,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   List<dynamic> _searchResultsUsers = [];
   bool _isSearchingUsers = false;
   StreamSubscription? _presenceSub;
+  StreamSubscription? _onlineUsersSub;
   StreamSubscription? _globalMsgSub;
   Timer? _searchDebounce;
   Set<String> _knownBlockedUsers = <String>{};
@@ -298,6 +300,23 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         }
       }
     });
+
+    _onlineUsersSub ??= ChatSocketService().onOnlineUsersList.listen((onlineIds) {
+      if (mounted) {
+        setState(() {
+          for (final id in onlineIds) {
+            _onlineStatusMap[id] = true;
+          }
+          for (int i = 0; i < _allChats.length; i++) {
+            final tId = _allChats[i].targetUserId;
+            if (tId != null) {
+              _allChats[i].isOnline = onlineIds.contains(tId);
+            }
+          }
+        });
+      }
+    });
+    ChatSocketService().requestOnlineUsers();
 
     _globalMsgSub ??= ChatSocketService().onNewMessage.listen((data) {
       final convIdStr = data['conversation_id']?.toString();
@@ -678,6 +697,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       GroupChatScreen.activeState = null;
     }
     _presenceSub?.cancel();
+    _onlineUsersSub?.cancel();
     _globalMsgSub?.cancel();
     _searchDebounce?.cancel();
     _searchController.dispose();
@@ -1690,6 +1710,8 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
   StreamSubscription? _typingSub;
   StreamSubscription? _reactionSub;
   StreamSubscription? _presenceSub;
+  StreamSubscription? _onlineUsersSub;
+  StreamSubscription? _messageDeletedSub;
   StreamSubscription? _readSub;
   Timer? _typingIdleTimer;
   Timer? _remoteTypingTimeoutTimer;
@@ -1970,6 +1992,31 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
       }
     });
 
+    _onlineUsersSub = ChatSocketService().onOnlineUsersList.listen((onlineIds) {
+      final tId = widget.chat.targetUserId;
+      if (tId != null && mounted) {
+        final online = onlineIds.contains(tId);
+        setState(() {
+          _isTargetOnline = online;
+          widget.chat.isOnline = online;
+        });
+      }
+    });
+    ChatSocketService().requestOnlineUsers();
+
+    _messageDeletedSub = ChatSocketService().onMessageDeleted.listen((data) {
+      if (!mounted) return;
+      final evtConvId = (data['conversationId'] ?? data['conversation_id'])?.toString();
+      if (evtConvId != null && evtConvId != widget.chat.id) return;
+      final delMsgId = (data['messageId'] ?? data['message_id'])?.toString();
+      if (delMsgId != null && delMsgId.isNotEmpty) {
+        setState(() {
+          _messages.removeWhere((m) => m.id == delMsgId);
+          _messagesHistory[widget.chat.id]?.removeWhere((m) => m.id == delMsgId);
+        });
+      }
+    });
+
     _readSub = ChatSocketService().onMessageRead.listen((data) {
       if (!mounted) return;
       final evtConvId = (data['conversationId'] ?? data['conversation_id'])?.toString();
@@ -2020,6 +2067,8 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     _typingSub?.cancel();
     _reactionSub?.cancel();
     _presenceSub?.cancel();
+    _onlineUsersSub?.cancel();
+    _messageDeletedSub?.cancel();
     _readSub?.cancel();
     final int? convId = int.tryParse(widget.chat.id);
     if (convId != null) {
@@ -2826,64 +2875,257 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     }
   }
 
-  void _showMessageOptionsSheet(ChatMessage msg) {
+  void _showEmojiReactionPicker(ChatMessage msg) {
+    const allEmojis = [
+      '❤️', '😂', '😮', '😢', '🙏', '👍', '🔥',
+      '🎉', '💯', '😍', '🤩', '😎', '🥳', '🤔',
+      '👀', '✨', '🚀', '⭐', '🤝', '💪', '🙌',
+      '💔', '🥺', '😴', '👏', '💖', '🥰', '🤣'
+    ];
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => Material(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Reactions',
+                style: TextStyle(fontFamily: 'PublicSans', fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 16,
+                runSpacing: 14,
+                alignment: WrapAlignment.center,
+                children: allEmojis.map((e) {
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.pop(sheetCtx);
+                      _toggleHeartReaction(msg, emoji: e);
+                    },
+                    child: Text(e, style: const TextStyle(fontSize: 30)),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleDeleteMessage(ChatMessage msg, {required bool unsend}) async {
+    final token = AuthService().token;
+    final int? msgId = int.tryParse(msg.id);
+    if (token == null || msgId == null) {
+      setState(() {
+        _messages.removeWhere((m) => m.id == msg.id);
+        _messagesHistory[widget.chat.id]?.removeWhere((m) => m.id == msg.id);
+      });
+      return;
+    }
+
+    setState(() {
+      _messages.removeWhere((m) => m.id == msg.id);
+      _messagesHistory[widget.chat.id]?.removeWhere((m) => m.id == msg.id);
+    });
+
+    final res = await ApiService().deleteChatMessage(token: token, messageId: msgId, unsend: unsend);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(res.message.isNotEmpty ? res.message : (unsend ? 'Message unsent.' : 'Message deleted for you.')),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _confirmUnsendMessage(ChatMessage msg) {
+    showDialog(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Unsend message?',
+          style: TextStyle(fontFamily: 'PublicSans', fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        content: const Text(
+          'Unsent messages will be removed from the chat for everyone. People may have already seen or forwarded it.',
+          style: TextStyle(fontFamily: 'PublicSans', fontSize: 14, color: Colors.black87),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dlgCtx),
+            child: const Text('Cancel', style: TextStyle(fontFamily: 'PublicSans', fontWeight: FontWeight.w600, color: Colors.black54)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dlgCtx);
+              _handleDeleteMessage(msg, unsend: true);
+            },
+            child: const Text('Unsend', style: TextStyle(fontFamily: 'PublicSans', fontWeight: FontWeight.bold, color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMessageOptionsSheet(ChatMessage msg) {
+    HapticFeedback.mediumImpact();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (ctx) {
         return Material(
           color: Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: ['❤️', '👍', '🔥', '😮', '👏', '😂'].map((emoji) {
-                    return GestureDetector(
+                  const SizedBox(height: 14),
+
+                  // Floating Instagram Reaction Pill
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(30),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ...['❤️', '😂', '😮', '😢', '🙏', '👍', '🔥'].map((emoji) {
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              _toggleHeartReaction(msg, emoji: emoji);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Text(emoji, style: const TextStyle(fontSize: 26)),
+                            ),
+                          );
+                        }),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _showEmojiReactionPicker(msg);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.add, size: 20, color: Colors.black87),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(height: 1, color: Colors.black12),
+
+                  ListTile(
+                    leading: const Icon(Icons.reply_rounded, color: Color(0xff1C0D5A)),
+                    title: const Text('Reply', style: TextStyle(fontFamily: 'PublicSans', fontWeight: FontWeight.w600)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      setState(() => _replyingTo = msg);
+                    },
+                  ),
+                  if (msg.text.trim().isNotEmpty)
+                    ListTile(
+                      leading: const Icon(Icons.copy_rounded, color: Color(0xff1C0D5A)),
+                      title: const Text('Copy Text', style: TextStyle(fontFamily: 'PublicSans', fontWeight: FontWeight.w600)),
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: msg.text));
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Message copied to clipboard!'), duration: Duration(seconds: 1)),
+                        );
+                      },
+                    ),
+                  ListTile(
+                    leading: const Icon(Icons.share_outlined, color: Color(0xff1C0D5A)),
+                    title: const Text('Share', style: TextStyle(fontFamily: 'PublicSans', fontWeight: FontWeight.w600)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      final mediaUrl = msg.attachmentData?['url']?.toString();
+                      final txt = msg.text.trim().isNotEmpty
+                          ? msg.text
+                          : (mediaUrl ?? 'Shared message from Hidely');
+                      Share.share(txt);
+                    },
+                  ),
+                  if (msg.attachmentType == 'image' || msg.attachmentType == 'video')
+                    ListTile(
+                      leading: const Icon(Icons.fullscreen_rounded, color: Color(0xff1C0D5A)),
+                      title: const Text('View Full Screen', style: TextStyle(fontFamily: 'PublicSans', fontWeight: FontWeight.w600)),
                       onTap: () {
                         Navigator.pop(ctx);
-                        _toggleHeartReaction(msg, emoji: emoji);
+                        final mediaUrl = msg.attachmentData?['url']?.toString();
+                        final localPath = msg.attachmentData?['localPath']?.toString();
+                        _showFullScreenImage(context, mediaUrl, localPath);
                       },
-                      child: Text(emoji, style: const TextStyle(fontSize: 28)),
-                    );
-                  }).toList(),
-                ),
-                const Divider(height: 24),
-                ListTile(
-                  leading: const Icon(Icons.copy_rounded, color: Color(0xff1C0D5A)),
-                  title: const Text('Copy Message Text', style: TextStyle(fontFamily: 'PublicSans', fontWeight: FontWeight.w600)),
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: msg.text));
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Message copied to clipboard!'), duration: Duration(seconds: 1)),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.reply_rounded, color: Color(0xff1C0D5A)),
-                  title: const Text('Reply to Message', style: TextStyle(fontFamily: 'PublicSans', fontWeight: FontWeight.w600)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    setState(() {
-                      _replyingTo = msg;
-                    });
-                  },
-                ),
-              ],
+                    ),
+                  ListTile(
+                    leading: const Icon(Icons.delete_outline_rounded, color: Colors.black87),
+                    title: const Text('Delete for Me', style: TextStyle(fontFamily: 'PublicSans', fontWeight: FontWeight.w600, color: Colors.black87)),
+                    subtitle: const Text('Removes this message from your chat', style: TextStyle(fontFamily: 'PublicSans', fontSize: 11, color: Colors.black54)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _handleDeleteMessage(msg, unsend: false);
+                    },
+                  ),
+                  if (msg.isMe)
+                    ListTile(
+                      leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
+                      title: const Text('Unsend', style: TextStyle(fontFamily: 'PublicSans', fontWeight: FontWeight.w600, color: Colors.redAccent)),
+                      subtitle: const Text('Removes this message for everyone in the chat', style: TextStyle(fontFamily: 'PublicSans', fontSize: 11, color: Colors.black54)),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _confirmUnsendMessage(msg);
+                      },
+                    ),
+                ],
+              ),
             ),
           ),
         );
@@ -3725,17 +3967,30 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
       ),
     );
 
-    return GestureDetector(
-      onTap: () {
-        if (hasLocal) {
-          _showFullScreenImage(context, null, localPath);
-        } else if (imageUrl != null && imageUrl.isNotEmpty) {
-          _showFullScreenImage(context, imageUrl, null);
-        }
+    return Dismissible(
+      key: ValueKey('swipe_reply_media_${msg.id}_${msg.time}'),
+      direction: DismissDirection.startToEnd,
+      confirmDismiss: (_) async {
+        HapticFeedback.lightImpact();
+        setState(() => _replyingTo = msg);
+        return false;
       },
-      onDoubleTap: () => _toggleHeartReaction(msg),
-      onLongPress: () => _showMessageOptionsSheet(msg),
-      child: Stack(
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 16),
+        child: const Icon(Icons.reply_rounded, color: Color(0xff5732BF)),
+      ),
+      child: GestureDetector(
+        onTap: () {
+          if (hasLocal) {
+            _showFullScreenImage(context, null, localPath);
+          } else if (imageUrl != null && imageUrl.isNotEmpty) {
+            _showFullScreenImage(context, imageUrl, null);
+          }
+        },
+        onDoubleTap: () => _toggleHeartReaction(msg),
+        onLongPress: () => _showMessageOptionsSheet(msg),
+        child: Stack(
         clipBehavior: Clip.none,
         children: [
           if (msg.isMe)
@@ -3866,6 +4121,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
             ),
         ],
       ),
+    ),
     );
   }
 
@@ -3882,10 +4138,23 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     final bool hideRedundantImageLabel = msg.attachmentType == 'image' &&
         (msg.text.trim() == 'Sent an image 🏞️' || msg.text.trim() == 'Sent an image');
 
-    return GestureDetector(
-      onDoubleTap: () => _toggleHeartReaction(msg),
-      onLongPress: () => _showMessageOptionsSheet(msg),
-      child: Stack(
+    return Dismissible(
+      key: ValueKey('swipe_reply_msg_${msg.id}_${msg.time}'),
+      direction: DismissDirection.startToEnd,
+      confirmDismiss: (_) async {
+        HapticFeedback.lightImpact();
+        setState(() => _replyingTo = msg);
+        return false;
+      },
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 16),
+        child: const Icon(Icons.reply_rounded, color: Color(0xff5732BF)),
+      ),
+      child: GestureDetector(
+        onDoubleTap: () => _toggleHeartReaction(msg),
+        onLongPress: () => _showMessageOptionsSheet(msg),
+        child: Stack(
         clipBehavior: Clip.none,
         children: [
           if (msg.isMe)
@@ -4144,6 +4413,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
             ),
         ],
       ),
+    ),
     );
   }
 }

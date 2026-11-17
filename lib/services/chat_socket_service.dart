@@ -35,6 +35,12 @@ class ChatSocketService {
   final _presenceController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get onPresenceUpdate => _presenceController.stream;
 
+  final _onlineUsersController = StreamController<Set<String>>.broadcast();
+  Stream<Set<String>> get onOnlineUsersList => _onlineUsersController.stream;
+
+  final _messageDeletedController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get onMessageDeleted => _messageDeletedController.stream;
+
   // WebRTC Call Signaling Streams (Unified stream with 'type' + dedicated streams)
   final _callSignalController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get onCallSignal => _callSignalController.stream;
@@ -129,6 +135,19 @@ class ChatSocketService {
       }
     });
 
+    _socket!.on('online_users_list', (data) {
+      if (data is Map && data['onlineUserIds'] is List) {
+        final set = (data['onlineUserIds'] as List).map((e) => e.toString()).toSet();
+        _onlineUsersController.add(set);
+      }
+    });
+
+    _socket!.on('message_deleted', (data) {
+      if (data is Map) {
+        _messageDeletedController.add(Map<String, dynamic>.from(data));
+      }
+    });
+
     const callEvents = [
       'call_invite',
       'call_ringing',
@@ -169,6 +188,10 @@ class ChatSocketService {
 
   void stopTyping(int conversationId) {
     _socket?.emit('typing_stop', {'conversationId': conversationId});
+  }
+
+  void requestOnlineUsers() {
+    _socket?.emit('get_online_users');
   }
 
   void sendCallSignal(String eventName, Map<String, dynamic> payload) {

@@ -7,6 +7,7 @@ import 'package:hidely_new/config/call_config.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/chat_socket_service.dart';
+import 'package:hidely_new/services/ringtone_service.dart';
 import 'package:hidely_new/widgets/user_avatar.dart';
 
 class WebRtcCallScreen extends StatefulWidget {
@@ -114,6 +115,9 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
     _initWebRtc();
     _startTimer();
     _startRingingTimeout();
+    if (widget.isOutgoing) {
+      RingtoneService().playOutgoingRingback();
+    }
   }
 
   void _startTimer() {
@@ -329,6 +333,7 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
             break;
 
           case 'call_accept':
+            RingtoneService().stopOutgoingRingback();
             if (event['senderId'] != null) {
               _remoteParticipantId = event['senderId'].toString();
               _flushLocalCandidates();
@@ -705,6 +710,7 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
   void _finishCall({required bool sendHangup, required String reason}) {
     if (_hasEnded) return;
     _hasEnded = true;
+    RingtoneService().stopOutgoingRingback();
     if (sendHangup) {
       ChatSocketService().sendCallSignal('call_hangup', {
         'callId': widget.callId,
@@ -718,6 +724,7 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
 
   @override
   void dispose() {
+    RingtoneService().stopOutgoingRingback();
     _timer?.cancel();
     _ringingTimeoutTimer?.cancel();
     _connectionWatchdog?.cancel();

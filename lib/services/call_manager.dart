@@ -9,6 +9,7 @@ import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'package:hidely_new/services/chat_socket_service.dart';
 import 'package:hidely_new/services/notification_polling_service.dart';
+import 'package:hidely_new/services/ringtone_service.dart';
 
 enum _CallOverlayPhase { none, incoming, active }
 
@@ -161,6 +162,8 @@ class CallManager {
         callerName: callerName.isNotEmpty ? callerName : 'Hidely User',
         callType: callType,
       );
+
+      RingtoneService().playIncomingRingtone();
 
       final incomingSession = _CallSessionState(
         phase: _CallOverlayPhase.incoming,
@@ -335,6 +338,7 @@ class CallManager {
   }
 
   void _acceptIncomingCall(_CallSessionState incoming) {
+    RingtoneService().stopIncomingRingtone();
     final active = incoming.copyWith(phase: _CallOverlayPhase.active, isPipMode: false);
     if (_overlayMounted) {
       _stateNotifier.value = active;
@@ -367,6 +371,7 @@ class CallManager {
   }
 
   void _clearCallSession() {
+    RingtoneService().stopAll();
     NotificationPollingService().cancelIncomingCallNotification();
     _stateNotifier.value = _CallSessionState.empty;
   }

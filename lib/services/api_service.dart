@@ -2034,6 +2034,30 @@ class ApiService {
     }
   }
 
+  /// Delete Message (Delete for Me OR Unsend / Delete for Everyone)
+  Future<ApiResult> deleteChatMessage({
+    required String token,
+    required int messageId,
+    bool unsend = false,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/chat/messages/$messageId');
+      final response = await _client.delete(
+        uri,
+        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+        body: jsonEncode({'unsend': unsend}),
+      ).timeout(const Duration(seconds: 15));
+      final body = jsonDecode(response.body);
+      return ApiResult(
+        success: response.statusCode == 200,
+        message: body['error'] ?? (unsend ? 'Message unsent.' : 'Message deleted.'),
+        data: body is Map<String, dynamic> ? body : null,
+      );
+    } catch (e) {
+      return ApiResult(success: false, message: 'Connection error.', error: e.toString());
+    }
+  }
+
   /// Mark Conversation as Read
   Future<ApiResult> markChatConversationAsRead({required String token, required int conversationId}) async {
     try {
