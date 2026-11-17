@@ -137,11 +137,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           height: double.infinity,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
               colors: [
-                Color(0xff2B1564), // Deep Purple
-                Color(0xff1C0D5A), // Extremely Dark Blue/Violet
+                Color(0xff0D0622),
+                Color(0xff1C0D5A),
+                Color(0xff2B1564),
               ],
             ),
           ),
@@ -160,68 +161,147 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Beautiful soft ambient glow in the center background
+                  // Atmospheric background glowing spheres
+                  Positioned(
+                    top: -60,
+                    right: -60,
+                    child: Container(
+                      width: 240,
+                      height: 240,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xff9333EA).withOpacity(0.18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xff9333EA).withOpacity(0.25),
+                            blurRadius: 90,
+                            spreadRadius: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: -80,
+                    left: -80,
+                    child: Container(
+                      width: 260,
+                      height: 260,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xff3B82F6).withOpacity(0.12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xff3B82F6).withOpacity(0.2),
+                            blurRadius: 100,
+                            spreadRadius: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Center Logo Emblem & Brand
                   Center(
-                    child: Stack(
-                      alignment: Alignment.center,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        // Glassy glowing emblem card
                         Container(
-                          width: 250,
-                          height: 250,
+                          width: 104,
+                          height: 104,
+                          padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(0xff9333EA).withOpacity(0.15),
-                            // Soft blur to act as background light
+                            color: Colors.white.withOpacity(0.08),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.22),
+                              width: 1.5,
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xff9333EA).withOpacity(0.2),
-                                blurRadius: 100,
-                                spreadRadius: 30,
+                                color: const Color(0xff9333EA).withOpacity(0.35),
+                                blurRadius: 36,
+                                spreadRadius: 6,
                               ),
                             ],
                           ),
+                          child: Image.asset(
+                            'assets/images/app_icon.png',
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.explore_rounded,
+                              color: Colors.white,
+                              size: 48,
+                            ),
+                          ),
                         ),
-                        // Logo / Brand Name
+                        const SizedBox(height: 24),
+                        // App Brand Title
                         Image.asset(
                           'assets/images/logo_horizontal.png',
-                          width: 240,
+                          width: 210,
                           fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) => const Text(
+                          errorBuilder: (_, __, ___) => const Text(
                             'HIDELY',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 36,
+                              fontSize: 34,
                               fontWeight: FontWeight.bold,
-                              letterSpacing: 3.5,
+                              letterSpacing: 4.0,
                               fontFamily: 'serif',
                             ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        // Tagline
+                        Text(
+                          'CINEMATIC TRAVEL & DISCOVERY',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.65),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 2.5,
                           ),
                         ),
                       ],
                     ),
                   ),
 
-                  // Content Column
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Spacer(flex: 5),
-
-                      const Spacer(flex: 2),
-
-                      // Status Info Label
-                      Text(
-                        _statusMessage,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.6),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: 0.5,
+                  // Bottom Loading & Status
+                  Positioned(
+                    left: 40,
+                    right: 40,
+                    bottom: 40,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Subtle smooth progress indicator
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: SizedBox(
+                            height: 3,
+                            width: 140,
+                            child: LinearProgressIndicator(
+                              backgroundColor: Colors.white.withOpacity(0.12),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                Color(0xffA855F7),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-
-                      const Spacer(flex: 3),
-                    ],
+                        const SizedBox(height: 14),
+                        Text(
+                          _statusMessage,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.55),
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w400,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

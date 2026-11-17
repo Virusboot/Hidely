@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as socket_io;
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/notification_polling_service.dart';
+import 'package:hidely_new/screens/group_chat_screen.dart';
 
 class ChatSocketService {
   static final ChatSocketService _instance = ChatSocketService._internal();
@@ -98,6 +99,7 @@ class ChatSocketService {
         _newMessageController.add(map);
         final convId = int.tryParse(map['conversation_id']?.toString() ?? '');
         if (convId != null && convId != currentActiveConversationId) {
+          GroupChatScreen.incrementTotalUnreadCount();
           NotificationPollingService().showChatSocketNotification(map);
         }
       }

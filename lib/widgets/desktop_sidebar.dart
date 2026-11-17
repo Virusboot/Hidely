@@ -5,6 +5,7 @@ import 'package:hidely_new/screens/leaderboard_screen.dart';
 import 'package:hidely_new/screens/notification_screen.dart';
 import 'package:hidely_new/screens/settings_and_privacy_screen.dart';
 import 'package:hidely_new/screens/login_screen.dart';
+import 'package:hidely_new/screens/group_chat_screen.dart';
 import 'package:hidely_new/services/auth_service.dart';
 
 class DesktopSidebar extends StatelessWidget {
@@ -241,6 +242,51 @@ class DesktopSidebar extends StatelessWidget {
     required bool isCompact,
   }) {
     final bool isSelected = currentIndex == index;
+    Widget iconWidget = Icon(
+      icon,
+      size: 22,
+      color: isSelected ? const Color(0xff9333EA) : const Color(0xff64748B),
+    );
+
+    if (index == 2) {
+      iconWidget = ValueListenableBuilder<int>(
+        valueListenable: GroupChatScreen.totalUnreadCountNotifier,
+        builder: (context, count, child) {
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              child!,
+              if (count > 0)
+                Positioned(
+                  top: -4,
+                  right: -6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
+                    decoration: BoxDecoration(
+                      color: const Color(0xffEF4444),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      count > 99 ? '99+' : '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        height: 1.0,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+        child: iconWidget,
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Material(
@@ -262,21 +308,41 @@ class DesktopSidebar extends StatelessWidget {
             child: Row(
               mainAxisAlignment: isCompact ? MainAxisAlignment.center : MainAxisAlignment.start,
               children: [
-                Icon(
-                  icon,
-                  size: 22,
-                  color: isSelected ? const Color(0xff9333EA) : const Color(0xff64748B),
-                ),
+                iconWidget,
                 if (!isCompact) ...[
                   const SizedBox(width: 14),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                      color: isSelected ? const Color(0xff2B1564) : const Color(0xff334155),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected ? const Color(0xff2B1564) : const Color(0xff334155),
+                      ),
                     ),
                   ),
+                  if (index == 2)
+                    ValueListenableBuilder<int>(
+                      valueListenable: GroupChatScreen.totalUnreadCountNotifier,
+                      builder: (context, count, _) {
+                        if (count <= 0) return const SizedBox.shrink();
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xffEF4444),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            count > 99 ? '99+' : '$count',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                 ],
               ],
             ),

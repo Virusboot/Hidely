@@ -1044,7 +1044,9 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => const NearbyStaysScreen(),
+                                        builder: (context) => NearbyStaysScreen(
+                                          locationName: widget.location.isNotEmpty ? widget.location : widget.title,
+                                        ),
                                       ),
                                     );
                                   },

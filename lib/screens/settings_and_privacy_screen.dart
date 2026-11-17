@@ -1,6 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/auth_service.dart';
 import 'main_wrapper.dart';
@@ -374,6 +378,36 @@ class _SettingsAndPrivacyScreenState
     ];
   }
 
+  Future<void> _downloadArchiveFile(String jsonData) async {
+    try {
+      if (kIsWeb) {
+        await Share.shareXFiles(
+          [
+            XFile.fromData(
+              Uint8List.fromList(utf8.encode(jsonData)),
+              mimeType: 'application/json',
+              name: 'hidely_data_archive.json',
+            )
+          ],
+          subject: 'Hidely Data Archive',
+        );
+      } else {
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/hidely_data_archive.json');
+        await file.writeAsString(jsonData);
+        await Share.shareXFiles(
+          [XFile(file.path, mimeType: 'application/json', name: 'hidely_data_archive.json')],
+          subject: 'Hidely Data Archive',
+        );
+      }
+      _showSnack('Data archive file downloaded successfully.');
+    } catch (e) {
+      debugPrint('Download archive file error: $e');
+      Clipboard.setData(ClipboardData(text: jsonData));
+      _showSnack('Data archive JSON copied to clipboard.');
+    }
+  }
+
   Future<void> _handleDownloadMyData() async {
     final token = AuthService().token ?? '';
     if (AuthService().isGuest || token.isEmpty) {
@@ -453,6 +487,19 @@ class _SettingsAndPrivacyScreenState
           ),
         ),
         actions: [
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _downloadArchiveFile(prettyJson);
+            },
+            icon: const Icon(Icons.download_rounded, size: 18),
+            label: const Text('Download Archive File'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xff2B1564),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
           TextButton(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: prettyJson));

@@ -11,10 +11,13 @@ import 'package:hidely_new/screens/map_discovery_screen.dart';
 import 'package:hidely_new/screens/main_wrapper.dart';
 import 'package:hidely_new/screens/feed_screen.dart';
 import 'package:hidely_new/screens/stay_detail_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NearbyStaysScreen extends StatefulWidget {
   final String? locationName;
-  const NearbyStaysScreen({super.key, this.locationName});
+  final double? latitude;
+  final double? longitude;
+  const NearbyStaysScreen({super.key, this.locationName, this.latitude, this.longitude});
 
   @override
   State<NearbyStaysScreen> createState() => _NearbyStaysScreenState();
@@ -42,10 +45,10 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
     try {
       setState(() => _isLoading = true);
       const apiKey = AppConstants.googleMapsApiKey;
-      double lat = 0.0;
-      double lng = 0.0;
+      double lat = widget.latitude ?? 0.0;
+      double lng = widget.longitude ?? 0.0;
 
-      if (widget.locationName != null && widget.locationName!.isNotEmpty) {
+      if ((lat == 0.0 && lng == 0.0) && widget.locationName != null && widget.locationName!.isNotEmpty) {
         final geocodeUrl = (kIsWeb || apiKey.isEmpty)
             ? Uri.parse('${ApiService().baseUrl}/api/map/geocode?address=${Uri.encodeComponent(widget.locationName!)}')
             : Uri.parse(
@@ -64,25 +67,35 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
         }
       }
 
-      // If geocoding failed or no location name was provided, fallback to GPS
+      // If geocoding failed or no location name was provided, fallback to cached GPS or active GPS
       if (lat == 0.0 && lng == 0.0) {
-        try {
-          var permission = await Geolocator.checkPermission();
-          if (permission == LocationPermission.denied) {
-            permission = await Geolocator.requestPermission();
+        final prefs = await SharedPreferences.getInstance();
+        final cachedLat = prefs.getDouble('last_known_gps_lat');
+        final cachedLng = prefs.getDouble('last_known_gps_lng');
+        if (cachedLat != null && cachedLng != null) {
+          lat = cachedLat;
+          lng = cachedLng;
+        } else {
+          try {
+            var permission = await Geolocator.checkPermission();
+            if (permission == LocationPermission.denied) {
+              permission = await Geolocator.requestPermission();
+            }
+            if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+              final pos = await Geolocator.getCurrentPosition(
+                locationSettings: const LocationSettings(
+                  accuracy: LocationAccuracy.medium,
+                  timeLimit: Duration(seconds: 8),
+                ),
+              );
+              lat = pos.latitude;
+              lng = pos.longitude;
+              await prefs.setDouble('last_known_gps_lat', lat);
+              await prefs.setDouble('last_known_gps_lng', lng);
+            }
+          } catch (e) {
+            debugPrint('[NearbyStays] GPS error: $e');
           }
-          if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-            final pos = await Geolocator.getCurrentPosition(
-              locationSettings: const LocationSettings(
-                accuracy: LocationAccuracy.medium,
-                timeLimit: Duration(seconds: 5),
-              ),
-            );
-            lat = pos.latitude;
-            lng = pos.longitude;
-          }
-        } catch (e) {
-          debugPrint('[NearbyStays] GPS error: $e');
         }
 
         // Resilient fallback coordinates if GPS is disabled or unavailable
@@ -93,16 +106,16 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
       }
 
       final restaurantUrl = (kIsWeb || apiKey.isEmpty)
-          ? Uri.parse('${ApiService().baseUrl}/api/map/places/nearby?location=$lat,$lng&radius=20000&type=restaurant')
+          ? Uri.parse('${ApiService().baseUrl}/api/map/places/nearby?location=$lat,$lng&radius=50000&type=restaurant')
           : Uri.parse(
               'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-              '?location=$lat,$lng&radius=20000&type=restaurant&key=$apiKey'
+              '?location=$lat,$lng&radius=50000&type=restaurant&key=$apiKey'
             );
       final hotelUrl = (kIsWeb || apiKey.isEmpty)
-          ? Uri.parse('${ApiService().baseUrl}/api/map/places/nearby?location=$lat,$lng&radius=20000&type=lodging')
+          ? Uri.parse('${ApiService().baseUrl}/api/map/places/nearby?location=$lat,$lng&radius=50000&type=lodging')
           : Uri.parse(
               'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-              '?location=$lat,$lng&radius=20000&type=lodging&key=$apiKey'
+              '?location=$lat,$lng&radius=50000&type=lodging&key=$apiKey'
             );
 
       final responses = await Future.wait([
@@ -185,6 +198,43 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
         }
       }
 
+      // Fallback: If Google Places returned 0 stays, load creator stays from backend
+      if (liveStays.isEmpty) {
+        try {
+          final expRes = await ApiService().getExplorePosts(search: 'hotel');
+          final posts = expRes.data?['posts'] as List? ?? [];
+          for (final p in posts) {
+            final pLat = double.tryParse(p['latitude']?.toString() ?? '');
+            final pLng = double.tryParse(p['longitude']?.toString() ?? '');
+            if (pLat != null && pLng != null && lat != 0.0 && lng != 0.0) {
+              final double dLat = (pLat - lat) * 111.12;
+              final double dLng = (pLng - lng) * 111.12 * cos(lat * 3.14159 / 180.0);
+              final double dist = sqrt(dLat * dLat + dLng * dLng);
+              if (dist <= 100.0) {
+                String img = p['image_url'] ?? '';
+                if (img.isNotEmpty && !img.startsWith('http')) {
+                  img = '${ApiService().baseUrl}/${img.startsWith('/') ? img.substring(1) : img}';
+                }
+                liveStays.add({
+                  "title": p['caption'] ?? p['location'] ?? 'Scenic Retreat',
+                  "category": "Hotels",
+                  "distance": "${dist.toStringAsFixed(1)} KM AWAY",
+                  "rating": "4.8",
+                  "reviews": "(Verified by Creator)",
+                  "description": p['location'] ?? 'Serene stay recommended by travelers.',
+                  "image": img.isNotEmpty ? img : 'assets/images/background.jpg',
+                  "images": [img.isNotEmpty ? img : 'assets/images/background.jpg'],
+                  "tag": "HOTEL",
+                  "isFavorite": false,
+                  "latitude": pLat,
+                  "longitude": pLng,
+                });
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
       if (mounted) {
         setState(() {
           _allStays.clear();
@@ -208,7 +258,7 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
   }
 
 
-  double _maxDistance = 10.0;
+  double _maxDistance = 100.0;
 
   void _filterStays() {
     setState(() {
@@ -220,7 +270,7 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
       }
 
       // Distance threshold filter
-      if (_maxDistance < 10.0) {
+      if (_maxDistance < 100.0) {
         results = results.where((stay) {
           final distanceStr = stay["distance"]?.toString() ?? "";
           final distanceVal = double.tryParse(distanceStr.split(' ')[0]) ?? 0.0;

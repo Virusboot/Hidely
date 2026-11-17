@@ -14,6 +14,8 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:hidely_new/services/upload_quality_service.dart';
+import 'package:hidely_new/screens/creator_profile_screen.dart';
+import 'package:hidely_new/screens/user_profile_screen.dart';
 
 /// Trip Itinerary Details Model for Groups
 class TripItineraryData {
@@ -137,8 +139,34 @@ class ChatMessage {
 
 class GroupChatScreen extends StatefulWidget {
   static final ValueNotifier<bool> isChatRoomOpen = ValueNotifier<bool>(false);
+  static final ValueNotifier<int> totalUnreadCountNotifier = ValueNotifier<int>(0);
   static dynamic activeState;
   static ChatItem? pendingOpenChat;
+
+  static void incrementTotalUnreadCount() {
+    totalUnreadCountNotifier.value += 1;
+  }
+
+  static void recalculateUnreadCount(List<ChatItem> chats) {
+    int count = 0;
+    for (final c in chats) {
+      count += c.unreadCount;
+    }
+    totalUnreadCountNotifier.value = count;
+  }
+
+  static void updateFromConversations(List<dynamic> conversations) {
+    int total = 0;
+    for (final conv in conversations) {
+      if (conv is Map) {
+        final unread = conv['unread_count'] is int
+            ? conv['unread_count'] as int
+            : int.tryParse('${conv['unread_count'] ?? 0}') ?? 0;
+        total += unread;
+      }
+    }
+    totalUnreadCountNotifier.value = total;
+  }
 
   static void clearSessionCache() {
     _GroupChatScreenState._allChats.clear();
@@ -146,6 +174,7 @@ class GroupChatScreen extends StatefulWidget {
     _GroupChatScreenState._cacheOwnerUserId = null;
     pendingOpenChat = null;
     isChatRoomOpen.value = false;
+    totalUnreadCountNotifier.value = 0;
   }
 
   static void openOrQueueDirectChat(ChatItem chat) {
@@ -308,6 +337,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             }
             _allChats.insert(0, item);
           });
+          GroupChatScreen.recalculateUnreadCount(_allChats);
         }
       } else {
         _loadConversations();
@@ -482,6 +512,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             }
           }
         });
+        GroupChatScreen.recalculateUnreadCount(_allChats);
       }
     }
   }
@@ -621,6 +652,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       _activeChat = chat;
       GroupChatScreen.isChatRoomOpen.value = true;
     });
+    GroupChatScreen.recalculateUnreadCount(_allChats);
   }
 
   void _closeChat() {
@@ -2859,6 +2891,56 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     );
   }
 
+  void _openUserProfile(String? username, {String? userId}) {
+    final clean = (username ?? '').replaceFirst(RegExp(r'^@+'), '').trim();
+    if (clean.isEmpty) return;
+    final myHandle = (AuthService().userUsername).replaceFirst(RegExp(r'^@+'), '').trim().toLowerCase();
+    if (clean.toLowerCase() == myHandle) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const UserProfileScreen()),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CreatorProfileScreen(
+            username: clean,
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildStatusIndicator(ChatMessage msg, {bool forMedia = false}) {
+    final parsedId = int.tryParse(msg.id);
+    final bool isSeen = parsedId != null && parsedId <= _peerLastReadMsgId;
+    final bool isDelivered = _isTargetOnline || widget.chat.isOnline;
+
+    if (isSeen) {
+      // Seen: double blue tick
+      return const Icon(
+        Icons.done_all_rounded,
+        size: 14,
+        color: Color(0xFF60A5FA),
+      );
+    } else if (isDelivered) {
+      // Delivered: double grey tick
+      return Icon(
+        Icons.done_all_rounded,
+        size: 14,
+        color: forMedia ? Colors.white70 : Colors.white60,
+      );
+    } else {
+      // Sent: single tick
+      return Icon(
+        Icons.check_rounded,
+        size: 13,
+        color: forMedia ? Colors.white70 : Colors.white60,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2872,60 +2954,64 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
           icon: Image.asset('assets/images/back_icon.png', color: const Color(0xff1C0D5A), width: 22.0, height: 22.0),
           onPressed: widget.onBack,
         ),
-        title: Row(
-          children: [
-            UserAvatar(
-              avatarUrl: _normalizeChatAvatar(widget.chat.avatar),
-              displayName: widget.chat.name,
-              radius: 18,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          widget.chat.name,
-                          style: const TextStyle(
-                            fontFamily: 'PublicSans',
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xff1C0D5A),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (widget.chat.isOfficial) ...[
-                        const SizedBox(width: 4),
-                        const Icon(Icons.verified_rounded, color: Color(0xff2563EB), size: 15),
-                      ],
-                    ],
-                  ),
-                  Text(
-                    _isOtherUserTyping
-                        ? 'typing... 💬'
-                        : widget.chat.isGroup
-                            ? '${widget.chat.memberCount ?? 1} Travelers • ${widget.chat.destination ?? ''}'
-                            : (_isTargetOnline || widget.chat.isOnline)
-                                ? 'Active Now 🟢'
-                                : 'Offline',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'PublicSans',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: _isOtherUserTyping ? const Color(0xff2563EB) : widget.chat.themeColor,
-                    ),
-                  ),
-                ],
+        title: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _openUserProfile(widget.chat.targetUsername ?? widget.chat.name, userId: widget.chat.targetUserId),
+          child: Row(
+            children: [
+              UserAvatar(
+                avatarUrl: _normalizeChatAvatar(widget.chat.avatar),
+                displayName: widget.chat.name,
+                radius: 18,
               ),
-            ),
-          ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            widget.chat.name,
+                            style: const TextStyle(
+                              fontFamily: 'PublicSans',
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xff1C0D5A),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (widget.chat.isOfficial) ...[
+                          const SizedBox(width: 4),
+                          const Icon(Icons.verified_rounded, color: Color(0xff2563EB), size: 15),
+                        ],
+                      ],
+                    ),
+                    Text(
+                      _isOtherUserTyping
+                          ? 'typing... 💬'
+                          : widget.chat.isGroup
+                              ? '${widget.chat.memberCount ?? 1} Travelers • ${widget.chat.destination ?? ''}'
+                              : (_isTargetOnline || widget.chat.isOnline)
+                                  ? 'Active Now 🟢'
+                                  : 'Offline',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'PublicSans',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _isOtherUserTyping ? const Color(0xff2563EB) : widget.chat.themeColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           IconButton(
@@ -3442,62 +3528,61 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     return GestureDetector(
       onTap: widget.chat.isGroup ? null : () => _showCallingDialog(isVideo),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isMe
-              ? Colors.white.withValues(alpha: 0.14)
-              : const Color(0xffF1F5F9),
-          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xffE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isMissed
-                    ? const Color(0xffEF4444).withValues(alpha: isMe ? 0.28 : 0.14)
-                    : (isMe
-                        ? Colors.white.withValues(alpha: 0.2)
-                        : const Color(0xff2B1564).withValues(alpha: 0.1)),
+                    ? const Color(0xffEF4444).withOpacity(0.12)
+                    : const Color(0xff2B1564).withOpacity(0.08),
               ),
               child: Icon(
                 isVideo ? Icons.videocam_rounded : Icons.call_rounded,
-                size: 18,
-                color: isMissed
-                    ? (isMe ? const Color(0xffFCA5A5) : const Color(0xffDC2626))
-                    : (isMe ? Colors.white : const Color(0xff2B1564)),
+                size: 17,
+                color: isMissed ? const Color(0xffDC2626) : const Color(0xff2B1564),
               ),
             ),
             const SizedBox(width: 10),
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    cleanLabel,
-                    style: TextStyle(
-                      fontFamily: 'PublicSans',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: isMe ? Colors.white : const Color(0xff1C0D5A),
-                    ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  cleanLabel,
+                  style: TextStyle(
+                    fontFamily: 'PublicSans',
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: isMissed ? const Color(0xffDC2626) : const Color(0xff1C0D5A),
                   ),
-                  if (!widget.chat.isGroup)
-                    Text(
-                      'Tap to call back',
-                      style: TextStyle(
-                        fontFamily: 'PublicSans',
-                        fontSize: 11,
-                        color: isMe ? Colors.white70 : Colors.black54,
-                      ),
-                    ),
-                ],
-              ),
+                ),
+                Text(
+                  widget.chat.isGroup ? msg.time : 'Tap to call back • ${msg.time}',
+                  style: const TextStyle(
+                    fontFamily: 'PublicSans',
+                    fontSize: 10.5,
+                    color: Colors.black45,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -3606,7 +3691,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                 ),
               ),
             ),
-          // Subtle Instagram translucent timestamp pill
+          // Subtle Instagram translucent timestamp pill with status ticks
           Positioned(
             bottom: 8,
             right: 8,
@@ -3616,14 +3701,23 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                 color: Colors.black.withOpacity(0.52),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Text(
-                msg.time,
-                style: const TextStyle(
-                  fontFamily: 'PublicSans',
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    msg.time,
+                    style: const TextStyle(
+                      fontFamily: 'PublicSans',
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                  if (msg.isMe) ...[
+                    const SizedBox(width: 4),
+                    _buildStatusIndicator(msg, forMedia: true),
+                  ],
+                ],
               ),
             ),
           ),
@@ -3776,10 +3870,15 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
   }
 
   Widget _buildMessageBubble(ChatMessage msg, {bool showSeen = false}) {
+    final bool isCallLog = _isCallLogMessage(msg);
+    if (isCallLog) {
+      return Center(
+        child: _buildCallLogPill(msg, isMe: msg.isMe),
+      );
+    }
     if (msg.attachmentType == 'image' || msg.attachmentType == 'video') {
       return _buildInstagramMediaBubble(msg, showSeen: showSeen);
     }
-    final bool isCallLog = _isCallLogMessage(msg);
     final bool hideRedundantImageLabel = msg.attachmentType == 'image' &&
         (msg.text.trim() == 'Sent an image 🏞️' || msg.text.trim() == 'Sent an image');
 
@@ -3813,9 +3912,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                         _buildReplyQuote(msg, isMe: true),
                         _buildImageAttachment(msg),
                         _buildVoiceAttachment(msg, isMe: true),
-                        if (isCallLog)
-                          _buildCallLogPill(msg, isMe: true)
-                        else if (!hideRedundantImageLabel)
+                        if (!hideRedundantImageLabel)
                           Text(
                             msg.text,
                             style: const TextStyle(
@@ -3825,13 +3922,20 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                             ),
                           ),
                         const SizedBox(height: 4),
-                        Text(
-                          msg.time,
-                          style: TextStyle(
-                            fontFamily: 'PublicSans',
-                            fontSize: 11,
-                            color: Colors.white.withOpacity(0.7),
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              msg.time,
+                              style: TextStyle(
+                                fontFamily: 'PublicSans',
+                                fontSize: 11,
+                                color: Colors.white.withOpacity(0.7),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            _buildStatusIndicator(msg),
+                          ],
                         ),
                       ],
                     ),
@@ -3860,10 +3964,13 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    UserAvatar(
-                      avatarUrl: _normalizeChatAvatar(msg.senderAvatar),
-                      displayName: msg.senderName,
-                      radius: 16,
+                    GestureDetector(
+                      onTap: () => _openUserProfile(widget.chat.isGroup ? msg.senderName : (widget.chat.targetUsername ?? msg.senderName)),
+                      child: UserAvatar(
+                        avatarUrl: _normalizeChatAvatar(msg.senderAvatar),
+                        displayName: msg.senderName,
+                        radius: 16,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Flexible(
@@ -3886,16 +3993,19 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Flexible(
-                                  child: Text(
-                                    msg.senderName,
-                                    style: const TextStyle(
-                                      fontFamily: 'PublicSans',
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xff1C0D5A),
+                                  child: GestureDetector(
+                                    onTap: () => _openUserProfile(widget.chat.isGroup ? msg.senderName : (widget.chat.targetUsername ?? msg.senderName)),
+                                    child: Text(
+                                      msg.senderName,
+                                      style: const TextStyle(
+                                        fontFamily: 'PublicSans',
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xff1C0D5A),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 if (msg.isHost != null) ...[
@@ -3924,9 +4034,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                             _buildImageAttachment(msg),
                             _buildVoiceAttachment(msg, isMe: false),
                             const SizedBox(height: 4),
-                            if (isCallLog)
-                              _buildCallLogPill(msg, isMe: false)
-                            else if (!hideRedundantImageLabel)
+                            if (!hideRedundantImageLabel)
                               Text(
                                 msg.text,
                                 style: const TextStyle(

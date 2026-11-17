@@ -81,29 +81,62 @@ class PrivacyPolicyScreen extends StatelessWidget {
                 // Scrollable Content
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 16.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 14.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          "Privacy Policy",
-                          style: TextStyle(
-                            color: Color(0xff1C0D5A),
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -0.5,
+                        // Help Center Style Header Card
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xff2B1564), Color(0xff4B2D8E)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xff2B1564).withOpacity(0.18),
+                                blurRadius: 16,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Privacy Policy",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                "Learn how Hidely collects, uses, and protects your personal data and travel memories.",
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                  height: 1.4,
+                                ),
+                              ),
+                              SizedBox(height: 10),
+                              Text(
+                                "Last updated: November 2026",
+                                style: TextStyle(
+                                  color: Colors.white60,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "Last updated: November 2026",
-                          style: TextStyle(
-                            color: const Color(0xff1C0D5A).withOpacity(0.5),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 25),
+                        const SizedBox(height: 20),
                         _buildSectionHeader("1. Eligibility & Age Limit (18+)"),
                         _buildSectionBody(
                           "Hidely is strictly intended for individuals aged 18 years and older. By creating an account, you confirm that you are an adult aged 18+ under the Digital Personal Data Protection Act, 2023 (DPDP Act). We do not knowingly collect data from minors; any underage account will be suspended and permanently erased.",

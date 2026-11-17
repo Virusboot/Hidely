@@ -236,6 +236,9 @@ class _NotificationScreenState extends State<NotificationScreen>
       } else {
         _fadeController.value = 1.0;
       }
+
+      // Immediately clear unread notification counter on viewing notifications
+      _markAllAsReadSilently();
     } else {
       final errText = (notifResult.error ?? notifResult.message).toLowerCase();
       final bool expired = notifResult.isUnauthorized ||
@@ -285,6 +288,25 @@ class _NotificationScreenState extends State<NotificationScreen>
         _followingUserIds.addAll(updatedFollowing);
       });
     }
+  }
+
+  Future<void> _markAllAsReadSilently() async {
+    final token = AuthService().token ?? '';
+    if (token.isEmpty) return;
+    NotificationPollingService().unreadCountNotifier.value = 0;
+    try {
+      final result = await ApiService().markNotificationsAsRead(token: token);
+      if (result.success && mounted) {
+        setState(() {
+          for (var n in _notifications) {
+            if (n is Map) {
+              n['is_read'] = true;
+            }
+          }
+        });
+        NotificationPollingService().unreadCountNotifier.value = 0;
+      }
+    } catch (_) {}
   }
 
   Future<void> _markAllAsRead() async {

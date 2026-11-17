@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/local_storage_service.dart';
 import '../../data/models/nearby_place.dart';
 import '../../data/models/route_data.dart';
@@ -194,18 +195,39 @@ final locationSettingsProvider = Provider<LocationSettings>((ref) {
 });
 
 final userLocationStreamProvider = StreamProvider<LatLng>((ref) async* {
+  LatLng? initialLoc;
+
+  // 1. Immediately yield cached GPS coordinates from SharedPreferences so map never jumps to Delhi
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final cachedLat = prefs.getDouble('last_known_gps_lat');
+    final cachedLng = prefs.getDouble('last_known_gps_lng');
+    if (cachedLat != null && cachedLng != null) {
+      initialLoc = LatLng(cachedLat, cachedLng);
+      yield initialLoc;
+    }
+  } catch (_) {}
+
   // Check permission
   LocationPermission permission = await Geolocator.checkPermission();
   if (permission == LocationPermission.denied) {
     permission = await Geolocator.requestPermission();
     if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-      yield const LatLng(28.6139, 77.2090); // Fallback to New Delhi, India
+      if (initialLoc != null) {
+        yield initialLoc;
+      } else {
+        yield const LatLng(28.6139, 77.2090);
+      }
       return;
     }
   }
 
   if (permission == LocationPermission.deniedForever) {
-    yield const LatLng(28.6139, 77.2090);
+    if (initialLoc != null) {
+      yield initialLoc;
+    } else {
+      yield const LatLng(28.6139, 77.2090);
+    }
     return;
   }
 
@@ -216,18 +238,28 @@ final userLocationStreamProvider = StreamProvider<LatLng>((ref) async* {
     debugPrint("Geolocator service check failed: $e");
   }
   if (!serviceEnabled) {
-    yield const LatLng(28.6139, 77.2090);
+    if (initialLoc != null) {
+      yield initialLoc;
+    } else {
+      yield const LatLng(28.6139, 77.2090);
+    }
     return;
   }
 
-  // Get current position initially
-  LatLng? initialLoc;
+  // Get last known position initially
   if (!kIsWeb) {
     try {
       final Position? lastKnown = await Geolocator.getLastKnownPosition();
       if (lastKnown != null) {
-        initialLoc = LatLng(lastKnown.latitude, lastKnown.longitude);
-        yield initialLoc;
+        final loc = LatLng(lastKnown.latitude, lastKnown.longitude);
+        if (loc != initialLoc) {
+          initialLoc = loc;
+          yield initialLoc;
+          SharedPreferences.getInstance().then((p) {
+            p.setDouble('last_known_gps_lat', lastKnown.latitude);
+            p.setDouble('last_known_gps_lng', lastKnown.longitude);
+          });
+        }
       }
     } catch (e) {
       debugPrint('[GPS Shift] Last known position failed: $e');
@@ -238,21 +270,22 @@ final userLocationStreamProvider = StreamProvider<LatLng>((ref) async* {
     final settings = ref.read(locationSettingsProvider);
     final Position position = await Geolocator.getCurrentPosition(
       locationSettings: settings,
-    ).timeout(const Duration(seconds: 5));
+    ).timeout(const Duration(seconds: 12));
     final currentLoc = LatLng(position.latitude, position.longitude);
     if (currentLoc != initialLoc) {
       initialLoc = currentLoc;
       debugPrint('[GPS Shift] Initial user location: Lat: ${initialLoc.latitude}, Lng: ${initialLoc.longitude}');
       yield initialLoc;
+      SharedPreferences.getInstance().then((p) {
+        p.setDouble('last_known_gps_lat', position.latitude);
+        p.setDouble('last_known_gps_lng', position.longitude);
+      });
     }
   } catch (e) {
-    // If GPS failed/timed out, and user is stuck on default Cupertino simulator location,
-    // fallback defensively to New Delhi, India so routing works in developer's local region.
-    final bool isCupertino = initialLoc != null &&
-        (initialLoc.latitude >= 37.32 && initialLoc.latitude <= 37.34) &&
-        (initialLoc.longitude >= -122.04 && initialLoc.longitude <= -122.02);
-    if (initialLoc == null || isCupertino) {
-      debugPrint('[GPS Shift] GPS failed/timed out on Cupertino coordinates, yielding New Delhi.');
+    debugPrint('[GPS Shift] Current position fetch notice: $e');
+    if (initialLoc != null) {
+      yield initialLoc;
+    } else {
       yield const LatLng(28.6139, 77.2090);
     }
   }
@@ -260,7 +293,10 @@ final userLocationStreamProvider = StreamProvider<LatLng>((ref) async* {
   final settings = ref.watch(locationSettingsProvider);
   yield* Geolocator.getPositionStream(locationSettings: settings).map((Position position) {
     final newLoc = LatLng(position.latitude, position.longitude);
-    debugPrint('[GPS Shift] User location updated: Lat: ${newLoc.latitude}, Lng: ${newLoc.longitude}');
+    SharedPreferences.getInstance().then((p) {
+      p.setDouble('last_known_gps_lat', position.latitude);
+      p.setDouble('last_known_gps_lng', position.longitude);
+    });
     return newLoc;
   });
 });

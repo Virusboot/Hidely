@@ -1964,7 +1964,7 @@ class ApiService {
       if (mediaBytes != null && mediaBytes.isNotEmpty) {
         final filename = mediaFilename ?? (type == 'voice' ? 'voice_note.m4a' : 'upload_${DateTime.now().millisecondsSinceEpoch}.jpg');
         final ext = filename.contains('.') ? filename.split('.').last.toLowerCase() : (type == 'voice' ? 'm4a' : 'jpg');
-        final isAudio = type == 'voice' || ['m4a', 'mp3', 'wav', 'aac', 'ogg', 'opus', 'caf'].contains(ext);
+        final isAudio = type == 'voice' || ['m4a', 'mp3', 'wav', 'aac', 'ogg', 'opus', 'caf', 'webm', 'weba', '3gp'].contains(ext);
         final isVideo = ['mp4', 'mov', 'avi', 'mkv', 'mpeg'].contains(ext);
         
         final mediaCat = isAudio ? 'audio' : (isVideo ? 'video' : 'image');
@@ -1980,7 +1980,7 @@ class ApiService {
         );
       } else if (mediaFile != null && !kIsWeb) {
         final ext = mediaFile.path.contains('.') ? mediaFile.path.split('.').last.toLowerCase() : 'jpg';
-        final isAudio = type == 'voice' || ['m4a', 'mp3', 'wav', 'aac', 'ogg', 'opus', 'caf'].contains(ext);
+        final isAudio = type == 'voice' || ['m4a', 'mp3', 'wav', 'aac', 'ogg', 'opus', 'caf', 'webm', 'weba', '3gp'].contains(ext);
         final isVideo = ['mp4', 'mov', 'avi', 'mkv', 'mpeg'].contains(ext);
         
         final mediaCat = isAudio ? 'audio' : (isVideo ? 'video' : 'image');

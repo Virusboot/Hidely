@@ -535,6 +535,10 @@ class _FeedScreenState extends State<FeedScreen> {
                                       ),
                                       GestureDetector(
                                         onTap: () {
+                                          NotificationPollingService().unreadCountNotifier.value = 0;
+                                          if (mounted) {
+                                            setState(() => _unreadNotificationCount = 0);
+                                          }
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(

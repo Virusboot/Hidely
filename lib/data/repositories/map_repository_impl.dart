@@ -282,6 +282,10 @@ class MapRepositoryImpl implements MapRepository {
                     ? post['canonical_name'] as String
                     : 'Hidden Place');
             double distM = _calculateHaversineDistance(lat, lng, coords.latitude, coords.longitude);
+            // Enforce 100 KM radius filter for nearby spots when not doing an explicit text search
+            if ((query == null || query.trim().isEmpty) && distM > 100000) {
+              continue;
+            }
             final String distanceText = distM < 1000
                 ? '${distM.round()}m'
                 : '${(distM / 1000.0).toStringAsFixed(1)}km';
@@ -528,6 +532,9 @@ class MapRepositoryImpl implements MapRepository {
             // Cache to Isar
             await _syncPlacesToIsar(allParsedPlaces);
             return _filterPlacesLocally(allParsedPlaces, category, query, skipQueryFilter: true);
+          } else if (creatorPlaces.isNotEmpty) {
+            await _syncPlacesToIsar(creatorPlaces);
+            return _filterPlacesLocally(creatorPlaces, category, query, skipQueryFilter: true);
           }
         } catch (e) {
           debugPrint('[Repository] Google Places Nearby search failed: $e. Falling back to local cache.');
@@ -641,7 +648,9 @@ class MapRepositoryImpl implements MapRepository {
           place.name.toLowerCase().contains(query.toLowerCase()) ||
           place.description.toLowerCase().contains(query.toLowerCase());
 
-      return matchesCategory && matchesQuery;
+      final isNearEnough = (query != null && query.trim().isNotEmpty) || place.distanceM <= 100000;
+
+      return matchesCategory && matchesQuery && isNearEnough;
     }).toList();
   }
 

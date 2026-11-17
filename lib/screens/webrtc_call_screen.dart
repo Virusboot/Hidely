@@ -48,6 +48,7 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
   bool _micEnabled = true;
   late bool _camEnabled;
   late bool _speakerEnabled;
+  bool _isFrontCamera = true;
   bool _remoteMicEnabled = true;
   bool _remoteCamEnabled = true;
   bool _isRemoteRinging = false;
@@ -194,7 +195,16 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
   }
 
   void _applySpeakerphone() {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      try {
+        _remoteStream?.getAudioTracks().forEach((track) {
+          track.enabled = _speakerEnabled;
+        });
+      } catch (e) {
+        debugPrint('[WebRtcCallScreen] Web speaker toggle notice: $e');
+      }
+      return;
+    }
     try {
       Helper.setSpeakerphoneOn(_speakerEnabled);
     } catch (e) {
@@ -648,12 +658,47 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
   }
 
   Future<void> _switchCamera() async {
-    if (_localStream == null || widget.callType != 'video' || kIsWeb) return;
+    if (_localStream == null || widget.callType != 'video') return;
     final videoTrack = _localStream!.getVideoTracks().firstOrNull;
-    if (videoTrack != null) {
-      try {
-        await Helper.switchCamera(videoTrack);
-      } catch (_) {}
+    if (videoTrack == null) return;
+
+    try {
+      await Helper.switchCamera(videoTrack);
+      _isFrontCamera = !_isFrontCamera;
+    } catch (e) {
+      debugPrint('[WebRtcCallScreen] Helper.switchCamera notice: $e');
+      if (kIsWeb) {
+        try {
+          _isFrontCamera = !_isFrontCamera;
+          final newFacingMode = _isFrontCamera ? 'user' : 'environment';
+          final newStream = await navigator.mediaDevices.getUserMedia({
+            'audio': false,
+            'video': {
+              'facingMode': newFacingMode,
+              'width': {'ideal': 1280},
+              'height': {'ideal': 720},
+            },
+          });
+          final newVideoTrack = newStream.getVideoTracks().firstOrNull;
+          if (newVideoTrack != null) {
+            if (_peerConnection != null) {
+              final senders = await _peerConnection!.getSenders();
+              for (final sender in senders) {
+                if (sender.track?.kind == 'video') {
+                  await sender.replaceTrack(newVideoTrack);
+                }
+              }
+            }
+            _localStream!.removeTrack(videoTrack);
+            videoTrack.stop();
+            _localStream!.addTrack(newVideoTrack);
+            _localRenderer.srcObject = _localStream;
+            if (mounted) setState(() {});
+          }
+        } catch (webErr) {
+          debugPrint('[WebRtcCallScreen] Web camera switch fallback notice: $webErr');
+        }
+      }
     }
   }
 

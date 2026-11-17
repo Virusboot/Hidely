@@ -8,6 +8,7 @@ import 'package:hidely_new/screens/explore_screen.dart';
 import 'package:hidely_new/screens/user_profile_screen.dart';
 import 'package:hidely_new/screens/login_screen.dart';
 import 'package:hidely_new/services/auth_service.dart';
+import 'package:hidely_new/services/api_service.dart';
 import 'package:hidely_new/services/call_manager.dart';
 import 'package:hidely_new/widgets/desktop_sidebar.dart';
 import 'package:hidely_new/widgets/right_discovery_panel.dart';
@@ -48,6 +49,14 @@ class MainWrapperState extends State<MainWrapper> {
       CallManager().ensureInitialized();
       AuthService().syncBlockedUsersFromServer();
       AuthService().syncTagMentionSettingsFromServer();
+      final token = AuthService().token ?? '';
+      if (token.isNotEmpty) {
+        ApiService().getChatConversations(token: token).then((res) {
+          if (res.success && res.data?['conversations'] is List) {
+            GroupChatScreen.updateFromConversations(res.data!['conversations'] as List);
+          }
+        });
+      }
     }
     if (kIsWeb) {
       final path = AppRoutes.pathForTab(_currentIndex);
@@ -234,33 +243,77 @@ class MainWrapperState extends State<MainWrapper> {
     );
   }
 
-  /// Nav icon builder using local assets or IconData
+  /// Nav icon builder using local assets or IconData with unread count badge support
   Widget _buildNavIcon({String? assetPath, IconData? iconData, required int index}) {
     final bool isSelected = _currentIndex == index;
+    Widget icon = Container(
+      width: 42,
+      height: 42,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: isSelected ? const Color(0xffE2DCF7) : Colors.transparent,
+        shape: BoxShape.circle,
+      ),
+      child: assetPath != null
+          ? Image.asset(
+              assetPath,
+              width: 22,
+              height: 22,
+              color: isSelected ? const Color(0xff361976) : Colors.black38,
+            )
+          : Icon(
+              iconData,
+              size: 22,
+              color: isSelected ? const Color(0xff361976) : Colors.black38,
+            ),
+    );
+
+    if (index == 2) {
+      icon = ValueListenableBuilder<int>(
+        valueListenable: GroupChatScreen.totalUnreadCountNotifier,
+        builder: (context, count, child) {
+          return Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              child!,
+              if (count > 0)
+                Positioned(
+                  top: 2,
+                  right: 2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xffEF4444),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      count > 99 ? '99+' : '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        height: 1.0,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+        child: icon,
+      );
+    }
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => setIndex(index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: 42,
-        height: 42,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xffE2DCF7) : Colors.transparent,
-          shape: BoxShape.circle,
-        ),
-        child: assetPath != null
-            ? Image.asset(
-                assetPath,
-                width: 22,
-                height: 22,
-                color: isSelected ? const Color(0xff361976) : Colors.black38,
-              )
-            : Icon(
-                iconData,
-                size: 22,
-                color: isSelected ? const Color(0xff361976) : Colors.black38,
-              ),
+        child: icon,
       ),
     );
   }

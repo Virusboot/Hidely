@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../state/map_providers.dart';
 import '../../data/models/nearby_place.dart';
 import '../../data/models/route_data.dart';
@@ -159,6 +160,17 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
 
   Future<void> _fetchAndCenterUserLocation() async {
     try {
+      // 1. Immediately hydrate last cached GPS location from SharedPreferences so map never starts at Delhi!
+      final prefs = await SharedPreferences.getInstance();
+      final cachedLat = prefs.getDouble('last_known_gps_lat');
+      final cachedLng = prefs.getDouble('last_known_gps_lng');
+      if (cachedLat != null && cachedLng != null && mounted) {
+        final cachedLoc = LatLng(cachedLat, cachedLng);
+        ref.read(mapCenterProvider.notifier).state = cachedLoc;
+        ref.read(isTrackingUserProvider.notifier).state = true;
+        ref.read(recenterTriggerProvider.notifier).state++;
+      }
+
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -171,20 +183,25 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
               final userLoc = LatLng(pos.latitude, pos.longitude);
               ref.read(mapCenterProvider.notifier).state = userLoc;
               ref.read(isTrackingUserProvider.notifier).state = true;
+              ref.read(recenterTriggerProvider.notifier).state++;
+              await prefs.setDouble('last_known_gps_lat', pos.latitude);
+              await prefs.setDouble('last_known_gps_lng', pos.longitude);
             }
           } catch (_) {}
         }
 
         try {
           Position currentPos = await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-          ).timeout(const Duration(seconds: 5));
+            locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+          ).timeout(const Duration(seconds: 12));
 
           if (mounted) {
             final userLoc = LatLng(currentPos.latitude, currentPos.longitude);
             ref.read(mapCenterProvider.notifier).state = userLoc;
             ref.read(isTrackingUserProvider.notifier).state = true;
             ref.read(recenterTriggerProvider.notifier).state++;
+            await prefs.setDouble('last_known_gps_lat', currentPos.latitude);
+            await prefs.setDouble('last_known_gps_lng', currentPos.longitude);
             debugPrint('[MapScreen] Centered map on real user location: ${userLoc.latitude}, ${userLoc.longitude}');
           }
         } catch (e) {
