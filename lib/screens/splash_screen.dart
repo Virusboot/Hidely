@@ -16,10 +16,12 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
+class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
+  late AnimationController _entranceController;
+  late AnimationController _pulseController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
@@ -32,32 +34,48 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       } catch (_) {}
     });
 
-    _animationController = AnimationController(
+    _entranceController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 700),
+      duration: const Duration(milliseconds: 800),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
+    _fadeAnimation = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOut,
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.72, end: 1.0).animate(
       CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeOut,
+        parent: _entranceController,
+        curve: Curves.easeOutBack,
       ),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.97, end: 1.0).animate(
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.035).animate(
       CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeOutCubic,
+        parent: _pulseController,
+        curve: Curves.easeInOutSine,
       ),
     );
 
-    _animationController.forward();
+    _entranceController.forward().then((_) {
+      if (mounted) {
+        _pulseController.repeat(reverse: true);
+      }
+    });
+
     _initializeApp();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _entranceController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -76,9 +94,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         }),
       ]);
 
-      // Smooth brief delay on mobile for graceful logo presentation
+      // Graceful display delay on mobile so the user sees the smooth entrance & pulse animation
       if (!kIsWeb) {
-        await Future.delayed(const Duration(milliseconds: 700));
+        await Future.delayed(const Duration(milliseconds: 1600));
       }
 
       if (!mounted) return;
@@ -93,11 +111,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             final curvedAnimation = CurvedAnimation(
               parent: animation,
-              curve: Curves.easeInOut,
+              curve: Curves.easeInOutCubic,
             );
             return FadeTransition(opacity: curvedAnimation, child: child);
           },
-          transitionDuration: const Duration(milliseconds: 400),
+          transitionDuration: const Duration(milliseconds: 500),
         ),
       );
     } catch (e) {
@@ -112,11 +130,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 isLoggedIn ? const MainWrapper() : const OnboardingController(),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(
-                opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+                opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic),
                 child: child,
               );
             },
-            transitionDuration: const Duration(milliseconds: 400),
+            transitionDuration: const Duration(milliseconds: 500),
           ),
         );
       }
@@ -138,12 +156,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         backgroundColor: Colors.white,
         body: Center(
           child: AnimatedBuilder(
-            animation: _animationController,
+            animation: Listenable.merge([_entranceController, _pulseController]),
             builder: (context, child) {
+              final scale = _scaleAnimation.value * (_pulseController.isAnimating ? _pulseAnimation.value : 1.0);
               return Opacity(
-                opacity: _fadeAnimation.value,
+                opacity: _fadeAnimation.value.clamp(0.0, 1.0),
                 child: Transform.scale(
-                  scale: _scaleAnimation.value,
+                  scale: scale,
                   child: child,
                 ),
               );
