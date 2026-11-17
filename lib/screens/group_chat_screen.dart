@@ -3758,7 +3758,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
         t.toLowerCase().contains('call');
   }
 
-  Widget _buildCallLogPill(ChatMessage msg, {required bool isMe}) {
+  Widget _buildCallLogPill(ChatMessage msg, {required bool isMe, bool showSeen = false}) {
     final bool isVideo = msg.text.contains('📹') ||
         msg.text.toLowerCase().contains('video');
     final bool isMissed = msg.text.toLowerCase().contains('missed') ||
@@ -3767,69 +3767,150 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     final cleanLabel =
         msg.text.replaceFirst(RegExp(r'^(?:📞|📹)\s*', unicode: true), '').trim();
 
-    return GestureDetector(
-      onTap: widget.chat.isGroup ? null : () => _showCallingDialog(isVideo),
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xffE2E8F0)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+    final pillContent = Dismissible(
+      key: ValueKey('swipe_reply_call_${msg.id}_${msg.time}'),
+      direction: DismissDirection.startToEnd,
+      confirmDismiss: (_) async {
+        HapticFeedback.lightImpact();
+        setState(() => _replyingTo = msg);
+        return false;
+      },
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 16),
+        child: const Icon(Icons.reply_rounded, color: Color(0xff5732BF)),
+      ),
+      child: GestureDetector(
+        onTap: widget.chat.isGroup ? null : () => _showCallingDialog(isVideo),
+        onLongPress: () => _showMessageOptionsSheet(msg),
+        child: Container(
+          margin: EdgeInsets.only(bottom: showSeen ? 4 : 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          constraints: const BoxConstraints(maxWidth: 280),
+          decoration: BoxDecoration(
+            color: isMe ? const Color(0xff2B1564) : Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: Radius.circular(isMe ? 16 : 4),
+              bottomRight: Radius.circular(isMe ? 4 : 16),
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isMissed
-                    ? const Color(0xffEF4444).withOpacity(0.12)
-                    : const Color(0xff2B1564).withOpacity(0.08),
+            border: isMe ? null : Border.all(color: const Color(0xffE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isMe ? 0.08 : 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
-              child: Icon(
-                isVideo ? Icons.videocam_rounded : Icons.call_rounded,
-                size: 17,
-                color: isMissed ? const Color(0xffDC2626) : const Color(0xff2B1564),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isMe
+                      ? (isMissed ? const Color(0xffEF4444).withOpacity(0.3) : Colors.white.withOpacity(0.18))
+                      : (isMissed ? const Color(0xffEF4444).withOpacity(0.12) : const Color(0xff2B1564).withOpacity(0.08)),
+                ),
+                child: Icon(
+                  isVideo ? Icons.videocam_rounded : Icons.call_rounded,
+                  size: 19,
+                  color: isMe
+                      ? (isMissed ? const Color(0xffFCA5A5) : Colors.white)
+                      : (isMissed ? const Color(0xffDC2626) : const Color(0xff2B1564)),
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  cleanLabel,
-                  style: TextStyle(
-                    fontFamily: 'PublicSans',
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: isMissed ? const Color(0xffDC2626) : const Color(0xff1C0D5A),
-                  ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      cleanLabel,
+                      style: TextStyle(
+                        fontFamily: 'PublicSans',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: isMe
+                            ? Colors.white
+                            : (isMissed ? const Color(0xffDC2626) : const Color(0xff1C0D5A)),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.chat.isGroup ? msg.time : 'Tap to call back • ${msg.time}',
+                      style: TextStyle(
+                        fontFamily: 'PublicSans',
+                        fontSize: 11,
+                        color: isMe ? Colors.white.withOpacity(0.72) : Colors.black45,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                Text(
-                  widget.chat.isGroup ? msg.time : 'Tap to call back • ${msg.time}',
-                  style: const TextStyle(
-                    fontFamily: 'PublicSans',
-                    fontSize: 10.5,
-                    color: Colors.black45,
-                  ),
-                ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
+
+    if (isMe) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            pillContent,
+            if (showSeen)
+              const Padding(
+                padding: EdgeInsets.only(right: 4, bottom: 8),
+                child: Text(
+                  'Seen',
+                  style: TextStyle(
+                    fontFamily: 'PublicSans',
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black45,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    } else {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () => _openUserProfile(widget.chat.isGroup ? msg.senderName : (widget.chat.targetUsername ?? msg.senderName)),
+                child: UserAvatar(
+                  avatarUrl: _normalizeChatAvatar(msg.senderAvatar),
+                  displayName: msg.senderName,
+                  radius: 16,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(child: pillContent),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildInstagramMediaBubble(ChatMessage msg, {bool showSeen = false}) {
@@ -4128,9 +4209,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
   Widget _buildMessageBubble(ChatMessage msg, {bool showSeen = false}) {
     final bool isCallLog = _isCallLogMessage(msg);
     if (isCallLog) {
-      return Center(
-        child: _buildCallLogPill(msg, isMe: msg.isMe),
-      );
+      return _buildCallLogPill(msg, isMe: msg.isMe, showSeen: showSeen);
     }
     if (msg.attachmentType == 'image' || msg.attachmentType == 'video') {
       return _buildInstagramMediaBubble(msg, showSeen: showSeen);
