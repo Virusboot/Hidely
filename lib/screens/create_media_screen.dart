@@ -27,6 +27,7 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
   File? _selectedFile;
   Uint8List? _selectedFileBytes;
   String? _selectedFileName;
+  CapturedLocation? _capturedLocation;
   final ImagePicker _picker = ImagePicker();
   List<AssetEntity> _recentAssets = [];
   bool _loadingAssets = true;
@@ -79,7 +80,7 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
         } catch (_) {}
       }
 
-      final type = _currentModeIndex == 0 ? RequestType.image : RequestType.video;
+      final type = _currentModeIndex == 0 ? RequestType.image : RequestType.common;
       final ps = await PhotoManager.requestPermissionExtend(
         requestOption: PermissionRequestOption(
           androidPermission: AndroidPermission(
@@ -125,6 +126,17 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
         bytes = await file.readAsBytes();
       } catch (_) {}
     }
+    CapturedLocation? loc;
+    if (bytes != null && bytes.isNotEmpty) {
+      try {
+        loc = await LocationCaptureService().extractLocationFromBytes(bytes);
+      } catch (_) {}
+    }
+    if (loc == null) {
+      try {
+        loc = await LocationCaptureService().extractLocationFromAsset(asset);
+      } catch (_) {}
+    }
     if (mounted && _selectingAssetId == asset.id) {
       setState(() {
         _selectedFile = file;
@@ -132,6 +144,7 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
         _selectedFileName = asset.title ??
             (asset.type == AssetType.video ? 'video.mp4' : 'photo.jpg');
         _selectedAsset = asset;
+        _capturedLocation = loc;
       });
     }
   }
@@ -228,6 +241,138 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
     await _pickVideoFromCamera();
   }
 
+  Future<void> _pickReelMediaFromGallery() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text(
+                'Upload Reel from Gallery',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xff1C0D5A),
+                ),
+              ),
+              const SizedBox(height: 14),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff5D3EBC).withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.video_collection_outlined, color: Color(0xff5D3EBC)),
+                ),
+                title: const Text('Choose Video', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xff1C0D5A))),
+                subtitle: const Text('Select a recorded video file'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    final f = await _picker.pickVideo(
+                      source: ImageSource.gallery,
+                      maxDuration: const Duration(seconds: 60),
+                    );
+                    if (f != null && mounted) {
+                      final bytes = await f.readAsBytes();
+                      CapturedLocation? loc;
+                      try {
+                        loc = await LocationCaptureService().extractLocationFromBytes(bytes);
+                      } catch (_) {}
+                      if (!mounted) return;
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (context) => PostDetailsScreen(
+                          selectedImage: kIsWeb ? null : File(f.path),
+                          imageBytes: bytes,
+                          filename: f.name,
+                          mediaSource: MediaSource.gallery,
+                          initialCapturedLocation: loc,
+                        ),
+                      ));
+                    }
+                  } catch (e) {
+                    _snack('Failed to select video: $e', error: true);
+                  }
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff5D3EBC).withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.photo_library_outlined, color: Color(0xff5D3EBC)),
+                ),
+                title: const Text('Choose Photo', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xff1C0D5A))),
+                subtitle: const Text('Select a photo to create a photo reel'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    final f = await _picker.pickImage(
+                      source: ImageSource.gallery,
+                      requestFullMetadata: true,
+                    );
+                    if (f != null && mounted) {
+                      final bytes = await f.readAsBytes();
+                      CapturedLocation? loc;
+                      try {
+                        loc = await LocationCaptureService().extractLocationFromBytes(bytes);
+                      } catch (_) {}
+                      if (!mounted) return;
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (context) => PostDetailsScreen(
+                          selectedImage: kIsWeb ? null : File(f.path),
+                          imageBytes: bytes,
+                          filename: f.name,
+                          mediaSource: MediaSource.gallery,
+                          initialCapturedLocation: loc,
+                        ),
+                      ));
+                    }
+                  } catch (e) {
+                    _snack('Failed to select photo: $e', error: true);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleBack() {
+    if (_selectedFile != null || _selectedFileBytes != null || _selectedAsset != null) {
+      setState(() {
+        _selectedFile = null;
+        _selectedFileBytes = null;
+        _selectedFileName = null;
+        _selectedAsset = null;
+        _capturedLocation = null;
+      });
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
 
 
   void _snack(String msg, {required bool error}) {
@@ -248,101 +393,120 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
   // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
-      ),
-      child: Scaffold(
-        backgroundColor: const Color(0xffF6F9FC),
-        body: Stack(
-          children: [
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xffE0F2FE), Colors.white],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _handleBack();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+        child: Scaffold(
+          backgroundColor: const Color(0xffF6F9FC),
+          body: Stack(
+            children: [
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xffE0F2FE), Colors.white],
+                  ),
                 ),
-              ),
-              child: SafeArea(
-                bottom: false,
-                child: Column(
-                  children: [
-                    // ── Header ──────────────────────────────────────────
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          GestureDetector(
-                            onTap: () => Navigator.pop(context),
-                            child: Container(
-                              width: 44, height: 44,
-                              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                              child: Center(
-                                child: Image.asset(
-                                  'assets/images/back_icon.png',
-                                  color: const Color(0xff1C0D5A),
-                                  width: 18, height: 18,
+                child: SafeArea(
+                  bottom: false,
+                  child: Column(
+                    children: [
+                      // ── Header ──────────────────────────────────────────
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            GestureDetector(
+                              onTap: _handleBack,
+                              child: Container(
+                                width: 44, height: 44,
+                                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                child: Center(
+                                  child: Image.asset(
+                                    'assets/images/back_icon.png',
+                                    color: const Color(0xff1C0D5A),
+                                    width: 18, height: 18,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          Text(
-                            _currentModeIndex == 0 ? 'New Post' : 'New Reel',
-                            style: const TextStyle(
-                              color: Color(0xff1C0D5A),
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          SizedBox(
-                            height: 38,
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                File? targetFile = _selectedFile;
-                                if (targetFile == null && _selectedAsset != null) {
-                                  targetFile = await _selectedAsset!.originFile ??
-                                      await _selectedAsset!.file;
-                                }
-                                if (!mounted) return;
-                                if (_selectedFileBytes != null || targetFile != null) {
-                                  final bool isVideo =
-                                      _selectedAsset?.type == AssetType.video ||
-                                          _currentModeIndex == 1;
-                                  Navigator.push(context, MaterialPageRoute(
-                                    builder: (context) => PostDetailsScreen(
-                                      selectedImage: targetFile,
-                                      imageBytes: (!kIsWeb && isVideo)
-                                          ? null
-                                          : _selectedFileBytes,
-                                      filename: _selectedFileName,
-                                      mediaSource: MediaSource.gallery,
-                                      mediaAsset: _selectedAsset,
-                                    ),
-                                  ));
-                                } else {
-                                  _snack(
-                                    _currentModeIndex == 0 ? 'Select a photo first.' : 'Select a video first.',
-                                    error: true,
-                                  );
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xff2B1564),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                padding: const EdgeInsets.symmetric(horizontal: 24),
-                                elevation: 0,
+                            Text(
+                              _currentModeIndex == 0 ? 'New Post' : 'New Reel',
+                              style: const TextStyle(
+                                color: Color(0xff1C0D5A),
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -0.3,
                               ),
-                              child: const Text('Next', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
                             ),
-                          ),
-                        ],
+                            SizedBox(
+                              height: 38,
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  File? targetFile = _selectedFile;
+                                  if (targetFile == null && _selectedAsset != null) {
+                                    targetFile = await _selectedAsset!.originFile ??
+                                        await _selectedAsset!.file;
+                                  }
+                                  if (!mounted) return;
+                                  if (_selectedFileBytes != null || targetFile != null) {
+                                    final bool isVideo =
+                                        _selectedAsset?.type == AssetType.video ||
+                                            _currentModeIndex == 1;
+                                    CapturedLocation? capLoc = _capturedLocation;
+                                    if (capLoc == null && _selectedFileBytes != null) {
+                                      try {
+                                        capLoc = await LocationCaptureService().extractLocationFromBytes(_selectedFileBytes!);
+                                      } catch (_) {}
+                                    }
+                                    if (capLoc == null && _selectedAsset != null) {
+                                      try {
+                                        capLoc = await LocationCaptureService().extractLocationFromAsset(_selectedAsset!);
+                                      } catch (_) {}
+                                    }
+                                    if (!mounted) return;
+                                    Navigator.push(context, MaterialPageRoute(
+                                      builder: (context) => PostDetailsScreen(
+                                        selectedImage: targetFile,
+                                        imageBytes: (!kIsWeb && isVideo)
+                                            ? null
+                                            : _selectedFileBytes,
+                                        filename: _selectedFileName,
+                                        mediaSource: MediaSource.gallery,
+                                        mediaAsset: _selectedAsset,
+                                        initialCapturedLocation: capLoc,
+                                      ),
+                                    ));
+                                  } else {
+                                    _snack(
+                                      _currentModeIndex == 0 ? 'Select a photo first.' : 'Select a video first.',
+                                      error: true,
+                                    );
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xff2B1564),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  elevation: 0,
+                                ),
+                                child: const Text('Next', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
 
                     // ── POST only: preview + dropdown ──────────────────
                     if (_currentModeIndex == 0) ..._postPreviewWidgets(),
@@ -373,9 +537,9 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
                                       mainAxisSpacing: 3,
                                       childAspectRatio: _currentModeIndex == 0 ? (4 / 5) : (9 / 16),
                                     ),
-                                    // REEL: first cell is camera, rest are assets
+                                    // REEL: first cell is camera, second cell is gallery
                                     itemCount: _currentModeIndex == 1
-                                        ? _recentAssets.length + 1
+                                        ? _recentAssets.length + 2
                                         : _recentAssets.length,
                                     itemBuilder: (ctx, idx) {
                                       // REEL first cell = camera
@@ -399,7 +563,28 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
                                         );
                                       }
 
-                                      final assetIdx = _currentModeIndex == 1 ? idx - 1 : idx;
+                                      // REEL second cell = gallery picker
+                                      if (_currentModeIndex == 1 && idx == 1) {
+                                        return GestureDetector(
+                                          onTap: _pickReelMediaFromGallery,
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(3),
+                                            child: Container(
+                                              color: const Color(0xffDDD6FE).withOpacity(0.45),
+                                              child: const Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(Icons.photo_library_outlined, color: Color(0xff5D3EBC), size: 28),
+                                                  SizedBox(height: 4),
+                                                  Text('Gallery', style: TextStyle(color: Color(0xff5D3EBC), fontSize: 11, fontWeight: FontWeight.bold)),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }
+
+                                      final assetIdx = _currentModeIndex == 1 ? idx - 2 : idx;
                                       final asset = _recentAssets[assetIdx];
                                       final isSelected = _selectedAsset == asset;
                                       final isVideo = asset.type == AssetType.video;
@@ -461,8 +646,9 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ── POST-only: preview area + dropdown ──────────────────────────────────
   List<Widget> _postPreviewWidgets() {
@@ -478,22 +664,22 @@ class _CreateMediaScreenState extends State<CreateMediaScreen> {
               await Permission.accessMediaLocation.request();
             } catch (_) {}
           }
-          final quality = UploadQualityService().imageQuality;
-          final maxDim = UploadQualityService().maxDimension;
           final f = await _picker.pickImage(
             source: ImageSource.gallery,
-            maxWidth: maxDim,
-            maxHeight: maxDim,
-            imageQuality: quality,
             requestFullMetadata: true,
           );
           if (f != null && mounted) {
             final bytes = await f.readAsBytes();
+            CapturedLocation? loc;
+            try {
+              loc = await LocationCaptureService().extractLocationFromBytes(bytes);
+            } catch (_) {}
             setState(() {
               _selectedFileBytes = bytes;
               _selectedFileName = f.name;
               _selectedFile = kIsWeb ? null : File(f.path);
               _selectedAsset = null;
+              _capturedLocation = loc;
             });
           }
         },

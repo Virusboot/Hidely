@@ -189,17 +189,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           await Permission.accessMediaLocation.request();
         } catch (_) {}
       }
-      final quality = UploadQualityService().imageQuality;
-      final maxDim = UploadQualityService().maxDimension;
       final XFile? pickedFile = await _picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: maxDim,
-        maxHeight: maxDim,
-        imageQuality: quality,
         requestFullMetadata: true,
       );
       if (pickedFile != null && mounted) {
         final bytes = await pickedFile.readAsBytes();
+        CapturedLocation? photoLoc;
+        try {
+          photoLoc = await LocationCaptureService().extractLocationFromBytes(bytes);
+        } catch (_) {}
         setState(() {
           _selectedImageBytes = bytes;
           _selectedFileName = pickedFile.name;
@@ -207,7 +206,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           _selectedImages = kIsWeb ? [] : [File(pickedFile.path)];
           _selectedAsset = null;
           _mediaSource = MediaSource.gallery;
-          _capturedLocation = null;
+          _capturedLocation = photoLoc;
         });
       }
     } catch (e) {
@@ -416,51 +415,72 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
+  void _handleBack() {
+    if (_selectedImage != null || _selectedImageBytes != null || _selectedAsset != null) {
+      setState(() {
+        _selectedImage = null;
+        _selectedImages = [];
+        _selectedImageBytes = null;
+        _selectedFileName = null;
+        _selectedAsset = null;
+        _capturedLocation = null;
+      });
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
-      ),
-      child: Scaffold(
-        backgroundColor: const Color(0xffF6F9FC),
-        body: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xffE0F2FE),
-                Color(0xffFFFFFF),
-              ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _handleBack();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+        child: Scaffold(
+          backgroundColor: const Color(0xffF6F9FC),
+          body: Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xffE0F2FE),
+                  Color(0xffFFFFFF),
+                ],
+              ),
             ),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                // --- 1. TOP CUSTOM BRAND APP BAR HEADER ---
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Undo Back Navigation Ring
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  // --- 1. TOP CUSTOM BRAND APP BAR HEADER ---
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Undo Back Navigation Ring
+                        GestureDetector(
+                          onTap: _handleBack,
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(child: Image.asset('assets/images/back_icon.png', color: const Color(0xff1C0D5A), width: 18.0, height: 18.0)),
                           ),
-                          child: Center(child: Image.asset('assets/images/back_icon.png', color: const Color(0xff1C0D5A), width: 18.0, height: 18.0)),
                         ),
-                      ),
                       Text(
                         _selectedMode == "REEL" ? "New Reel" : "New Post",
                         style: const TextStyle(
@@ -994,8 +1014,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   // Helper widget builder for translucent bottom-right preview anchors
   Widget _buildOverlayCircleButton(IconData icon, {bool isActive = false}) {

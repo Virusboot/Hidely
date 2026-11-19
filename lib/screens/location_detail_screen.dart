@@ -860,25 +860,24 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
+                          if (widget.title.isNotEmpty && widget.title != widget.location) ...[
+                            Text(
+                              widget.title,
+                              style: const TextStyle(
+                                color: Color(0xff1C0D5A),
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                          ],
                           Text(
-                            (widget.title.isNotEmpty && widget.title != widget.location) 
-                                ? widget.title 
-                                : details["description"]!,
+                            details["description"]!,
                             style: const TextStyle(
                               color: Color(0xff4A457A),
                               fontSize: 15,
                               fontWeight: FontWeight.w500,
-                              height: 1.35,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            details["tags"]!,
-                            style: const TextStyle(
-                              color: Color(0xff6366F1),
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.bold,
-                              height: 1.3,
+                              height: 1.45,
                             ),
                           ),
                         ],

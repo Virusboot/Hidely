@@ -52,6 +52,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
   String _location = "Fetching location...";
   final TextEditingController _captionController = TextEditingController();
   final List<String> _taggedUsernames = [];
+  String? _collaboratorUsername;
   bool _isLoading = false;
   bool _isFetchingLocation = false;
   String? _locationStatusHint;
@@ -431,13 +432,28 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         }
       }
 
+      final List<String> allTagged = List<String>.from(_taggedUsernames);
+      if (_collaboratorUsername != null &&
+          _collaboratorUsername!.isNotEmpty &&
+          !allTagged.contains(_collaboratorUsername!)) {
+        allTagged.add(_collaboratorUsername!);
+      }
+
       String finalCaption = _captionController.text.trim();
+      final List<String> credits = [];
+      if (_collaboratorUsername != null && _collaboratorUsername!.isNotEmpty) {
+        credits.add('🤝 Collab with @$_collaboratorUsername');
+      }
       if (_taggedUsernames.isNotEmpty) {
         final String tagsText = _taggedUsernames.map((u) => '@$u').join(' ');
+        credits.add('with $tagsText');
+      }
+      if (credits.isNotEmpty) {
+        final block = credits.join('\n');
         if (finalCaption.isEmpty) {
-          finalCaption = tagsText;
+          finalCaption = block;
         } else {
-          finalCaption = '$finalCaption\n\nwith $tagsText';
+          finalCaption = '$finalCaption\n\n$block';
         }
       }
 
@@ -517,7 +533,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
         city: _capturedLocation?.city,
         state: _capturedLocation?.state,
         country: _capturedLocation?.country,
-        taggedUsernames: _taggedUsernames,
+        taggedUsernames: allTagged,
       );
 
       if (!mounted) return;
@@ -582,6 +598,22 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
           setState(() {
             _taggedUsernames.clear();
             _taggedUsernames.addAll(selected);
+          });
+        },
+      ),
+    );
+  }
+
+  void _openInviteCollaboratorSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => InviteCollaboratorSheet(
+        initialSelection: _collaboratorUsername,
+        onCollaboratorSelected: (selected) {
+          setState(() {
+            _collaboratorUsername = selected;
           });
         },
       ),
@@ -1028,10 +1060,34 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
               spacing: 8,
               runSpacing: 6,
               children: [
+                if (isExif)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xff7C3AED).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xffC4B5FD)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle_rounded, size: 14, color: Color(0xff7C3AED)),
+                        SizedBox(width: 5),
+                        Text(
+                          "Keep Photo Location",
+                          style: TextStyle(
+                            color: Color(0xff7C3AED),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 OutlinedButton.icon(
                   onPressed: _showLocationPickerSheet,
                   icon: const Icon(Icons.edit_location_alt_rounded, size: 14, color: Color(0xff2B1564)),
-                  label: const Text("Change", style: TextStyle(color: Color(0xff2B1564), fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: const Text("Edit / Search", style: TextStyle(color: Color(0xff2B1564), fontSize: 12, fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1041,7 +1097,7 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
                 OutlinedButton.icon(
                   onPressed: _useCurrentLocation,
                   icon: const Icon(Icons.my_location_rounded, size: 14, color: Color(0xff15803D)),
-                  label: const Text("Current GPS", style: TextStyle(color: Color(0xff15803D), fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: const Text("Use Current GPS", style: TextStyle(color: Color(0xff15803D), fontSize: 12, fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1133,23 +1189,69 @@ class _PostDetailsScreenState extends State<PostDetailsScreen> {
 
   Widget _buildTagPeopleSection() {
     final hasTags = _taggedUsernames.isNotEmpty;
-    final subtitleText = hasTags 
-        ? _taggedUsernames.map((u) => '@$u').join(', ') 
-        : null;
+    final hasCollab = _collaboratorUsername != null && _collaboratorUsername!.isNotEmpty;
 
-    return ListTile(
-      onTap: _openTagPeopleSheet,
-      leading: const Icon(Icons.person_outline, color: Colors.black87),
-      title: const Text("Tag People", style: TextStyle(fontSize: 16)),
-      subtitle: subtitleText != null 
-          ? Text(
-              subtitleText, 
-              style: const TextStyle(color: Color(0xff5D3EBC), fontSize: 13, fontWeight: FontWeight.w500),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            )
-          : null,
-      trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ListTile(
+          onTap: _openTagPeopleSheet,
+          leading: const Icon(Icons.person_add_alt_1_outlined, color: Colors.black87),
+          title: const Text("Tag People", style: TextStyle(fontSize: 16)),
+          subtitle: hasTags
+              ? null
+              : const Text("Tag friends in your photo or video", style: TextStyle(color: Colors.grey, fontSize: 13)),
+          trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+        ),
+        if (hasTags)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(56, 0, 16, 8),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: _taggedUsernames.map((u) {
+                return Chip(
+                  avatar: const Icon(Icons.alternate_email, size: 14, color: Color(0xff5D3EBC)),
+                  label: Text(u, style: const TextStyle(color: Color(0xff1C0D5A), fontSize: 12, fontWeight: FontWeight.bold)),
+                  backgroundColor: const Color(0xffF5F3FF),
+                  side: const BorderSide(color: Color(0xffDDD6FE)),
+                  deleteIcon: const Icon(Icons.close, size: 14, color: Color(0xff5D3EBC)),
+                  onDeleted: () {
+                    setState(() {
+                      _taggedUsernames.remove(u);
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+        const Divider(height: 1, indent: 60),
+        ListTile(
+          onTap: _openInviteCollaboratorSheet,
+          leading: const Icon(Icons.group_add_outlined, color: Colors.black87),
+          title: const Text("Invite Collaborator", style: TextStyle(fontSize: 16)),
+          subtitle: hasCollab
+              ? null
+              : const Text("Co-author this post with another creator", style: TextStyle(color: Colors.grey, fontSize: 13)),
+          trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+        ),
+        if (hasCollab)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(56, 0, 16, 8),
+            child: Chip(
+              avatar: const Icon(Icons.handshake_outlined, size: 14, color: Color(0xff16A34A)),
+              label: Text("Collaborator: @$_collaboratorUsername", style: const TextStyle(color: Color(0xff15803D), fontSize: 12, fontWeight: FontWeight.bold)),
+              backgroundColor: const Color(0xffF0FDF4),
+              side: const BorderSide(color: Color(0xffBBF7D0)),
+              deleteIcon: const Icon(Icons.close, size: 14, color: Color(0xff16A34A)),
+              onDeleted: () {
+                setState(() {
+                  _collaboratorUsername = null;
+                });
+              },
+            ),
+          ),
+      ],
     );
   }
 
@@ -1803,6 +1905,285 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                       ),
                   ],
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class InviteCollaboratorSheet extends StatefulWidget {
+  final String? initialSelection;
+  final ValueChanged<String?> onCollaboratorSelected;
+
+  const InviteCollaboratorSheet({
+    super.key,
+    required this.initialSelection,
+    required this.onCollaboratorSelected,
+  });
+
+  @override
+  State<InviteCollaboratorSheet> createState() => _InviteCollaboratorSheetState();
+}
+
+class _InviteCollaboratorSheetState extends State<InviteCollaboratorSheet> {
+  final TextEditingController _searchController = TextEditingController();
+  List<dynamic> _allUsers = [];
+  List<dynamic> _filteredUsers = [];
+  String? _selectedUsername;
+  bool _isLoading = true;
+  Timer? _searchDebounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedUsername = widget.initialSelection;
+    _fetchUsers();
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  bool _isEligibleUserRecord(dynamic user) {
+    if (user is! Map) return false;
+    final uname = (user['username'] ?? '').toString().trim();
+    if (uname.isEmpty) return false;
+    final currentUsername = AuthService().userUsername.trim();
+    if (currentUsername.isNotEmpty &&
+        uname.toLowerCase() == currentUsername.toLowerCase()) {
+      return false;
+    }
+    if (AuthService().isUserBlockedSync(uname)) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _fetchUsers() async {
+    final result = await ApiService().getLeaderboard(token: AuthService().token);
+    if (!mounted) return;
+
+    if (result.success) {
+      final List<dynamic> users = result.data?['leaderboard'] ?? [];
+      setState(() {
+        _allUsers = users.where(_isEligibleUserRecord).toList();
+        _filteredUsers = _allUsers;
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _onSearchChanged(String query) {
+    final cleanQuery = query.toLowerCase().trim();
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () async {
+      if (cleanQuery.isEmpty) {
+        setState(() {
+          _filteredUsers = _allUsers;
+        });
+        return;
+      }
+      final localMatches = _allUsers.where((u) {
+        final uname = (u['username'] ?? '').toString().toLowerCase();
+        final name = (u['name'] ?? '').toString().toLowerCase();
+        return uname.contains(cleanQuery) || name.contains(cleanQuery);
+      }).toList();
+
+      setState(() {
+        _filteredUsers = localMatches;
+      });
+
+      final searchRes = await ApiService().searchUsers(query: cleanQuery, token: AuthService().token);
+      if (mounted && searchRes.success && searchRes.data != null) {
+        final remoteUsers = (searchRes.data!['users'] as List? ?? [])
+            .where(_isEligibleUserRecord)
+            .toList();
+        final seen = <String>{};
+        final combined = <dynamic>[];
+        for (final u in [...localMatches, ...remoteUsers]) {
+          final uname = (u['username'] ?? '').toString().toLowerCase();
+          if (seen.add(uname)) combined.add(u);
+        }
+        setState(() {
+          _filteredUsers = combined;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double keyboardPadding = MediaQuery.of(context).viewInsets.bottom;
+
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.75 + keyboardPadding,
+      child: Material(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: keyboardPadding),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 44,
+                height: 4.5,
+                decoration: BoxDecoration(
+                  color: Colors.black12,
+                  borderRadius: BorderRadius.circular(2.5),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Invite Collaborator",
+                      style: TextStyle(
+                        color: Color(0xff1C0D5A),
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        widget.onCollaboratorSelected(_selectedUsername);
+                        Navigator.pop(context);
+                      },
+                      child: const Text(
+                        "Done",
+                        style: TextStyle(
+                          color: Color(0xff5D3EBC),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xffF0FDF4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xffBBF7D0)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Color(0xff16A34A)),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "If accepted, this post will be shared with the collaborator's profile and followers.",
+                        style: TextStyle(color: Color(0xff15803D), fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: _onSearchChanged,
+                  decoration: InputDecoration(
+                    hintText: "Search collaborator by name or @username...",
+                    hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
+                    prefixIcon: const Icon(Icons.search, color: Color(0xff2B1564), size: 20),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              _onSearchChanged('');
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: const Color(0xffF1F5F9),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator(color: Color(0xff2B1564)))
+                    : _filteredUsers.isEmpty
+                        ? const Center(
+                            child: Text(
+                              "No users found.",
+                              style: TextStyle(color: Colors.black45, fontSize: 15),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: _filteredUsers.length,
+                            itemBuilder: (context, index) {
+                              final user = _filteredUsers[index];
+                              final String username = (user['username'] ?? '').toString();
+                              final String displayName = (user['name'] ?? user['username'] ?? 'User').toString();
+                              final String profilePic = (user['profileImage'] ?? '').toString();
+                              final bool isSelected = _selectedUsername == username;
+
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                                leading: UserAvatar(
+                                  avatarUrl: profilePic,
+                                  displayName: displayName,
+                                  radius: 20,
+                                ),
+                                title: Text(
+                                  displayName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                ),
+                                subtitle: Text('@$username', style: const TextStyle(color: Colors.black38, fontSize: 12.5)),
+                                trailing: isSelected
+                                    ? Container(
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xff16A34A),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        padding: const EdgeInsets.all(4),
+                                        child: const Icon(Icons.check, color: Colors.white, size: 16),
+                                      )
+                                    : Container(
+                                        width: 24,
+                                        height: 24,
+                                        decoration: BoxDecoration(
+                                          border: Border.all(color: Colors.black12, width: 1.5),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                onTap: () {
+                                  setState(() {
+                                    if (_selectedUsername == username) {
+                                      _selectedUsername = null;
+                                    } else {
+                                      _selectedUsername = username;
+                                    }
+                                  });
+                                },
+                              );
+                            },
+                          ),
               ),
             ],
           ),

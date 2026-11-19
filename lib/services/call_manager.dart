@@ -469,6 +469,9 @@ class CallManager {
           onMinimize: () {
             _stateNotifier.value = session.copyWith(isPipMode: true);
           },
+          onExpand: () {
+            _stateNotifier.value = session.copyWith(isPipMode: false);
+          },
           onCallEnded: (cType, secs, reason) {
             if (session.isOutgoing) {
               _recordOutgoingCallLog(session, cType, secs, reason);
@@ -487,24 +490,39 @@ class CallManager {
         }
 
         final size = MediaQuery.of(ctx).size;
+        final bool isVideo = session.callType == 'video';
+        final double pipW = isVideo ? 116.0 : (size.width - 32.0).clamp(240.0, 310.0);
+        final double pipH = isVideo ? 168.0 : 54.0;
+        double dragDistance = 0;
+
         return Stack(
           children: [
             child,
             Positioned(
-              right: _pipOffset.dx,
-              top: _pipOffset.dy,
-              width: session.callType == 'video' ? 116 : 124,
-              height: session.callType == 'video' ? 168 : 112,
+              right: _pipOffset.dx.clamp(8.0, (size.width - pipW - 8.0).clamp(8.0, size.width)),
+              top: _pipOffset.dy.clamp(36.0, (size.height - pipH - 40.0).clamp(36.0, size.height)),
+              width: pipW,
+              height: pipH,
               child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () {
                   _stateNotifier.value = session.copyWith(isPipMode: false);
                 },
+                onPanStart: (_) {
+                  dragDistance = 0;
+                },
                 onPanUpdate: (details) {
+                  dragDistance += details.delta.distance;
                   _pipOffset = Offset(
-                    (_pipOffset.dx - details.delta.dx).clamp(8.0, size.width - 130.0),
-                    (_pipOffset.dy + details.delta.dy).clamp(40.0, size.height - 200.0),
+                    (_pipOffset.dx - details.delta.dx).clamp(8.0, size.width - pipW - 8.0),
+                    (_pipOffset.dy + details.delta.dy).clamp(36.0, size.height - pipH - 40.0),
                   );
                   _stateNotifier.value = session.copyWith(isPipMode: true);
+                },
+                onPanEnd: (_) {
+                  if (dragDistance < 10) {
+                    _stateNotifier.value = session.copyWith(isPipMode: false);
+                  }
                 },
                 child: callWidget,
               ),

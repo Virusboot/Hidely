@@ -21,6 +21,7 @@ class WebRtcCallScreen extends StatefulWidget {
   final bool isOutgoing;
   final bool isPipMode;
   final VoidCallback? onMinimize;
+  final VoidCallback? onExpand;
   final void Function(String callType, int durationSeconds, String endReason)? onCallEnded;
   final VoidCallback onClose;
 
@@ -36,6 +37,7 @@ class WebRtcCallScreen extends StatefulWidget {
     required this.isOutgoing,
     this.isPipMode = false,
     this.onMinimize,
+    this.onExpand,
     this.onCallEnded,
     required this.onClose,
   });
@@ -519,10 +521,11 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
       _peerConnection!.onTrack = (event) {
         if (!mounted || _hasEnded) return;
         final stream = event.streams.isNotEmpty ? event.streams.first : null;
-        if (stream != null && _remoteStream != stream) {
+        if (stream != null) {
           _remoteStream = stream;
-          if (widget.callType == 'video') {
-            _remoteRenderer.srcObject = stream;
+          _remoteRenderer.srcObject = stream;
+          for (final track in stream.getAudioTracks()) {
+            track.enabled = true;
           }
         }
         _markConnected();
@@ -530,11 +533,10 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
 
       _peerConnection!.onAddStream = (stream) {
         if (!mounted || _hasEnded) return;
-        if (_remoteStream != stream) {
-          _remoteStream = stream;
-          if (widget.callType == 'video') {
-            _remoteRenderer.srcObject = stream;
-          }
+        _remoteStream = stream;
+        _remoteRenderer.srcObject = stream;
+        for (final track in stream.getAudioTracks()) {
+          track.enabled = true;
         }
         _markConnected();
       };
@@ -789,83 +791,221 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
     final bool showLocalPreview = isVideo && _localStream != null && _camEnabled;
 
     if (widget.isPipMode) {
-      return IgnorePointer(
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF2B1564), Color(0xFF0F172A)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border.all(color: Colors.white24, width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 14,
-                offset: const Offset(0, 6),
+      if (!isVideo) {
+        // Instagram-style floating audio call pill
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onExpand,
+            borderRadius: BorderRadius.circular(28),
+            child: Container(
+              height: 54,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xF2161622),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
-            ],
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (showRemoteVideo)
-                RTCVideoView(
-                  _remoteRenderer,
-                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                )
-              else if (!showRemoteVideo && showLocalPreview && !isVideo)
-                const SizedBox.shrink()
-              else
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    UserAvatar(
-                      avatarUrl: widget.peerAvatar,
-                      displayName: widget.peerName,
-                      radius: 22,
-                    ),
-                    const SizedBox(height: 6),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: Text(
-                        widget.peerName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+              child: Row(
+                children: [
+                  Stack(
+                    children: [
+                      UserAvatar(
+                        avatarUrl: widget.peerAvatar,
+                        displayName: widget.peerName,
+                        radius: 19,
+                      ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: _isConnected ? const Color(0xFF22C55E) : const Color(0xFFFBBF24),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFF161622), width: 1.8),
+                          ),
                         ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.peerName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          _statusText(),
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: _isConnected ? const Color(0xFF4ADE80) : Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              Positioned(
-                bottom: 6,
-                left: 6,
-                right: 6,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(10),
+                  ),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _toggleMic,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      margin: const EdgeInsets.only(right: 6),
+                      decoration: BoxDecoration(
+                        color: _micEnabled
+                            ? Colors.white.withValues(alpha: 0.12)
+                            : Colors.redAccent.withValues(alpha: 0.28),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _micEnabled ? Icons.mic_rounded : Icons.mic_off_rounded,
+                        color: _micEnabled ? Colors.white : Colors.redAccent,
+                        size: 16,
+                      ),
                     ),
-                    child: Text(
-                      _statusText(),
-                      style: const TextStyle(
+                  ),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: widget.onExpand,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.85),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.open_in_full_rounded,
                         color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                        size: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
+      // Video call PiP card
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onExpand,
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF2B1564), Color(0xFF0F172A)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(color: Colors.white24, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (showRemoteVideo)
+                  RTCVideoView(
+                    _remoteRenderer,
+                    objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                  )
+                else
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      UserAvatar(
+                        avatarUrl: widget.peerAvatar,
+                        displayName: widget.peerName,
+                        radius: 22,
+                      ),
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Text(
+                          widget.peerName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.open_in_full_rounded,
+                      color: Colors.white,
+                      size: 13,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 6,
+                  left: 6,
+                  right: 6,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        _statusText(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
@@ -945,8 +1085,24 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
                 ),
               ),
 
+            // On Web, always maintain remote renderer sink in DOM so browser plays audio
+            if (kIsWeb)
+              Positioned(
+                left: -9999,
+                top: -9999,
+                width: 1,
+                height: 1,
+                child: Opacity(
+                  opacity: 0.001,
+                  child: RTCVideoView(
+                    _remoteRenderer,
+                    key: const ValueKey('hidely_web_audio_sink'),
+                  ),
+                ),
+              ),
+
             // Draggable Floating Local Video PiP (when remote video is connected)
-            if (isVideo && _isConnected && showLocalPreview)
+            if (isVideo && _isConnected)
               Positioned(
                 right: _localPipRight,
                 bottom: _localPipBottom,
@@ -978,14 +1134,65 @@ class _WebRtcCallScreenState extends State<WebRtcCallScreen>
                       ],
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: RTCVideoView(
-                      _localRenderer,
-                      key: const ValueKey('hidely_local_pip'),
-                      mirror: true,
-                      objectFit: kIsWeb
-                          ? RTCVideoViewObjectFit.RTCVideoViewObjectFitContain
-                          : RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                    ),
+                    child: (showLocalPreview && _localStream != null)
+                        ? RTCVideoView(
+                            _localRenderer,
+                            key: const ValueKey('hidely_local_pip'),
+                            mirror: true,
+                            objectFit: kIsWeb
+                                ? RTCVideoViewObjectFit.RTCVideoViewObjectFitContain
+                                : RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                          )
+                        : Container(
+                            color: const Color(0xFF1E1E2C),
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  UserAvatar(
+                                    avatarUrl: AuthService().userProfilePicture,
+                                    displayName: AuthService().userName.isNotEmpty
+                                        ? AuthService().userName
+                                        : 'You',
+                                    radius: 26,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.6),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: Colors.white.withValues(alpha: 0.15),
+                                      ),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.videocam_off_rounded,
+                                          size: 11,
+                                          color: Colors.white70,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Camera off',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                   ),
                 ),
               ),
