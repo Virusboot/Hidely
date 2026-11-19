@@ -585,14 +585,13 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     final route = widget.activeRoute;
     final hasActiveRoute = route != null && route.coordinates.isNotEmpty;
 
-    final activeCategory = ref.read(activeCategoryProvider).toLowerCase();
-
     // Nearby places markers
     for (final place in widget.places) {
       if (activeDestination?.id == place.id) continue;
 
-      // Show if a specific filter is selected, OR if 'All' is selected and they are near the route path
-      if (activeCategory == 'all' && (!hasActiveRoute || !_isPlaceNearRoute(place.location, route.coordinates, 300.0))) {
+      // When actively navigating a route, show places along the route corridor (within 1.5 km)
+      // When exploring the map (no active route), show all nearby places!
+      if (hasActiveRoute && !_isPlaceNearRoute(place.location, route.coordinates, 1500.0)) {
         continue;
       }
 
@@ -925,14 +924,13 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     final route = widget.activeRoute;
     final hasActiveRoute = route != null && route.coordinates.isNotEmpty;
 
-    final activeCategory = ref.read(activeCategoryProvider).toLowerCase();
-
     // Nearby places markers
     for (final place in widget.places) {
       if (activeDestination != null && place.id == activeDestination.id) continue;
 
-      // Show if a specific filter is selected, OR if 'All' is selected and they are near the route path
-      if (activeCategory == 'all' && (!hasActiveRoute || !_isPlaceNearRoute(place.location, route.coordinates, 300.0))) {
+      // When actively navigating a route, show places along the route corridor (within 1.5 km)
+      // When exploring the map (no active route), show all nearby places!
+      if (hasActiveRoute && !_isPlaceNearRoute(place.location, route.coordinates, 1500.0)) {
         continue;
       }
       

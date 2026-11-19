@@ -333,7 +333,7 @@ class MapRepositoryImpl implements MapRepository {
   }) async {
     final lat = userLocation?.latitude ?? 28.6139;
     final lng = userLocation?.longitude ?? 77.2090;
-    final rad = radius ?? 1000.0;
+    final rad = radius ?? 25000.0;
 
     final connectivity = await Connectivity().checkConnectivity();
     final isOnline = connectivity.any((result) => result != ConnectivityResult.none);
@@ -357,10 +357,10 @@ class MapRepositoryImpl implements MapRepository {
                 );
 
           final response = await http.get(url).timeout(const Duration(seconds: 15));
+          final List<NearbyPlace> searchedPlaces = [];
           if (response.statusCode == 200) {
             final data = json.decode(response.body);
             if (data['status'] == 'OK' && data['results'] != null) {
-              final List<NearbyPlace> searchedPlaces = [];
               for (final result in data['results']) {
                 final String name = result['name'] ?? '';
                 final double rating = (result['rating'] as num?)?.toDouble() ?? 4.0;
@@ -407,14 +407,19 @@ class MapRepositoryImpl implements MapRepository {
                   ),
                 );
               }
-
-              // Merge creator places
-              searchedPlaces.addAll(creatorPlaces);
-
-              // Cache to Isar
-              await _syncPlacesToIsar(searchedPlaces);
-              return _filterPlacesLocally(searchedPlaces, category, query, skipQueryFilter: true);
             }
+          }
+
+          // Fallback to Photon OpenStreetMap text search if Google Places returns 0 results
+          if (searchedPlaces.isEmpty) {
+            final osmQueryPlaces = await _fetchPlacesFromPhotonQuery(query, lat, lng);
+            searchedPlaces.addAll(osmQueryPlaces);
+          }
+
+          if (searchedPlaces.isNotEmpty || creatorPlaces.isNotEmpty) {
+            searchedPlaces.addAll(creatorPlaces);
+            await _syncPlacesToIsar(searchedPlaces);
+            return _filterPlacesLocally(searchedPlaces, category, query, skipQueryFilter: true);
           }
         } catch (e) {
           debugPrint('[Repository] Google Places search failed: $e. Falling back to local cache.');
@@ -429,14 +434,14 @@ class MapRepositoryImpl implements MapRepository {
             googleTypes = ['tourist_attraction', 'restaurant', 'lodging'];
           } else {
             final catLower = category.toLowerCase();
-            if (catLower.contains('restaurant') || catLower.contains('cafe')) {
-              googleTypes = ['restaurant'];
-            } else if (catLower.contains('hotel') || catLower.contains('lodging') || catLower.contains('stay')) {
+            if (catLower.contains('restaurant') || catLower.contains('cafe') || catLower.contains('food')) {
+              googleTypes = ['restaurant', 'cafe'];
+            } else if (catLower.contains('hotel') || catLower.contains('lodging') || catLower.contains('stay') || catLower.contains('resort')) {
               googleTypes = ['lodging'];
             } else if (catLower.contains('museum')) {
               googleTypes = ['museum'];
-            } else if (catLower.contains('monument') || catLower.contains('attraction') || catLower.contains('hidden places')) {
-              googleTypes = ['tourist_attraction'];
+            } else if (catLower.contains('monument') || catLower.contains('attraction') || catLower.contains('hidden') || catLower.contains('travel')) {
+              googleTypes = ['tourist_attraction', 'point_of_interest'];
             } else {
               googleTypes = ['tourist_attraction'];
             }
@@ -525,6 +530,37 @@ class MapRepositoryImpl implements MapRepository {
             }
           }
 
+          // Fallback to OpenStreetMap Photon & Nominatim if Google Places returned 0 results
+          if (allParsedPlaces.isEmpty) {
+            debugPrint('[Repository] Google Places returned 0 places, invoking OSM Photon & Nominatim fallback...');
+            final osmPlaces = await _fetchPlacesFromOsmPhoton(lat, lng, category, rad);
+            for (final p in osmPlaces) {
+              if (!uniqueIds.contains(p.id)) {
+                uniqueIds.add(p.id);
+                allParsedPlaces.add(p);
+              }
+            }
+
+            final nomPlaces = await _fetchAttractionsFromNominatim(lat, lng, rad);
+            for (final np in nomPlaces) {
+              if (!uniqueIds.contains(np.id)) {
+                uniqueIds.add(np.id);
+                allParsedPlaces.add(np);
+              }
+            }
+          }
+
+          // Fallback to curated seeds if still empty
+          if (allParsedPlaces.isEmpty) {
+            final curated = _getCuratedFallbackPlaces(lat, lng, rad);
+            for (final cp in curated) {
+              if (!uniqueIds.contains(cp.id)) {
+                uniqueIds.add(cp.id);
+                allParsedPlaces.add(cp);
+              }
+            }
+          }
+
           if (allParsedPlaces.isNotEmpty) {
             // Merge creator places
             allParsedPlaces.addAll(creatorPlaces);
@@ -544,8 +580,9 @@ class MapRepositoryImpl implements MapRepository {
 
     // --- Offline Cache Fallback & On-Device Spatial Calculation ---
     if (!_storage.isInitialized) {
-      debugPrint('[Repository] Isar is not initialized. Skipping offline cache query.');
-      return [];
+      debugPrint('[Repository] Isar is not initialized. Using curated fallback places.');
+      final curated = _getCuratedFallbackPlaces(lat, lng, rad);
+      return _filterPlacesLocally(curated, category, query);
     }
     try {
       final isar = _storage.isar;
@@ -592,11 +629,347 @@ class MapRepositoryImpl implements MapRepository {
         offlinePlaces.add(place);
       }
 
+      if (offlinePlaces.isEmpty) {
+        final curated = _getCuratedFallbackPlaces(lat, lng, rad);
+        offlinePlaces.addAll(curated);
+      }
+
       return _filterPlacesLocally(offlinePlaces, category, query);
     } catch (e) {
       debugPrint('[Repository] Offline Isar query failed: $e');
-      return [];
+      final curated = _getCuratedFallbackPlaces(lat, lng, rad);
+      return _filterPlacesLocally(curated, category, query);
     }
+  }
+
+  Future<List<NearbyPlace>> _fetchPlacesFromPhotonQuery(String query, double userLat, double userLng) async {
+    final List<NearbyPlace> results = [];
+    try {
+      final url = Uri.parse('https://photon.komoot.io/api/?q=${Uri.encodeComponent(query)}&lat=$userLat&lon=$userLng&limit=25');
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data is Map && data['features'] is List) {
+          for (final item in (data['features'] as List)) {
+            if (item is! Map) continue;
+            final props = item['properties'] as Map? ?? {};
+            final geom = item['geometry'] as Map? ?? {};
+            final coords = geom['coordinates'] as List? ?? [];
+            if (coords.length < 2) continue;
+
+            final placeLng = (coords[0] as num).toDouble();
+            final placeLat = (coords[1] as num).toDouble();
+            final rawName = (props['name'] as String?)?.trim() ?? '';
+            if (rawName.isEmpty) continue;
+
+            final osmValue = (props['osm_value'] as String?)?.toLowerCase() ?? '';
+            final osmKey = (props['osm_key'] as String?)?.toLowerCase() ?? '';
+
+            String cat = 'attraction';
+            if (osmKey == 'amenity' && (osmValue.contains('restaurant') || osmValue.contains('cafe') || osmValue.contains('food'))) {
+              cat = 'restaurant';
+            } else if (osmKey == 'tourism' && (osmValue.contains('hotel') || osmValue.contains('hostel') || osmValue.contains('guest_house') || osmValue.contains('motel'))) {
+              cat = 'hotel';
+            }
+
+            final distM = _calculateHaversineDistance(userLat, userLng, placeLat, placeLng);
+            final distText = distM < 1000 ? '${distM.round()}m' : '${(distM / 1000.0).toStringAsFixed(1)}km';
+
+            final addressParts = [
+              props['street'],
+              props['locality'] ?? props['district'],
+              props['city'],
+              props['state'],
+              props['country'],
+            ].where((s) => s != null && s.toString().trim().isNotEmpty).join(', ');
+
+            String imageUrl = '';
+            if (cat == 'restaurant') {
+              imageUrl = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80';
+            } else if (cat == 'hotel') {
+              imageUrl = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500&q=80';
+            } else {
+              imageUrl = 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=500&q=80';
+            }
+
+            results.add(
+              NearbyPlace(
+                id: 'photon_${props['osm_type'] ?? 'N'}_${props['osm_id'] ?? DateTime.now().microsecondsSinceEpoch}',
+                name: rawName,
+                description: addressParts.isNotEmpty ? addressParts : rawName,
+                category: cat,
+                latitude: placeLat,
+                longitude: placeLng,
+                rating: 4.5,
+                distanceText: distText,
+                distanceM: distM.round(),
+                imageUrl: imageUrl,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[Repository] Photon query error: $e');
+    }
+    return results;
+  }
+
+  Future<List<NearbyPlace>> _fetchPlacesFromOsmPhoton(
+    double lat,
+    double lng,
+    String? category,
+    double radius,
+  ) async {
+    final List<String> searchTerms = [];
+    final catLower = (category ?? 'all').toLowerCase();
+
+    if (catLower == 'all') {
+      searchTerms.addAll(['attraction', 'hotel', 'restaurant']);
+    } else if (catLower.contains('restaurant') || catLower.contains('cafe') || catLower.contains('food')) {
+      searchTerms.addAll(['restaurant', 'cafe']);
+    } else if (catLower.contains('hotel') || catLower.contains('lodging') || catLower.contains('stay') || catLower.contains('resort')) {
+      searchTerms.addAll(['hotel', 'resort']);
+    } else if (catLower.contains('travel') || catLower.contains('hidden') || catLower.contains('monument') || catLower.contains('attraction') || catLower.contains('museum')) {
+      searchTerms.addAll(['attraction', 'monument', 'museum']);
+    } else {
+      searchTerms.add('attraction');
+    }
+
+    final List<NearbyPlace> results = [];
+    final Set<String> seenNames = {};
+
+    for (final term in searchTerms) {
+      try {
+        final url = Uri.parse(
+          'https://photon.komoot.io/api/?q=${Uri.encodeComponent(term)}&lat=$lat&lon=$lng&limit=25'
+        );
+        final response = await http.get(url).timeout(const Duration(seconds: 10));
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data is Map && data['features'] is List) {
+            for (final item in (data['features'] as List)) {
+              if (item is! Map) continue;
+              final props = item['properties'] as Map? ?? {};
+              final geom = item['geometry'] as Map? ?? {};
+              final coords = geom['coordinates'] as List? ?? [];
+              if (coords.length < 2) continue;
+
+              final placeLng = (coords[0] as num).toDouble();
+              final placeLat = (coords[1] as num).toDouble();
+              final rawName = (props['name'] as String?)?.trim() ?? '';
+              if (rawName.isEmpty || rawName.toLowerCase() == term.toLowerCase()) continue;
+
+              final cleanKey = rawName.toLowerCase();
+              if (seenNames.contains(cleanKey)) continue;
+              seenNames.add(cleanKey);
+
+              final osmValue = (props['osm_value'] as String?)?.toLowerCase() ?? '';
+              final osmKey = (props['osm_key'] as String?)?.toLowerCase() ?? '';
+
+              String cat = 'attraction';
+              if (term == 'restaurant' || term == 'cafe' || osmKey == 'amenity' || osmValue.contains('restaurant') || osmValue.contains('cafe')) {
+                cat = 'restaurant';
+              } else if (term == 'hotel' || term == 'resort' || osmValue.contains('hotel') || osmValue.contains('hostel') || osmValue.contains('guest_house') || osmValue.contains('motel')) {
+                cat = 'hotel';
+              } else if (term == 'museum' || osmValue.contains('museum')) {
+                cat = 'museum';
+              } else if (term == 'monument' || osmValue.contains('monument')) {
+                cat = 'monument';
+              }
+
+              final distM = _calculateHaversineDistance(lat, lng, placeLat, placeLng);
+              if (distM > radius * 1.8) continue;
+
+              final distText = distM < 1000 ? '${distM.round()}m' : '${(distM / 1000.0).toStringAsFixed(1)}km';
+
+              final addressParts = [
+                props['street'],
+                props['locality'] ?? props['district'],
+                props['city'],
+                props['state'],
+              ].where((s) => s != null && s.toString().trim().isNotEmpty).join(', ');
+
+              String imageUrl = '';
+              if (cat == 'restaurant') {
+                imageUrl = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80';
+              } else if (cat == 'hotel') {
+                imageUrl = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500&q=80';
+              } else {
+                imageUrl = 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=500&q=80';
+              }
+
+              results.add(
+                NearbyPlace(
+                  id: 'osm_${props['osm_type'] ?? 'N'}_${props['osm_id'] ?? DateTime.now().microsecondsSinceEpoch}',
+                  name: rawName,
+                  description: addressParts.isNotEmpty ? addressParts : (props['country'] as String? ?? 'Nearby spot'),
+                  category: cat,
+                  latitude: placeLat,
+                  longitude: placeLng,
+                  rating: 4.3 + (Random().nextInt(6) * 0.1),
+                  distanceText: distText,
+                  distanceM: distM.round(),
+                  imageUrl: imageUrl,
+                ),
+              );
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('[Repository] OSM Photon search failed for $term: $e');
+      }
+    }
+
+    return results;
+  }
+
+  Future<List<NearbyPlace>> _fetchAttractionsFromNominatim(
+    double lat,
+    double lng,
+    double radius,
+  ) async {
+    final List<NearbyPlace> results = [];
+    try {
+      final double delta = (radius / 111111.0).clamp(0.05, 0.45);
+      final double minLng = lng - delta;
+      final double maxLng = lng + delta;
+      final double minLat = lat - delta;
+      final double maxLat = lat + delta;
+
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/search?q=attraction&format=json&viewbox=$minLng,$maxLat,$maxLng,$minLat&bounded=1&limit=25'
+      );
+      final response = await http.get(url, headers: {'User-Agent': 'HidelyApp/1.0'}).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data is List) {
+          for (final item in data) {
+            if (item is! Map) continue;
+            final name = item['name'] as String? ?? '';
+            final pLat = double.tryParse(item['lat']?.toString() ?? '');
+            final pLng = double.tryParse(item['lon']?.toString() ?? '');
+            if (name.isEmpty || pLat == null || pLng == null) continue;
+
+            final distM = _calculateHaversineDistance(lat, lng, pLat, pLng);
+            final distText = distM < 1000 ? '${distM.round()}m' : '${(distM / 1000.0).toStringAsFixed(1)}km';
+
+            results.add(
+              NearbyPlace(
+                id: 'nom_${item['place_id'] ?? item['osm_id']}',
+                name: name,
+                description: item['display_name'] as String? ?? 'Attraction',
+                category: 'attraction',
+                latitude: pLat,
+                longitude: pLng,
+                rating: 4.6,
+                distanceText: distText,
+                distanceM: distM.round(),
+                imageUrl: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=500&q=80',
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[Repository] Nominatim search error: $e');
+    }
+    return results;
+  }
+
+  List<NearbyPlace> _getCuratedFallbackPlaces(double lat, double lng, double radius) {
+    final List<Map<String, dynamic>> rawSeeds = [
+      // Delhi NCR
+      {'name': 'India Gate', 'desc': 'Rajpath, India Gate, New Delhi', 'lat': 28.6129, 'lng': 77.2295, 'cat': 'attraction', 'img': 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=500&q=80'},
+      {'name': 'Red Fort', 'desc': 'Netaji Subhash Marg, Lal Qila, Old Delhi', 'lat': 28.6562, 'lng': 77.2410, 'cat': 'monument', 'img': 'https://images.unsplash.com/photo-1592635196078-9fe3d54f2377?w=500&q=80'},
+      {'name': 'Qutub Minar', 'desc': 'Seth Sarai, Mehrauli, New Delhi', 'lat': 28.5244, 'lng': 77.1855, 'cat': 'monument', 'img': 'https://images.unsplash.com/photo-1548013146-72479768bada?w=500&q=80'},
+      {'name': 'Humayun\'s Tomb', 'desc': 'Mathura Road, Nizamuddin East, New Delhi', 'lat': 28.5849, 'lng': 77.2483, 'cat': 'monument', 'img': 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=500&q=80'},
+      {'name': 'Lotus Temple', 'desc': 'Lotus Temple Rd, Bahapur, New Delhi', 'lat': 28.5535, 'lng': 77.2588, 'cat': 'attraction', 'img': 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=500&q=80'},
+      {'name': 'The Imperial Hotel', 'desc': 'Janpath, Connaught Place, New Delhi', 'lat': 28.6234, 'lng': 77.2177, 'cat': 'hotel', 'img': 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500&q=80'},
+      {'name': 'Taj Mahal Hotel', 'desc': 'Number One Mansingh Road, New Delhi', 'lat': 28.6042, 'lng': 77.2245, 'cat': 'hotel', 'img': 'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=500&q=80'},
+      {'name': 'Bukhara Restaurant', 'desc': 'ITC Maurya, Diplomatic Enclave, New Delhi', 'lat': 28.5973, 'lng': 77.1706, 'cat': 'restaurant', 'img': 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80'},
+      {'name': 'Karim\'s Jama Masjid', 'desc': 'Gali Kababian, Jama Masjid, Old Delhi', 'lat': 28.6508, 'lng': 77.2334, 'cat': 'restaurant', 'img': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&q=80'},
+      {'name': 'Indian Accent', 'desc': 'The Lodhi, Lodhi Road, New Delhi', 'lat': 28.5908, 'lng': 77.2427, 'cat': 'restaurant', 'img': 'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?w=500&q=80'},
+
+      // Agra
+      {'name': 'Taj Mahal', 'desc': 'Dharmapuri, Forest Colony, Tajganj, Agra', 'lat': 27.1751, 'lng': 78.0421, 'cat': 'attraction', 'img': 'https://images.unsplash.com/photo-1564507592333-c60657eea523?w=500&q=80'},
+      {'name': 'Agra Fort', 'desc': 'Agra Fort, Rakabganj, Agra', 'lat': 27.1795, 'lng': 78.0211, 'cat': 'monument', 'img': 'https://images.unsplash.com/photo-1592635196078-9fe3d54f2377?w=500&q=80'},
+      {'name': 'The Oberoi Amarvilas', 'desc': 'Taj East Gate Road, Agra', 'lat': 27.1701, 'lng': 78.0483, 'cat': 'hotel', 'img': 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500&q=80'},
+      {'name': 'Pinch of Spice', 'desc': 'Fatehabad Road, Tajganj, Agra', 'lat': 27.1963, 'lng': 78.0069, 'cat': 'restaurant', 'img': 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80'},
+
+      // Jaipur
+      {'name': 'Hawa Mahal', 'desc': 'Hawa Mahal Rd, Badi Choupad, Jaipur', 'lat': 26.9239, 'lng': 75.8267, 'cat': 'monument', 'img': 'https://images.unsplash.com/photo-1603258849062-1087859844e1?w=500&q=80'},
+      {'name': 'Amber Palace', 'desc': 'Devisinghpura, Amer, Jaipur', 'lat': 26.9855, 'lng': 75.8513, 'cat': 'monument', 'img': 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=500&q=80'},
+      {'name': 'Rambagh Palace', 'desc': 'Bhawani Singh Rd, Rambagh, Jaipur', 'lat': 26.8978, 'lng': 75.8086, 'cat': 'hotel', 'img': 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500&q=80'},
+      {'name': 'Handi Restaurant', 'desc': 'MI Road, Opposite GPO, Jaipur', 'lat': 26.9168, 'lng': 75.8015, 'cat': 'restaurant', 'img': 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80'},
+
+      // Mumbai
+      {'name': 'Gateway of India', 'desc': 'Apollo Bandar, Colaba, Mumbai', 'lat': 18.9220, 'lng': 72.8347, 'cat': 'monument', 'img': 'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=500&q=80'},
+      {'name': 'Marine Drive', 'desc': 'Netaji Subhash Chandra Bose Road, Mumbai', 'lat': 18.9432, 'lng': 72.8230, 'cat': 'attraction', 'img': 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=500&q=80'},
+      {'name': 'The Taj Mahal Palace', 'desc': 'Apollo Bunder, Colaba, Mumbai', 'lat': 18.9217, 'lng': 72.8332, 'cat': 'hotel', 'img': 'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=500&q=80'},
+      {'name': 'Leopold Cafe', 'desc': 'Colaba Causeway, Colaba, Mumbai', 'lat': 18.9228, 'lng': 72.8317, 'cat': 'restaurant', 'img': 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80'},
+
+      // Goa
+      {'name': 'Fort Aguada', 'desc': 'Sinquerim, Candolim, Goa', 'lat': 15.4925, 'lng': 73.7736, 'cat': 'attraction', 'img': 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=500&q=80'},
+      {'name': 'Baga Beach', 'desc': 'Baga, North Goa', 'lat': 15.5553, 'lng': 73.7517, 'cat': 'attraction', 'img': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&q=80'},
+      {'name': 'Taj Fort Aguada Resort', 'desc': 'Sinquerim, Candolim, Goa', 'lat': 15.4950, 'lng': 73.7750, 'cat': 'hotel', 'img': 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500&q=80'},
+      {'name': 'Fisherman\'s Wharf', 'desc': 'Mobor Beach, Cavelossim, Goa', 'lat': 15.1611, 'lng': 73.9472, 'cat': 'restaurant', 'img': 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80'},
+    ];
+
+    final List<NearbyPlace> matched = [];
+    for (final s in rawSeeds) {
+      final sLat = s['lat'] as double;
+      final sLng = s['lng'] as double;
+      final distM = _calculateHaversineDistance(lat, lng, sLat, sLng);
+      if (distM <= radius * 2.5) {
+        final distText = distM < 1000 ? '${distM.round()}m' : '${(distM / 1000.0).toStringAsFixed(1)}km';
+        matched.add(
+          NearbyPlace(
+            id: 'seed_${s['name'].toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}',
+            name: s['name'] as String,
+            description: s['desc'] as String,
+            category: s['cat'] as String,
+            latitude: sLat,
+            longitude: sLng,
+            rating: 4.8,
+            distanceText: distText,
+            distanceM: distM.round(),
+            imageUrl: s['img'] as String,
+          ),
+        );
+      }
+    }
+
+    if (matched.isEmpty) {
+      final sortedSeeds = List<Map<String, dynamic>>.from(rawSeeds);
+      sortedSeeds.sort((a, b) {
+        final dA = _calculateHaversineDistance(lat, lng, a['lat'] as double, a['lng'] as double);
+        final dB = _calculateHaversineDistance(lat, lng, b['lat'] as double, b['lng'] as double);
+        return dA.compareTo(dB);
+      });
+      for (final s in sortedSeeds.take(8)) {
+        final sLat = s['lat'] as double;
+        final sLng = s['lng'] as double;
+        final distM = _calculateHaversineDistance(lat, lng, sLat, sLng);
+        final distText = distM < 1000 ? '${distM.round()}m' : '${(distM / 1000.0).toStringAsFixed(1)}km';
+        matched.add(
+          NearbyPlace(
+            id: 'seed_${s['name'].toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}',
+            name: s['name'] as String,
+            description: s['desc'] as String,
+            category: s['cat'] as String,
+            latitude: sLat,
+            longitude: sLng,
+            rating: 4.8,
+            distanceText: distText,
+            distanceM: distM.round(),
+            imageUrl: s['img'] as String,
+          ),
+        );
+      }
+    }
+
+    return matched;
   }
 
   double _calculateHaversineDistance(double lat1, double lon1, double lat2, double lon2) {
@@ -631,16 +1004,15 @@ class MapRepositoryImpl implements MapRepository {
 
       if (!isAllowedType) return false;
 
-      final matchesCategory = category == null ||
-          category.toLowerCase() == 'all' ||
-          (category.toLowerCase() == 'hidden places' && (pCat == 'monument' || pCat == 'museum' || pCat == 'attraction' || pCat == 'hidden')) ||
-          (category.toLowerCase() == 'restaurant' && (pCat == 'restaurant' || pCat == 'cafe')) ||
-          (category.toLowerCase() == 'stay' && (pCat == 'hotel' || pCat == 'lodging' || pCat == 'stay')) ||
-          pCat == category.toLowerCase() ||
-          (category.toLowerCase().contains('restaurant') && pCat == 'cafe') ||
-          (category.toLowerCase().contains('attraction') && pCat == 'monument') ||
-          (category.toLowerCase().contains('attraction') && pCat == 'museum') ||
-          (category.toLowerCase().contains('hotel') && pCat == 'lodging');
+      final catLower = category?.toLowerCase() ?? 'all';
+      final matchesCategory = catLower == 'all' ||
+          ((catLower.contains('travel') || catLower.contains('hidden') || catLower.contains('monument') || catLower.contains('attraction') || catLower.contains('museum')) &&
+              (pCat == 'monument' || pCat == 'museum' || pCat == 'attraction' || pCat == 'hidden')) ||
+          ((catLower.contains('restaurant') || catLower.contains('cafe') || catLower.contains('food') || catLower.contains('dining')) &&
+              (pCat == 'restaurant' || pCat == 'cafe')) ||
+          ((catLower.contains('stay') || catLower.contains('hotel') || catLower.contains('lodging') || catLower.contains('resort')) &&
+              (pCat == 'hotel' || pCat == 'lodging' || pCat == 'stay')) ||
+          pCat == catLower;
 
       final matchesQuery = skipQueryFilter ||
           query == null ||
