@@ -1074,6 +1074,8 @@ class MapRepositoryImpl implements MapRepository {
     return points;
   }
 
+  static final Map<String, RouteData> _routeCache = {};
+
   @override
   Future<RouteData> getRoute({
     required LatLng start,
@@ -1081,6 +1083,8 @@ class MapRepositoryImpl implements MapRepository {
     required String mode,
     String? language,
   }) async {
+    final cacheKey = '${start.latitude.toStringAsFixed(3)},${start.longitude.toStringAsFixed(3)}->${end.latitude.toStringAsFixed(3)},${end.longitude.toStringAsFixed(3)}_$mode';
+
     final connectivity = await Connectivity().checkConnectivity();
     final isOnline = connectivity.any((result) => result != ConnectivityResult.none);
 
@@ -1117,7 +1121,7 @@ class MapRepositoryImpl implements MapRepository {
                 '&key=$apiKey'
               );
 
-        final response = await http.get(url).timeout(const Duration(seconds: 15));
+        final response = await http.get(url).timeout(const Duration(seconds: 12));
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           if (data['status'] == 'OK' && data['routes'] != null && (data['routes'] as List).isNotEmpty) {
@@ -1126,16 +1130,22 @@ class MapRepositoryImpl implements MapRepository {
 
             for (int rIdx = 0; rIdx < routesList.length; rIdx++) {
               final route = routesList[rIdx];
-              final legs = route['legs'][0];
-              final distanceKm = (legs['distance']['value'] as num) / 1000.0;
-              final durationMin = ((legs['duration']['value'] as num) / 60.0).round();
+              final legs = route['legs'] != null && (route['legs'] as List).isNotEmpty ? route['legs'][0] : {};
+              final distanceKm = ((legs['distance']?['value'] as num?)?.toDouble() ?? 1000.0) / 1000.0;
+              final durationMin = (((legs['duration']?['value'] as num?)?.toDouble() ?? 60.0) / 60.0).round();
               final durationInTrafficMin = legs['duration_in_traffic'] != null
-                  ? ((legs['duration_in_traffic']['value'] as num) / 60.0).round()
+                  ? (((legs['duration_in_traffic']['value'] as num?)?.toDouble() ?? 60.0) / 60.0).round()
                   : null;
               final summary = route['summary'] as String? ?? (rIdx == 0 ? 'Fastest Route' : 'Alternative $rIdx');
 
               List<LatLng> points = [];
-              if (legs['steps'] != null) {
+              // Use overview_polyline for seamless unbroken road coordinates
+              if (route['overview_polyline'] != null && route['overview_polyline']['points'] != null) {
+                points = _decodePolyline(route['overview_polyline']['points'] as String);
+              }
+
+              // Fallback to steps if overview_polyline is empty
+              if (points.isEmpty && legs['steps'] != null) {
                 for (final step in legs['steps']) {
                   if (step['polyline'] != null && step['polyline']['points'] != null) {
                     final stepPoints = _decodePolyline(step['polyline']['points'] as String);
@@ -1143,8 +1153,15 @@ class MapRepositoryImpl implements MapRepository {
                   }
                 }
               }
-              if (points.isEmpty && route['overview_polyline'] != null) {
-                points = _decodePolyline(route['overview_polyline']['points'] as String);
+
+              // Ensure points start smoothly at start location and end at destination
+              if (points.isNotEmpty) {
+                if (const Distance().as(LengthUnit.Meter, start, points.first) > 8) {
+                  points.insert(0, start);
+                }
+                if (const Distance().as(LengthUnit.Meter, end, points.last) > 8) {
+                  points.add(end);
+                }
               }
 
               final List<NavigationStep> navSteps = [];
@@ -1154,10 +1171,10 @@ class MapRepositoryImpl implements MapRepository {
                 for (final step in legs['steps']) {
                   final htmlInstruction = step['html_instructions'] as String? ?? '';
                   String cleanInstruction = htmlInstruction.replaceAll(RegExp(r'<[^>]*>'), '');
-                  final stepDistM = (step['distance']['value'] as num).toDouble();
-                  final stepDurSec = (step['duration']['value'] as num).toInt();
-                  final startLoc = LatLng(step['start_location']['lat'] as double, step['start_location']['lng'] as double);
-                  final endLoc = LatLng(step['end_location']['lat'] as double, step['end_location']['lng'] as double);
+                  final stepDistM = ((step['distance']?['value'] as num?)?.toDouble() ?? 50.0);
+                  final stepDurSec = ((step['duration']?['value'] as num?)?.toInt() ?? 10);
+                  final startLoc = LatLng((step['start_location']?['lat'] as num?)?.toDouble() ?? start.latitude, (step['start_location']?['lng'] as num?)?.toDouble() ?? start.longitude);
+                  final endLoc = LatLng((step['end_location']?['lat'] as num?)?.toDouble() ?? end.latitude, (step['end_location']?['lng'] as num?)?.toDouble() ?? end.longitude);
 
                   final rawManeuver = step['maneuver'] as String?;
                   final maneuverType = ManeuverType.fromString(rawManeuver);
@@ -1195,32 +1212,38 @@ class MapRepositoryImpl implements MapRepository {
                 }
               }
 
-              routeOptions.add(
-                RouteOption(
-                  id: 'google_route_$rIdx',
-                  summary: summary,
-                  coordinates: points,
-                  distanceKm: double.parse(distanceKm.toStringAsFixed(2)),
-                  durationMin: durationMin > 0 ? durationMin : 1,
-                  durationInTrafficMin: durationInTrafficMin,
-                  steps: navSteps,
-                  instructions: instructions,
-                ),
-              );
+              if (points.isNotEmpty) {
+                routeOptions.add(
+                  RouteOption(
+                    id: 'google_route_$rIdx',
+                    summary: summary,
+                    coordinates: points,
+                    distanceKm: double.parse(distanceKm.toStringAsFixed(2)),
+                    durationMin: durationMin > 0 ? durationMin : 1,
+                    durationInTrafficMin: durationInTrafficMin,
+                    steps: navSteps,
+                    instructions: instructions,
+                  ),
+                );
+              }
             }
 
-            final primaryOpt = routeOptions.first;
-            return RouteData(
-              coordinates: primaryOpt.coordinates,
-              distanceKm: primaryOpt.distanceKm,
-              durationMin: primaryOpt.durationMin,
-              durationInTrafficMin: primaryOpt.durationInTrafficMin,
-              elevationGainM: mode == 'walking' ? (primaryOpt.distanceKm * 20).round() : (primaryOpt.distanceKm * 5).round(),
-              instructions: primaryOpt.instructions,
-              steps: primaryOpt.steps,
-              options: routeOptions,
-              selectedOptionIndex: 0,
-            );
+            if (routeOptions.isNotEmpty) {
+              final primaryOpt = routeOptions.first;
+              final resultRoute = RouteData(
+                coordinates: primaryOpt.coordinates,
+                distanceKm: primaryOpt.distanceKm,
+                durationMin: primaryOpt.durationMin,
+                durationInTrafficMin: primaryOpt.durationInTrafficMin,
+                elevationGainM: mode == 'walking' ? (primaryOpt.distanceKm * 20).round() : (primaryOpt.distanceKm * 5).round(),
+                instructions: primaryOpt.instructions,
+                steps: primaryOpt.steps,
+                options: routeOptions,
+                selectedOptionIndex: 0,
+              );
+              _routeCache[cacheKey] = resultRoute;
+              return resultRoute;
+            }
           } else {
             debugPrint('[Repository] Google Directions API status not OK: ${data['status']}. Falling back to OSRM.');
           }
@@ -1229,130 +1252,152 @@ class MapRepositoryImpl implements MapRepository {
         debugPrint('[Repository] Google Directions API request failed: $e. Falling back to OSRM.');
       }
 
-      // 2. OSRM Fallback with steps=true&annotations=true
+      // 2. High-Precision OSRM Routing Fallback
       if (mode != 'transit') {
         try {
-          final String osmProfile = mode == 'driving' ? 'routed-car' : mode == 'bicycling' ? 'routed-bike' : 'routed-foot';
           final String fallbackProfile = mode == 'driving' ? 'driving' : mode == 'bicycling' ? 'bicycle' : 'foot';
+          final String osmProfile = mode == 'driving' ? 'routed-car' : mode == 'bicycling' ? 'routed-bike' : 'routed-foot';
 
-          final url = Uri.parse(
-            'https://routing.openstreetmap.de/$osmProfile/route/v1/$fallbackProfile/'
-            '${start.longitude},${start.latitude};${end.longitude},${end.latitude}'
-            '?overview=full&geometries=geojson&steps=true&annotations=true',
-          );
-
-          http.Response response;
-          try {
-            response = await http.get(url).timeout(const Duration(seconds: 12));
-            if (response.statusCode != 200) {
-              throw Exception('OSM Routing Server returned ${response.statusCode}');
-            }
-          } catch (_) {
-            final backupUrl = Uri.parse(
-              'https://router.project-osrm.org/route/v1/driving/'
+          // Try Primary OSRM (Project OSRM) first, then fallback to OSM.de
+          final List<Uri> osrmMirrors = [
+            Uri.parse(
+              'https://router.project-osrm.org/route/v1/$fallbackProfile/'
               '${start.longitude},${start.latitude};${end.longitude},${end.latitude}'
               '?overview=full&geometries=geojson&steps=true&annotations=true',
-            );
-            response = await http.get(backupUrl).timeout(const Duration(seconds: 12));
-          }
+            ),
+            Uri.parse(
+              'https://routing.openstreetmap.de/$osmProfile/route/v1/$fallbackProfile/'
+              '${start.longitude},${start.latitude};${end.longitude},${end.latitude}'
+              '?overview=full&geometries=geojson&steps=true&annotations=true',
+            ),
+          ];
 
-          if (response.statusCode == 200) {
-            final data = json.decode(response.body);
-            if (data['routes'] != null && (data['routes'] as List).isNotEmpty) {
-              final route = data['routes'][0];
-              final geometry = route['geometry'];
-              final coordinatesList = geometry['coordinates'] as List;
+          for (final url in osrmMirrors) {
+            try {
+              final response = await http.get(url).timeout(const Duration(seconds: 10));
+              if (response.statusCode == 200) {
+                final data = json.decode(response.body);
+                if (data['routes'] != null && (data['routes'] as List).isNotEmpty) {
+                  final route = data['routes'][0];
+                  final geometry = route['geometry'];
+                  List<LatLng> points = [];
 
-              final List<LatLng> points = coordinatesList.map((coord) {
-                return LatLng(coord[1] as double, coord[0] as double);
-              }).toList();
+                  if (geometry is Map && geometry['coordinates'] is List) {
+                    final coordinatesList = geometry['coordinates'] as List;
+                    points = coordinatesList.map((coord) {
+                      return LatLng((coord[1] as num).toDouble(), (coord[0] as num).toDouble());
+                    }).toList();
+                  }
 
-              final double distanceKm = (route['distance'] as num) / 1000.0;
-              final double durationSec = (route['duration'] as num).toDouble();
-              final int durationMin = (durationSec / 60.0).round();
-
-              final List<NavigationStep> osrmSteps = [];
-              final List<String> instructions = [];
-
-              if (route['legs'] != null && (route['legs'] as List).isNotEmpty) {
-                final legs = route['legs'][0];
-                if (legs['steps'] != null) {
-                  for (final step in legs['steps']) {
-                    final stepDistM = (step['distance'] as num).toDouble();
-                    final stepDurSec = (step['duration'] as num).toInt();
-                    final stepName = step['name'] as String? ?? '';
-                    final maneuver = step['maneuver'] ?? {};
-                    final typeStr = maneuver['type'] as String? ?? 'turn';
-                    final modifier = maneuver['modifier'] as String? ?? '';
-                    final exitNum = maneuver['exit']?.toString();
-
-                    final maneuverType = ManeuverType.fromString('$typeStr $modifier');
-
-                    final startCoord = step['maneuver']['location'] as List;
-                    final startLoc = LatLng(startCoord[1] as double, startCoord[0] as double);
-
-                    String text = '';
-                    if (typeStr == 'roundabout' || typeStr == 'rotary') {
-                      text = exitNum != null
-                          ? 'Enter roundabout and take exit $exitNum'
-                          : 'Enter roundabout';
-                    } else if (typeStr == 'arrive') {
-                      text = 'Arrive at destination';
-                    } else {
-                      final action = modifier.isNotEmpty ? '$typeStr $modifier' : typeStr;
-                      text = stepName.isNotEmpty
-                          ? 'In ${stepDistM.round()}m, $action onto $stepName'
-                          : 'In ${stepDistM.round()}m, $action';
+                  // Connect seamlessly from user start position to road, and road to destination
+                  if (points.isNotEmpty) {
+                    if (const Distance().as(LengthUnit.Meter, start, points.first) > 8) {
+                      points.insert(0, start);
                     }
+                    if (const Distance().as(LengthUnit.Meter, end, points.last) > 8) {
+                      points.add(end);
+                    }
+                  }
 
-                    osrmSteps.add(
-                      NavigationStep(
-                        startLocation: startLoc,
-                        endLocation: startLoc,
-                        distanceMeters: stepDistM,
-                        durationSeconds: stepDurSec,
-                        maneuverType: maneuverType,
-                        instruction: text,
-                        roadName: stepName,
-                        exitNumber: exitNum,
-                        roundaboutExitIndex: int.tryParse(exitNum ?? ''),
-                      ),
+                  final double distanceKm = ((route['distance'] as num?)?.toDouble() ?? 1000.0) / 1000.0;
+                  final double durationSec = (route['duration'] as num?)?.toDouble() ?? 60.0;
+                  final int durationMin = (durationSec / 60.0).round();
+
+                  final List<NavigationStep> osrmSteps = [];
+                  final List<String> instructions = [];
+
+                  if (route['legs'] != null && (route['legs'] as List).isNotEmpty) {
+                    final legs = route['legs'][0];
+                    if (legs['steps'] != null) {
+                      for (final step in legs['steps']) {
+                        final stepDistM = ((step['distance'] as num?)?.toDouble() ?? 50.0);
+                        final stepDurSec = ((step['duration'] as num?)?.toInt() ?? 10);
+                        final stepName = step['name'] as String? ?? '';
+                        final maneuver = step['maneuver'] ?? {};
+                        final typeStr = maneuver['type'] as String? ?? 'turn';
+                        final modifier = maneuver['modifier'] as String? ?? '';
+                        final exitNum = maneuver['exit']?.toString();
+
+                        final maneuverType = ManeuverType.fromString('$typeStr $modifier');
+
+                        final startCoord = maneuver['location'] as List? ?? [start.longitude, start.latitude];
+                        final startLoc = LatLng((startCoord[1] as num).toDouble(), (startCoord[0] as num).toDouble());
+
+                        String text = '';
+                        if (typeStr == 'roundabout' || typeStr == 'rotary') {
+                          text = exitNum != null
+                              ? 'Enter roundabout and take exit $exitNum'
+                              : 'Enter roundabout';
+                        } else if (typeStr == 'arrive') {
+                          text = 'Arrive at destination';
+                        } else {
+                          final action = modifier.isNotEmpty ? '$typeStr $modifier' : typeStr;
+                          text = stepName.isNotEmpty
+                              ? 'In ${stepDistM.round()}m, $action onto $stepName'
+                              : 'In ${stepDistM.round()}m, $action';
+                        }
+
+                        osrmSteps.add(
+                          NavigationStep(
+                            startLocation: startLoc,
+                            endLocation: startLoc,
+                            distanceMeters: stepDistM,
+                            durationSeconds: stepDurSec,
+                            maneuverType: maneuverType,
+                            instruction: text,
+                            roadName: stepName,
+                            exitNumber: exitNum,
+                            roundaboutExitIndex: int.tryParse(exitNum ?? ''),
+                          ),
+                        );
+                        instructions.add(text);
+                      }
+                    }
+                  }
+
+                  if (osrmSteps.isEmpty && points.isNotEmpty) {
+                    instructions.addAll(_generateInstructionsForPoints(points, language));
+                  }
+
+                  if (points.isNotEmpty) {
+                    final primaryOpt = RouteOption(
+                      id: 'osrm_route_0',
+                      summary: 'OSRM Route',
+                      coordinates: points,
+                      distanceKm: double.parse(distanceKm.toStringAsFixed(2)),
+                      durationMin: durationMin > 0 ? durationMin : 1,
+                      steps: osrmSteps,
+                      instructions: instructions,
                     );
-                    instructions.add(text);
+
+                    final resultRoute = RouteData(
+                      coordinates: points,
+                      distanceKm: double.parse(distanceKm.toStringAsFixed(2)),
+                      durationMin: durationMin > 0 ? durationMin : 1,
+                      elevationGainM: mode == 'walking' ? (distanceKm * 20).round() : (distanceKm * 5).round(),
+                      instructions: instructions,
+                      steps: osrmSteps,
+                      options: [primaryOpt],
+                      selectedOptionIndex: 0,
+                    );
+                    _routeCache[cacheKey] = resultRoute;
+                    return resultRoute;
                   }
                 }
               }
-
-              if (osrmSteps.isEmpty) {
-                instructions.addAll(_generateInstructionsForPoints(points, language));
-              }
-
-              final primaryOpt = RouteOption(
-                id: 'osrm_route_0',
-                summary: 'OSRM Route',
-                coordinates: points,
-                distanceKm: double.parse(distanceKm.toStringAsFixed(2)),
-                durationMin: durationMin > 0 ? durationMin : 1,
-                steps: osrmSteps,
-                instructions: instructions,
-              );
-
-              return RouteData(
-                coordinates: points,
-                distanceKm: double.parse(distanceKm.toStringAsFixed(2)),
-                durationMin: durationMin > 0 ? durationMin : 1,
-                elevationGainM: mode == 'walking' ? (distanceKm * 20).round() : (distanceKm * 5).round(),
-                instructions: instructions,
-                steps: osrmSteps,
-                options: [primaryOpt],
-                selectedOptionIndex: 0,
-              );
+            } catch (mirrorErr) {
+              debugPrint('[Repository] OSRM mirror failed: $mirrorErr');
             }
           }
         } catch (e) {
           debugPrint('[Repository] Online OSRM routing failed: $e.');
         }
       }
+    }
+
+    // If live queries failed, check in-memory route cache before falling back to straight line
+    if (_routeCache.containsKey(cacheKey)) {
+      return _routeCache[cacheKey]!;
     }
 
     final distanceKm = const Distance().as(LengthUnit.Meter, start, end) / 1000.0;

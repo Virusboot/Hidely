@@ -774,17 +774,27 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
                       },
                     ),
 
-                // Primary Active Route (Deep Purple / Vibrant Electric Blue)
-                if (widget.activeRoute!.coordinates.isNotEmpty)
+                // Primary Active Route (Casing line + Vibrant Route)
+                if (widget.activeRoute!.coordinates.isNotEmpty) ...[
                   gmaps.Polyline(
-                    polylineId: const gmaps.PolylineId('routing_line_primary'),
+                    polylineId: const gmaps.PolylineId('routing_line_casing'),
                     points: widget.activeRoute!.coordinates.map(_toGoogleLatLng).toList(),
-                    color: const Color(0xff2B1564),
-                    width: 7,
+                    color: const Color(0xFF1B0D42),
+                    width: 9,
                     jointType: gmaps.JointType.round,
                     startCap: gmaps.Cap.roundCap,
                     endCap: gmaps.Cap.roundCap,
                   ),
+                  gmaps.Polyline(
+                    polylineId: const gmaps.PolylineId('routing_line_primary'),
+                    points: widget.activeRoute!.coordinates.map(_toGoogleLatLng).toList(),
+                    color: const Color(0xFF6366F1),
+                    width: 6,
+                    jointType: gmaps.JointType.round,
+                    startCap: gmaps.Cap.roundCap,
+                    endCap: gmaps.Cap.roundCap,
+                  ),
+                ],
               ],
             },
             markers: _buildGoogleMarkers(currentLocation, widget.activeDestination),
@@ -851,10 +861,22 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     if (coordinates.isEmpty) return [];
 
     return [
+      // Outer casing line for crisp boundary definition
       fm.Polyline(
         points: coordinates,
-        color: const Color(0xFF2563EB), // Vibrant Electric Blue navigation route
-        strokeWidth: 7.0,
+        color: const Color(0xFF1E3A8A),
+        strokeWidth: 9.0,
+        strokeCap: StrokeCap.round,
+        strokeJoin: StrokeJoin.round,
+        isDotted: false,
+      ),
+      // Inner smooth continuous navigation route
+      fm.Polyline(
+        points: coordinates,
+        color: const Color(0xFF3B82F6), // Vibrant Electric Blue
+        strokeWidth: 6.0,
+        strokeCap: StrokeCap.round,
+        strokeJoin: StrokeJoin.round,
         isDotted: false,
       ),
     ];

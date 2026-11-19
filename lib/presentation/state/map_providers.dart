@@ -328,12 +328,9 @@ final originalRouteCoordinatesProvider = StateProvider<List<LatLng>>((ref) => []
 // Route Calculations Provider
 final routeDataProvider = FutureProvider<RouteData>((ref) async {
   final repository = ref.watch(mapRepositoryProvider);
-  final navStatus = ref.watch(navigationStatusProvider);
-  final start = (navStatus == NavigationStatus.navigating)
-      ? ref.read(userLocationProvider)
-      : ref.watch(userLocationProvider);
   final destination = ref.watch(activeDestinationProvider);
   final mode = ref.watch(travelModeProvider);
+  final start = ref.read(userLocationProvider);
 
   if (destination == null) {
     Future.microtask(() {
