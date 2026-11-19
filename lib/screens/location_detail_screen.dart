@@ -705,10 +705,22 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   }
 
   Future<void> _fetchLocationPosts() async {
-    final result = await ApiService().getExplorePosts(
-      city: widget.location,
+    final cleanCity = widget.location.split(',').first.trim();
+    final cleanTitle = widget.title.split(',').first.trim();
+
+    var result = await ApiService().getExplorePosts(
+      city: cleanCity.isNotEmpty ? cleanCity : null,
+      search: cleanTitle.isNotEmpty ? cleanTitle : null,
       token: AuthService().token,
     );
+
+    if ((!result.success || result.data == null || (result.data!['posts'] as List? ?? []).isEmpty) && cleanTitle.isNotEmpty) {
+      result = await ApiService().getExplorePosts(
+        search: cleanTitle,
+        token: AuthService().token,
+      );
+    }
+
     if (mounted) {
       final List postsFromApi = (result.success && result.data != null && result.data!['posts'] is List)
           ? result.data!['posts']
@@ -880,6 +892,29 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                               height: 1.45,
                             ),
                           ),
+                          if (widget.image.isNotEmpty &&
+                              (widget.image.startsWith('http') || widget.image.startsWith('assets/'))) ...[
+                            const SizedBox(height: 16),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                height: 210,
+                                width: double.infinity,
+                                color: const Color(0xffCBD5E1),
+                                child: widget.image.startsWith('http')
+                                    ? Image.network(
+                                        widget.image,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                      )
+                                    : Image.asset(
+                                        widget.image,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                      ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

@@ -22,6 +22,7 @@ import '../widgets/armonia_map.dart';
 import '../widgets/route_info_card.dart';
 import '../widgets/map_sizes.dart';
 import '../widgets/map_header_bar.dart';
+import '../../screens/location_detail_screen.dart';
 
 class AppColors {
   static const Color primaryPurple = Color(0xff2B1564);
@@ -87,6 +88,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
   bool _isDownloadingMap = false;
   bool _isSelectingSuggestion = false;
   bool _isBottomSheetOpen = false;
+  LatLng? _pannedCameraCenter;
+  bool _showSearchThisArea = false;
 
   // Voice Search variables
   final stt.SpeechToText _speechToText = stt.SpeechToText();
@@ -2036,12 +2039,88 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
             activeDestination: activeDestination,
             activeRoute: routeAsync.valueOrNull,
             simulatedLocation: simulatedLoc,
+            onCameraCenterChanged: (newCenter) {
+              final currentCenter = ref.read(mapCenterProvider);
+              final dist = Geolocator.distanceBetween(
+                newCenter.latitude,
+                newCenter.longitude,
+                currentCenter.latitude,
+                currentCenter.longitude,
+              );
+              if (dist > 800) {
+                if (!_showSearchThisArea || _pannedCameraCenter != newCenter) {
+                  setState(() {
+                    _pannedCameraCenter = newCenter;
+                    _showSearchThisArea = true;
+                  });
+                }
+              }
+            },
             onSelectPlace: (place) {
-              ref.read(activeDestinationProvider.notifier).state = place;
-              _stopNavigation();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => LocationDetailScreen(
+                    title: place.name,
+                    location: place.description.isNotEmpty ? place.description : place.name,
+                    image: place.imageUrl,
+                    category: place.category,
+                  ),
+                ),
+              );
             },
           ),
         ),
+
+        // 1.5 Floating "Search this area" Button
+        if (_showSearchThisArea && _pannedCameraCenter != null && navStatus != NavigationStatus.navigating)
+          Positioned(
+            top: topOffset + 115,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: GestureDetector(
+                onTap: () {
+                  if (_pannedCameraCenter != null) {
+                    ref.read(mapCenterProvider.notifier).state = _pannedCameraCenter!;
+                    setState(() {
+                      _showSearchThisArea = false;
+                    });
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.18),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.refresh_rounded, size: 16, color: _primaryDark),
+                      SizedBox(width: 6),
+                      Text(
+                        'Search this area',
+                        style: TextStyle(
+                          fontFamily: 'PublicSans',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: _primaryDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
 
         // 2. Top Header Overlay & Navigation Banner
         Positioned(

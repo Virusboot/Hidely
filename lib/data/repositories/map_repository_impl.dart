@@ -154,10 +154,14 @@ class MapRepositoryImpl implements MapRepository {
             final desc = pred['description'] as String? ?? '';
             if (desc.isNotEmpty && !addedNames.contains(desc.toLowerCase())) {
               addedNames.add(desc.toLowerCase());
+              final rawSub = pred['structured_formatting']?['secondary_text'] as String? ?? '';
+              final sub = rawSub.isNotEmpty
+                  ? rawSub
+                  : (desc.contains(',') ? desc.substring(desc.indexOf(',') + 1).trim() : 'Location');
               predictions.add({
                 'description': desc,
                 'place_id': pred['place_id'] as String? ?? '',
-                'subtitle': pred['structured_formatting']?['secondary_text'] as String? ?? 'Search Location',
+                'subtitle': sub,
               });
             }
           }
@@ -541,7 +545,7 @@ class MapRepositoryImpl implements MapRepository {
               }
             }
 
-            final nomPlaces = await _fetchAttractionsFromNominatim(lat, lng, rad);
+            final nomPlaces = await _fetchPlacesFromNominatim(lat, lng, category, rad);
             for (final np in nomPlaces) {
               if (!uniqueIds.contains(np.id)) {
                 uniqueIds.add(np.id);
@@ -824,50 +828,79 @@ class MapRepositoryImpl implements MapRepository {
     return results;
   }
 
-  Future<List<NearbyPlace>> _fetchAttractionsFromNominatim(
+  Future<List<NearbyPlace>> _fetchPlacesFromNominatim(
     double lat,
     double lng,
+    String? category,
     double radius,
   ) async {
     final List<NearbyPlace> results = [];
+    final List<String> queryTerms = [];
+    final catLower = (category ?? 'all').toLowerCase();
+
+    if (catLower == 'all') {
+      queryTerms.addAll(['attraction', 'hotel', 'restaurant']);
+    } else if (catLower.contains('restaurant') || catLower.contains('cafe') || catLower.contains('food')) {
+      queryTerms.addAll(['restaurant', 'cafe']);
+    } else if (catLower.contains('stay') || catLower.contains('hotel') || catLower.contains('lodging') || catLower.contains('resort')) {
+      queryTerms.addAll(['hotel', 'resort', 'guest house']);
+    } else {
+      queryTerms.addAll(['attraction', 'monument', 'museum']);
+    }
+
     try {
-      final double delta = (radius / 111111.0).clamp(0.05, 0.45);
+      final double delta = (radius / 111111.0).clamp(0.04, 0.35);
       final double minLng = lng - delta;
       final double maxLng = lng + delta;
       final double minLat = lat - delta;
       final double maxLat = lat + delta;
+      final Set<String> seenIds = {};
 
-      final url = Uri.parse(
-        'https://nominatim.openstreetmap.org/search?q=attraction&format=json&viewbox=$minLng,$maxLat,$maxLng,$minLat&bounded=1&limit=25'
-      );
-      final response = await http.get(url, headers: {'User-Agent': 'HidelyApp/1.0'}).timeout(const Duration(seconds: 8));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data is List) {
-          for (final item in data) {
-            if (item is! Map) continue;
-            final name = item['name'] as String? ?? '';
-            final pLat = double.tryParse(item['lat']?.toString() ?? '');
-            final pLng = double.tryParse(item['lon']?.toString() ?? '');
-            if (name.isEmpty || pLat == null || pLng == null) continue;
+      for (final term in queryTerms) {
+        final url = Uri.parse(
+          'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(term)}&format=json&viewbox=$minLng,$maxLat,$maxLng,$minLat&bounded=1&limit=15'
+        );
+        final response = await http.get(url, headers: {'User-Agent': 'HidelyApp/1.0 (support@hidely.app)'}).timeout(const Duration(seconds: 7));
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data is List) {
+            for (final item in data) {
+              if (item is! Map) continue;
+              final name = item['name'] as String? ?? (item['display_name'] as String? ?? '').split(',').first.trim();
+              final pLat = double.tryParse(item['lat']?.toString() ?? '');
+              final pLng = double.tryParse(item['lon']?.toString() ?? '');
+              final id = 'nom_${item['place_id'] ?? item['osm_id']}';
+              if (name.isEmpty || pLat == null || pLng == null || seenIds.contains(id)) continue;
+              seenIds.add(id);
 
-            final distM = _calculateHaversineDistance(lat, lng, pLat, pLng);
-            final distText = distM < 1000 ? '${distM.round()}m' : '${(distM / 1000.0).toStringAsFixed(1)}km';
+              String cat = 'attraction';
+              String img = 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=500&q=80';
+              if (term.contains('restaurant') || term.contains('cafe')) {
+                cat = 'restaurant';
+                img = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80';
+              } else if (term.contains('hotel') || term.contains('resort') || term.contains('guest house')) {
+                cat = 'hotel';
+                img = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500&q=80';
+              }
 
-            results.add(
-              NearbyPlace(
-                id: 'nom_${item['place_id'] ?? item['osm_id']}',
-                name: name,
-                description: item['display_name'] as String? ?? 'Attraction',
-                category: 'attraction',
-                latitude: pLat,
-                longitude: pLng,
-                rating: 4.6,
-                distanceText: distText,
-                distanceM: distM.round(),
-                imageUrl: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=500&q=80',
-              ),
-            );
+              final distM = _calculateHaversineDistance(lat, lng, pLat, pLng);
+              final distText = distM < 1000 ? '${distM.round()}m' : '${(distM / 1000.0).toStringAsFixed(1)}km';
+
+              results.add(
+                NearbyPlace(
+                  id: id,
+                  name: name,
+                  description: item['display_name'] as String? ?? 'Nearby spot',
+                  category: cat,
+                  latitude: pLat,
+                  longitude: pLng,
+                  rating: 4.3 + (Random().nextInt(6) * 0.1),
+                  distanceText: distText,
+                  distanceM: distM.round(),
+                  imageUrl: img,
+                ),
+              );
+            }
           }
         }
       }

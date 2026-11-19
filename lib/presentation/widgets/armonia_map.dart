@@ -41,6 +41,7 @@ class ArmoniaMap extends ConsumerStatefulWidget {
   final RouteData? activeRoute;
   final LatLng? simulatedLocation;
   final Function(NearbyPlace) onSelectPlace;
+  final ValueChanged<LatLng>? onCameraCenterChanged;
 
   const ArmoniaMap({
     super.key,
@@ -50,6 +51,7 @@ class ArmoniaMap extends ConsumerStatefulWidget {
     this.activeRoute,
     this.simulatedLocation,
     required this.onSelectPlace,
+    this.onCameraCenterChanged,
   });
 
   @override
@@ -238,31 +240,31 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     
     // Scale up the canvas size for crisp rendering on high-DPI devices
     final bool isUser = category == 'user';
-    final double baseSize = isUser ? 12.0 : 20.0; // Dynamic size for user location marker
-    const double pixelRatio = 1.0; // 1.0x ratio for true logical size mapping on Android
+    final double baseSize = isUser ? 28.0 : 38.0; // Clear visible size for markers
+    const double pixelRatio = 2.0; // High-DPI physical ratio for sharp rendering on Android & iOS
     final double size = baseSize * pixelRatio;
 
     final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.2)
-      ..maskFilter = const MaskFilter.blur(ui.BlurStyle.normal, 1.0 * pixelRatio);
-    canvas.drawCircle(Offset(size / 2, size / 2), (baseSize / 2 - 1.0) * pixelRatio, shadowPaint);
+      ..color = Colors.black.withOpacity(0.28)
+      ..maskFilter = const MaskFilter.blur(ui.BlurStyle.normal, 2.5 * pixelRatio);
+    canvas.drawCircle(Offset(size / 2, size / 2 + (1.5 * pixelRatio)), (baseSize / 2 - 1.5) * pixelRatio, shadowPaint);
 
     final whitePaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(size / 2, size / 2), (baseSize / 2 - 1.0) * pixelRatio, whitePaint);
+    canvas.drawCircle(Offset(size / 2, size / 2), (baseSize / 2 - 1.5) * pixelRatio, whitePaint);
 
     final colorPaint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(size / 2, size / 2), (baseSize / 2 - 2.5) * pixelRatio, colorPaint);
+    canvas.drawCircle(Offset(size / 2, size / 2), (baseSize / 2 - 4.0) * pixelRatio, colorPaint);
 
     final iconData = _getIconForCategory(category);
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     textPainter.text = TextSpan(
       text: String.fromCharCode(iconData.codePoint),
       style: TextStyle(
-        fontSize: (isUser ? 5.5 : 9.5) * pixelRatio, // Scaled with pixel ratio
+        fontSize: (isUser ? 12.0 : 16.5) * pixelRatio,
         fontFamily: iconData.fontFamily,
         package: iconData.fontPackage,
         color: Colors.white,
@@ -755,6 +757,10 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
                 ref.read(isTrackingUserProvider.notifier).state = false;
               }
             },
+            onCameraMove: (camPos) {
+              final newCenter = LatLng(camPos.target.latitude, camPos.target.longitude);
+              widget.onCameraCenterChanged?.call(newCenter);
+            },
             polylines: {
               if (widget.activeRoute != null) ...[
                 // Alternative Routes (Neutral Gray)
@@ -821,6 +827,10 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
             onPositionChanged: (position, hasGesture) {
               if (hasGesture) {
                 ref.read(isTrackingUserProvider.notifier).state = false;
+              }
+              final center = position.center;
+              if (center != null) {
+                widget.onCameraCenterChanged?.call(center);
               }
             },
           ),
@@ -960,32 +970,37 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
       markers.add(
         fm.Marker(
           point: place.location,
-          width: 24,
-          height: 24,
+          width: 44,
+          height: 44,
           child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () => widget.onSelectPlace(place),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(2.5),
+            child: Center(
               child: Container(
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  _getIconForCategory(place.category),
                   color: Colors.white,
-                  size: 13,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 5,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(2.5),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _getIconForCategory(place.category),
+                    color: Colors.white,
+                    size: 16,
+                  ),
                 ),
               ),
             ),
