@@ -761,8 +761,14 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
       };
     }
 
+    final cleanTitle = (!widget.title.contains('with @') &&
+            !widget.title.contains('🤝 Collab') &&
+            !widget.title.trim().startsWith('@'))
+        ? (widget.title.isNotEmpty ? widget.title : widget.location)
+        : widget.location;
+
     return {
-      "description": "Explore ${widget.title} in ${widget.location}. Discover scenic views and local attractions.",
+      "description": "Explore $cleanTitle in ${widget.location}. Discover scenic views and local attractions.",
       "tags": widget.category.isNotEmpty ? widget.category : "Explore, Hidden Spots, Sightseeing",
       "region": widget.location,
       "difficulty": "Easy to Moderate",
@@ -872,7 +878,11 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          if (widget.title.isNotEmpty && widget.title != widget.location) ...[
+                          if (widget.title.isNotEmpty &&
+                              widget.title != widget.location &&
+                              !widget.title.contains('with @') &&
+                              !widget.title.contains('🤝 Collab') &&
+                              !widget.title.trim().startsWith('@')) ...[
                             Text(
                               widget.title,
                               style: const TextStyle(

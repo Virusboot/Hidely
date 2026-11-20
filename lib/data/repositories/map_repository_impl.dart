@@ -303,13 +303,30 @@ class MapRepositoryImpl implements MapRepository {
               postCat = 'hotel';
             }
 
+            // Strip tagged users & collab from caption so it never leaks into map place name or location description
+            String cleanCaption = (post['caption'] as String? ?? '').trim();
+            if (cleanCaption.contains('🤝 Collab with')) {
+              cleanCaption = cleanCaption.split('🤝 Collab with').first.trim();
+            }
+            if (cleanCaption.contains('with @')) {
+              cleanCaption = cleanCaption.split('with @').first.trim();
+            }
+            if (cleanCaption.startsWith('@')) {
+              cleanCaption = '';
+            }
+
+            final placeName = effectiveLocName.isNotEmpty
+                ? effectiveLocName
+                : (cleanCaption.isNotEmpty ? cleanCaption : 'Hidden Place');
+            final placeDesc = cleanCaption.isNotEmpty && cleanCaption != placeName
+                ? cleanCaption
+                : 'Uploaded by Creator • $effectiveLocName';
+
             creatorPlaces.add(
               NearbyPlace(
                 id: 'post_${post['id']}',
-                name: post['caption'] != null && (post['caption'] as String).isNotEmpty
-                    ? post['caption']
-                    : effectiveLocName,
-                description: 'Uploaded by Creator • $effectiveLocName',
+                name: placeName,
+                description: placeDesc,
                 category: postCat,
                 latitude: coords.latitude,
                 longitude: coords.longitude,
