@@ -18,6 +18,10 @@ class LocationDetailScreen extends StatefulWidget {
   final String location;
   final String image;
   final String category;
+  final String? customDescription;
+  final List<String>? initialPhotos;
+  final double? rating;
+  final int? reviewsCount;
 
   const LocationDetailScreen({
     super.key,
@@ -25,6 +29,10 @@ class LocationDetailScreen extends StatefulWidget {
     this.location = "Nenital, Uttrakhand",
     this.image = "assets/images/explore_2.png",
     this.category = "Waterfalls",
+    this.customDescription,
+    this.initialPhotos,
+    this.rating,
+    this.reviewsCount,
   });
 
   @override
@@ -43,6 +51,12 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.rating != null) {
+      _currentRating = widget.rating!;
+    }
+    if (widget.reviewsCount != null) {
+      _reviewsCount = widget.reviewsCount!;
+    }
     _checkIfSaved();
     _loadFeedbacks();
     _fetchLocationPosts();
@@ -725,9 +739,30 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
       final List postsFromApi = (result.success && result.data != null && result.data!['posts'] is List)
           ? result.data!['posts']
           : [];
+      
+      final List allMappedPosts = [];
+      if (widget.initialPhotos != null && widget.initialPhotos!.isNotEmpty) {
+        for (int i = 0; i < widget.initialPhotos!.length; i++) {
+          final photoUrl = widget.initialPhotos![i];
+          if (photoUrl.isNotEmpty) {
+            allMappedPosts.add({
+              'id': 'stay_photo_$i',
+              'image_url': photoUrl,
+              'caption': widget.title,
+              'location': widget.location,
+              'likes_count': 24 + i * 4,
+              'comments_count': 6 + i,
+              'author_username': 'hidely',
+              'author_name': 'Verified Explorer',
+            });
+          }
+        }
+      }
+      allMappedPosts.addAll(postsFromApi);
+
       setState(() {
         _isLoadingGrid = false;
-        _locationPosts = postsFromApi;
+        _locationPosts = allMappedPosts;
       });
     }
   }
@@ -758,6 +793,16 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         "region": "Chania Harbor, Greece",
         "difficulty": "Easy Access",
         "season": "May–September",
+      };
+    }
+
+    if (widget.customDescription != null && widget.customDescription!.trim().isNotEmpty) {
+      return {
+        "description": widget.customDescription!.trim(),
+        "tags": widget.category.isNotEmpty ? widget.category : "Explore, Stays, Dining, Scenic",
+        "region": widget.location,
+        "difficulty": "Easy to Moderate",
+        "season": "Year-round",
       };
     }
 

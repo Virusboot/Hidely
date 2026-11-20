@@ -10,7 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:hidely_new/screens/map_discovery_screen.dart';
 import 'package:hidely_new/screens/main_wrapper.dart';
 import 'package:hidely_new/screens/feed_screen.dart';
-import 'package:hidely_new/screens/stay_detail_screen.dart';
+import 'package:hidely_new/screens/location_detail_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class NearbyStaysScreen extends StatefulWidget {
@@ -24,13 +24,54 @@ class NearbyStaysScreen extends StatefulWidget {
 }
 
 class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
-  final List<String> _categories = ["All", "Resorts", "Hotels", "Restaurants"];
+  final List<String> _categories = ["All", "Resorts", "Hotels", "Rasturents"];
   List<String> _selectedCategories = ["All"];
+  String get _selectedCategory => _selectedCategories.isNotEmpty ? _selectedCategories.first : "All";
+  set _selectedCategory(String cat) {
+    _selectedCategories = [cat];
+  }
 
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
 
-  final List<Map<String, dynamic>> _allStays = [];
+  final List<Map<String, dynamic>> _allStays = [
+    {
+      "title": "Lumina Gastronomy",
+      "category": "Rasturents",
+      "distance": "1.2 KM AWAY",
+      "rating": "4.8",
+      "reviews": "(1,240 reviews)",
+      "description": "Elevated Mediterranean fusion with a 360-degree view of the historical district. Famous for fresh local delicacies and curated wine pairings.",
+      "image": "https://images.unsplash.com/photo-1544025162-d76694265947?w=800",
+      "images": [
+        "https://images.unsplash.com/photo-1544025162-d76694265947?w=800",
+        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800",
+        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800",
+      ],
+      "tag": "RESTAURANT",
+      "isFavorite": false,
+      "latitude": 28.6139,
+      "longitude": 77.2090,
+    },
+    {
+      "title": "The Ivy Nook",
+      "category": "Resorts",
+      "distance": "0.4 KM AWAY",
+      "rating": "4.9",
+      "reviews": "(856 reviews)",
+      "description": "A secret garden escape in the heart of the city. Specialty beans roasted on-site and artisanal brunch menu served all day.",
+      "image": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800",
+      "images": [
+        "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800",
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800",
+        "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800",
+      ],
+      "tag": "HIDDEN GEM",
+      "isFavorite": false,
+      "latitude": 28.6145,
+      "longitude": 77.2105,
+    },
+  ];
   List<Map<String, dynamic>> _filteredStays = [];
   bool _isLoading = true;
 
@@ -265,8 +306,26 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
       List<dynamic> results = List.from(_allStays);
 
       // Category filter
-      if (!_selectedCategories.contains("All") && _selectedCategories.isNotEmpty) {
-        results = results.where((stay) => _selectedCategories.contains(stay["category"]?.toString())).toList();
+      if (_selectedCategory != "All") {
+        results = results.where((stay) {
+          final stayCat = (stay["category"]?.toString() ?? "").toLowerCase();
+          final stayTag = (stay["tag"]?.toString() ?? "").toLowerCase();
+          final selCat = _selectedCategory.toLowerCase();
+
+          if (selCat.contains("rasturent") || selCat.contains("restaurant")) {
+            return stayCat.contains("restaurant") ||
+                stayCat.contains("rasturent") ||
+                stayCat.contains("food") ||
+                stayCat.contains("cafe") ||
+                stayTag.contains("restaurant") ||
+                stayTag.contains("rasturent");
+          } else if (selCat.contains("resort")) {
+            return stayCat.contains("resort") || stayTag.contains("resort");
+          } else if (selCat.contains("hotel")) {
+            return stayCat.contains("hotel") || stayTag.contains("hotel");
+          }
+          return stayCat.contains(selCat);
+        }).toList();
       }
 
       // Distance threshold filter
@@ -287,7 +346,6 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
               description.contains(_searchQuery.toLowerCase());
         }).toList();
       }
-
 
       _filteredStays = results.cast<Map<String, dynamic>>();
     });
@@ -674,7 +732,69 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              // --- 3. CATEGORY FILTER CHIPS ---
+              SizedBox(
+                height: 42,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  itemCount: _categories.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final cat = _categories[index];
+                    final isSelected = _selectedCategory == cat;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedCategory = cat;
+                          _filterStays();
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xff2B1564) : Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(0xff2B1564).withOpacity(0.25),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ]
+                              : [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.04),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                          border: Border.all(
+                            color: isSelected ? Colors.transparent : const Color(0xffE2E8F0),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            cat,
+                            style: TextStyle(
+                              fontFamily: 'PublicSans',
+                              color: isSelected ? Colors.white : const Color(0xff1C0D5A),
+                              fontSize: 13.5,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 14),
 
               // --- 4. SCROLLING VERTICAL LIST OF RESULTS ---
               Expanded(
@@ -718,13 +838,33 @@ class _NearbyStaysScreenState extends State<NearbyStaysScreen> {
   Widget _buildStayCard(Map<String, dynamic> stay, int index) {
     return GestureDetector(
       onTap: () {
+        final List<String> stayPhotos = [];
+        if (stay["images"] is List && (stay["images"] as List).isNotEmpty) {
+          stayPhotos.addAll((stay["images"] as List).map((e) => e.toString()));
+        } else if (stay["image"] != null) {
+          stayPhotos.add(stay["image"].toString());
+        }
+
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => StayDetailScreen(stay: stay),
+            builder: (context) => LocationDetailScreen(
+              title: stay["title"] ?? "Nearby Stay",
+              location: stay["description"] != null && (stay["description"] as String).isNotEmpty
+                  ? stay["description"]
+                  : (widget.locationName ?? "Nearby"),
+              image: stay["image"] ?? "assets/images/onboarding_bg.jpg",
+              category: stay["category"] ?? stay["tag"] ?? "Stay",
+              customDescription: stay["description"] != null && (stay["description"] as String).isNotEmpty
+                  ? stay["description"]
+                  : null,
+              initialPhotos: stayPhotos,
+              rating: double.tryParse(stay["rating"]?.toString() ?? '4.8') ?? 4.8,
+              reviewsCount: int.tryParse(stay["reviews"]?.toString().replaceAll(RegExp(r'[^0-9]'), '') ?? '') ?? 128,
+            ),
           ),
         ).then((_) {
-          setState(() {});
+          if (mounted) setState(() {});
         });
       },
       child: Container(
