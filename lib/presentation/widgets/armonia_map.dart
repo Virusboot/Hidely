@@ -238,45 +238,51 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
     final pictureRecorder = ui.PictureRecorder();
     final canvas = Canvas(pictureRecorder);
     
-    // Scale up the canvas size for crisp rendering on high-DPI devices
     final bool isUser = category == 'user';
-    final double baseSize = isUser ? 28.0 : 38.0; // Clear visible size for markers
-    const double pixelRatio = 2.0; // High-DPI physical ratio for sharp rendering on Android & iOS
+    final double baseSize = isUser ? 16.0 : 22.0; // Professional, sleek compact size
+    const double pixelRatio = 1.5;
     final double size = baseSize * pixelRatio;
 
     final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.28)
-      ..maskFilter = const MaskFilter.blur(ui.BlurStyle.normal, 2.5 * pixelRatio);
-    canvas.drawCircle(Offset(size / 2, size / 2 + (1.5 * pixelRatio)), (baseSize / 2 - 1.5) * pixelRatio, shadowPaint);
+      ..color = Colors.black.withOpacity(0.22)
+      ..maskFilter = const MaskFilter.blur(ui.BlurStyle.normal, 1.5 * pixelRatio);
+    canvas.drawCircle(Offset(size / 2, size / 2 + (0.8 * pixelRatio)), (baseSize / 2 - 1.0) * pixelRatio, shadowPaint);
 
     final whitePaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(size / 2, size / 2), (baseSize / 2 - 1.5) * pixelRatio, whitePaint);
+    canvas.drawCircle(Offset(size / 2, size / 2), (baseSize / 2 - 1.0) * pixelRatio, whitePaint);
 
     final colorPaint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(size / 2, size / 2), (baseSize / 2 - 4.0) * pixelRatio, colorPaint);
+    canvas.drawCircle(Offset(size / 2, size / 2), (baseSize / 2 - 2.2) * pixelRatio, colorPaint);
 
-    final iconData = _getIconForCategory(category);
-    final textPainter = TextPainter(textDirection: TextDirection.ltr);
-    textPainter.text = TextSpan(
-      text: String.fromCharCode(iconData.codePoint),
-      style: TextStyle(
-        fontSize: (isUser ? 12.0 : 16.5) * pixelRatio,
-        fontFamily: iconData.fontFamily,
-        package: iconData.fontPackage,
-        color: Colors.white,
-      ),
-    );
-    textPainter.layout();
+    if (isUser) {
+      final innerDot = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(size / 2, size / 2), (baseSize / 4.5) * pixelRatio, innerDot);
+    } else {
+      final iconData = _getIconForCategory(category);
+      final textPainter = TextPainter(textDirection: TextDirection.ltr);
+      textPainter.text = TextSpan(
+        text: String.fromCharCode(iconData.codePoint),
+        style: TextStyle(
+          fontSize: 9.5 * pixelRatio,
+          fontFamily: iconData.fontFamily,
+          package: iconData.fontPackage,
+          color: Colors.white,
+        ),
+      );
+      textPainter.layout();
 
-    final offset = Offset(
-      (size - textPainter.width) / 2,
-      (size - textPainter.height) / 2,
-    );
-    textPainter.paint(canvas, offset);
+      final offset = Offset(
+        (size - textPainter.width) / 2,
+        (size - textPainter.height) / 2,
+      );
+      textPainter.paint(canvas, offset);
+    }
 
     final picture = pictureRecorder.endRecording();
     final img = await picture.toImage(size.toInt(), size.toInt());
@@ -922,8 +928,8 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
       markers.add(
         fm.Marker(
           point: activeDestination.location,
-          width: 32,
-          height: 32,
+          width: 26,
+          height: 26,
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -931,12 +937,12 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.2),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1.5),
                 ),
               ],
             ),
-            padding: const EdgeInsets.all(3),
+            padding: const EdgeInsets.all(2.5),
             child: Container(
               decoration: const BoxDecoration(
                 color: Color(0xff5B3EC8),
@@ -945,7 +951,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
               child: const Icon(
                 Icons.star_rounded,
                 color: Colors.white,
-                size: 16,
+                size: 13,
               ),
             ),
           ),
@@ -970,27 +976,27 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
       markers.add(
         fm.Marker(
           point: place.location,
-          width: 44,
-          height: 44,
+          width: 36,
+          height: 36,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => widget.onSelectPlace(place),
             child: Center(
               child: Container(
-                width: 32,
-                height: 32,
+                width: 22,
+                height: 22,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.2),
-                      blurRadius: 5,
-                      offset: const Offset(0, 2),
+                      blurRadius: 3.5,
+                      offset: const Offset(0, 1.5),
                     ),
                   ],
                 ),
-                padding: const EdgeInsets.all(2.5),
+                padding: const EdgeInsets.all(2),
                 child: Container(
                   decoration: BoxDecoration(
                     color: color,
@@ -999,7 +1005,7 @@ class _ArmoniaMapState extends ConsumerState<ArmoniaMap> {
                   child: Icon(
                     _getIconForCategory(place.category),
                     color: Colors.white,
-                    size: 16,
+                    size: 11,
                   ),
                 ),
               ),

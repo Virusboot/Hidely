@@ -892,29 +892,6 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                               height: 1.45,
                             ),
                           ),
-                          if (widget.image.isNotEmpty &&
-                              (widget.image.startsWith('http') || widget.image.startsWith('assets/'))) ...[
-                            const SizedBox(height: 16),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Container(
-                                height: 210,
-                                width: double.infinity,
-                                color: const Color(0xffCBD5E1),
-                                child: widget.image.startsWith('http')
-                                    ? Image.network(
-                                        widget.image,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                                      )
-                                    : Image.asset(
-                                        widget.image,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                                      ),
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                     ),

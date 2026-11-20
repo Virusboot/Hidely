@@ -1084,75 +1084,6 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
     );
   }
 
-  Widget _buildQuickCategoryFilterRow() {
-    final activeCategory = ref.watch(activeCategoryProvider);
-    final items = [
-      {'key': 'All', 'label': 'All', 'icon': Icons.explore_rounded},
-      {'key': 'Hidden Places', 'label': 'Traveling Places', 'icon': Icons.tour_rounded},
-      {'key': 'Stay', 'label': 'Nearby Stays', 'icon': Icons.hotel_rounded},
-      {'key': 'Restaurant', 'label': 'Restaurants', 'icon': Icons.restaurant_rounded},
-    ];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      child: Row(
-        children: items.map((item) {
-          final key = item['key'] as String;
-          final label = item['label'] as String;
-          final icon = item['icon'] as IconData;
-          final isSelected = activeCategory.toLowerCase() == key.toLowerCase();
-
-          return GestureDetector(
-            onTap: () {
-              ref.read(activeCategoryProvider.notifier).state = key;
-              ref.read(showHeatmapProvider.notifier).state = false;
-            },
-            child: Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(
-                color: isSelected ? _primaryDark : Colors.white.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-                border: Border.all(
-                  color: isSelected ? _primaryDark : const Color(0xffE2E8F0),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    icon,
-                    size: 14,
-                    color: isSelected ? Colors.white : _primaryDark,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontFamily: 'PublicSans',
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                      color: isSelected ? Colors.white : const Color(0xff1E293B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
   Widget _buildTravelModeRow(String currentMode, AppLocalizations l10n) {
     final modes = [
       {'id': 'driving', 'label': l10n.driving, 'icon': Icons.directions_car_rounded},
@@ -2158,8 +2089,6 @@ class _MapScreenState extends ConsumerState<MapScreen> with WidgetsBindingObserv
                   ),
               ] else ...[
                 _buildSearchBar(l10n),
-                SizedBox(height: context.h(8)),
-                _buildQuickCategoryFilterRow(),
                 SizedBox(height: context.h(8)),
                 _buildTravelModeRow(travelMode, l10n),
                 SizedBox(height: context.h(8)),
